@@ -1,5 +1,5 @@
-from emulator3 import dcpu16
-from assembler2 import reader, writer
+from emulator import dcpu16
+from assembler import reader, writer
 import copy
 import io,sys
 
@@ -35,7 +35,7 @@ def test(code, instructions):
     parser = reader()
     for c in code:
         parser.readLine(c)
-    assembler = writer(parser.instructions, parser.labels)
+    assembler = writer(parser.instructions, parser.labels, parser.origin)
     comp1 = dcpu16()
     comp1.loadDatIntoRam(0, assembler.genObj())
 
