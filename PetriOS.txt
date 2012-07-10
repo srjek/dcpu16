@@ -1,0 +1,508 @@
+; Petri (OS)
+; by srjek
+
+;The following is a header needed in exe files that are loaded by this OS.
+;It defines the API accesible to programs running in the OS
+;This is the OS program, so actual implementations are added.
+;I highly recommend replacing the implementations of quit, fork, sleep, etc with "sub PC, 1".
+;This should stop the program/CPU if it is loaded without the proper OS.
+;Calls should be jsr <api_call>
+;First 32 words (First line) of screen is reserved for OS use (notifications)
+;Register J is an OS register, it needs to appear unaltered to the next api call (J is needed by sleep, fork, quit)
+;Register Z is used by fork, notify. Put PUSH, POP statements around these calls if needed
+;sleep switches programs, so any register may be modified "during its execution"
+;App Header/API -------------------------------
+sleep:                                  ;SLEEP: this makes multi-tasking work. Call it so this OS can work.
+            ;Performance Sensitive (5 cycles, 5 words) (Linked list, 3x as large as Memory Sensitive)
+            ;set [j], SP                 ;J=-(current program number) aka [J] = current program stack address
+            ;set j, [j+1]
+            set PC, boot    ;this 2word instruction (and 1word dat) is replaced by the bootloader (look at label sleep0)
+            dat 0
+            set SP, [j]
+;            set PUSH, a     ;--------------------
+;            set a, 0x8000
+;            bor [a], 0xF180
+;   :t
+;            bor [a], 0xF100
+;            add a, 1
+;            ifl a, 0x8000+0x0180
+;                set PC, t
+;            set a, POP      ;--------------------
+            set PC, POP
+;;            ;Memory Sensitive (9 cycles, 7 words) (The data structure storing stack pointers is minimal)
+;;            set [j], SP                 ;J=-(current program number) aka [J] = current program stack address
+;;            sub j, 1
+;;            ife j, [program_count]
+;;                set j, 0
+;;            set SP, [j]
+;;            set PC, POP
+:malloc                                 ;MALLOC: Requests a bytes of memory, address returned in a. If a == 0, malloc failed.
+            set PC, unimplemented
+:free                                   ;FREE: Frees memory previously malloc-ed at a
+            set PC, unimplemented
+:notify                                 ;NOTIFY: Shows one-line notification [a] to user, useful when the user is looking at another screen
+            set z, 0
+:notifyAPI_loop
+            set [notifyScreen+z], [notifyScreen+0x20+z]
+            add z, 1
+            ifg 0x20*10, z
+                set PC, notifyAPI_loop
+            set z, 0
+            set [notifyAPI_loop2+1], a
+:notifyAPI_loop2
+            set [notifyScreen+(0x20*10)+z], [0x0+z]
+            add z, 1
+            ifg 0x20, z
+                set PC, notifyAPI_loop2
+            ifn [notifyScreenId], [curScreenId]
+                set PC, POP
+            set z, 0
+            set [notifyAPI_loop3+2], [screen_start]
+:notifyAPI_loop3
+            set [0x0+z], [notifyScreen+z]
+            add z, 1
+            ifg 0x20*11, z
+                set PC, notifyAPI_loop3
+            set PC, POP
+:fork                                   ;FORK: Add a thread with the current stack to the system (uses i) (sys: j)
+                                        ;   Put execution address into a
+            ;(25 cycles, 16 words)      ;   This won't actually execute, so you will be able to recover your stack before registers are lost
+            set PUSH, a
+            set a, SP
+            set SP, [programLL_stack_pointer] ;Acquire space for item in linked list
+            set z, POP
+            set [programLL_stack_pointer], SP
+            set SP, a
+            set [z], SP         ;Update item in linked list
+            set a, j            ;Insert item into linked list (j->f) to (j->z->f)
+            add a, 1
+            set [z-1], a            ;z< = j>
+            set [z+1], [j+1]        ;z> = f
+            set [j+1], z            ;j> = z
+            add z, 1
+            set a, [z]
+            sub a, 1
+            set [a], z              ;f< = z>
+            set a, POP      ;ignore forked program's address
+            set PC, POP
+            :testfork
+:quit                                   ;QUIT: program is considered aborted, this function will not return
+            ;(14 cycles, 14 words)      ;stack and mem should be freed by program first, this will be ok as long as no api calls are made (besides quit, free)
+            set a, PEEK
+            set SP, [programLL_stack_pointer]   ;add freed memory to stack (SP can be discarded, should have been previously freed)
+            set PUSH, j
+            set i, [j+1]        ;Remove item from linked list (p->j->f) to (p->f)
+            set j, [j-1]
+            set [j], i        ;p> = f
+            set [i-1], j        ;f< = p>
+            set j, PEEK
+            set [programLL_stack_pointer], SP
+            set PC, sleep       ;Move to next program
+:screen_start
+            dat 0x8020
+:screen_width
+            dat 32
+:screen_height
+            dat 11
+:curScreenId
+            dat 0
+:lastScreenId
+            dat 1
+:main
+;End App Header/API ---------------------------
+            set PC, boot
+
+:programLL_stack_pointer        ;pointer to stack of free memory, each piece 3 words wide(for the linked list of stack pointers)
+            dat 0
+;----------------API------------------
+:mallocTmpDat
+            dat 0x0000
+:mallocTmp
+            set a, POP
+            sub [mallocTmpDat], 0x0400
+            set SP, [mallocTmpDat]
+            set PC, a
+
+;--------------Notify-----------------
+notify_bgprog:
+            set a, _defaultNotify
+            set b, 0x8000
+            set c, 32
+            jsr copystrlen
+            set PUSH, 0
+_loop:
+            set a, POP
+            add a, 1
+            ife a, 0x10
+                set a, 0
+            set PUSH, a
+            shr a, 2
+            set [0x801F], [_timer+a]
+            set PUSH, _loop
+            ifn [notifyScreenId], [curScreenId]
+                set PC, sleep
+            ifn [curScreenId], [lastScreenId]
+                set PC, sleep
+            set a, 0
+            set [_screenLoop+2], [screen_start]
+_screenLoop:
+            set [0x8020+a], [notifyScreen+a]
+            add a, 1
+            ifg 0x0160, a  ;start of 12th line (there is none in our buffer)
+                set PC, _screenLoop
+            set [lastScreenId], [notifyScreenId]
+            set PC, sleep
+_timer:
+            dat "-\\|/"|0xF100, 0
+_defaultNotify:
+            dat "!"|0xF180,"           PetriOS            ."|0xF100
+_test11111:
+.rep 2
+.echo "_timer is at memory location " + hex(_timer)
+.rep 2
+            SET a, 0x0010
+.if 1
+            SET a, 0x1000
+.define ADEFINITION _timer
+.incbin "notchTest.bin"
+;.incbin "notchTest2.bin"
+;.incbin <notchTest.bin>
+.macro execNotchTest(loc, expectedResult)
+            SET PC, loc
+.end
+            execNotchTest(0, 0x40)
+.elif 0
+.undefine ADEFINITION
+            SET a, 0
+.end
+.end
+.end
+_test22222:
+.echo ".rep created data with a length of " + str(_test22222 - _test11111)
+.ifdef ADEFINITION
+.origin 0
+.if ADEFINITION==0x90
+.error "INVALID VALUE"
+.end
+.echo "ADEFINITION is defined as " + hex(ADEFINITION)
+.else
+.origin 10
+.echo "ADEFINITION is not defined"
+.end
+.undefine ADEFINITION
+.align      0x40
+.echo "_defaultNotify is at memory location " + hex(_defaultNotify)
+_notchTest:
+.include "notchTest.txt"
+notifyScreen:
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+            dat "                                "|0xF100
+notifyScreenId:
+            dat 0
+            
+ 
+
+;---------------Boot------------------
+:bootmsg
+            dat "Booting PetriOS...              "|0xF100
+:boot
+            set b, 0x8000
+            set a, 5
+            hwi 0
+            set b, 0
+            set a, 3
+            hwi 0
+            set b, 0x8000
+            set a, 0
+            hwi 0
+            set a, bootmsg
+            jsr notify
+            set SP, 0x0000          ;prepare stack of pointers to linked list items (linked list holds stack pointers)
+            set i, 0
+:boot_loop
+            set PUSH, 0
+            add i, 1
+            ifg 49, i               ;max of 50 programs (one extra, thanks to the method used to jumpstart the multitasking)
+                jmp boot_loop
+            set a, SP
+            sub a, 3
+            set SP, 0x000
+            set i, 0
+:boot_loop2
+            set PUSH, a
+            sub a, 3
+            add i, 1
+            ifg 49, i
+                jmp boot_loop2
+            set [programLL_stack_pointer], SP
+            
+            ;set i, 0
+            ;add i, 1
+            ;ifg 0x2000, i
+            ;    sub PC, 4
+            set j, jumpstart    ;Hook up the jumper cables
+            set SP, 0x8000
+            jsr mallocTmp       ;malloc Stack
+            set a, [screen_start]
+            add a, [screen_width]
+            set PUSH, a
+            set PUSH, NoOS
+            set a, test2
+            jsr fork            ;fork test2
+            jsr mallocTmp       ;malloc Stack
+            set PUSH, 3
+            set PUSH, 0x0010
+            set a, test1
+            jsr fork            ;fork first test1
+            jsr mallocTmp       ;malloc Stack
+            set PUSH, 1
+            set PUSH, 0x0020
+            set a, test1
+            jsr fork            ;fork second test1
+            jsr mallocTmp       ;malloc Stack
+            set PUSH, 0
+            set PUSH, 0x0040
+            set a, test1
+            jsr fork            ;fork third test1
+            jsr mallocTmp       ;malloc Stack
+            set a, [screen_width]
+            mul a, 3
+            add a, [screen_start]
+            set PUSH, a
+            set a, listTasks
+            jsr fork            ;fork listTasks
+            
+            jsr mallocTmp       ;malloc Stack
+            set a, color
+            jsr fork            ;fork color cycle process
+            
+            ;Fork special OS processes
+            jsr mallocTmp       ;malloc Stack
+            set a, notify_bgprog
+            jsr fork            ;fork notify bg process
+            
+            set a, startmsg
+            jsr notify
+            
+            set [sleep], [sleep0]   ;enable sleep (and forever forfeit the bootloader code)
+            set [sleep+1], [sleep0+1]
+            set [sleep+2], [sleep0+2]
+            jsr quit        ;LETS JUMPSTART THIS THING! (uses the label jumpstart as the inital pointer into the linkedlist)
+
+:startmsg
+            dat "Starting Process Loop...        "|0xF100
+:sleep0     set [j], SP
+            set j, [j+1]
+            
+            dat jumpstart+1
+:jumpstart  dat 0
+            dat jumpstart
+            
+            set a, NoOS
+            set PC, PANIC
+:NoOS       dat "BAKA!                           THIS CODE DOESN'T DO ANYTHING!"|0xF100, 0
+
+;------------Screen helpers---------------
+:clr_screen
+            ;We don't actually know how big the screen is yet.....
+            set PC, POP
+            
+:copystrlen             ;Copies a string from a to b of length c, clobbers a
+            set [copystrlen_config+1], a
+            set [copystrlen_config+2], b
+            set a, 0
+:copystrlen_nextchar
+            ife a, c
+                set PC, POP
+:copystrlen_config
+            set [0x8000+a], [NoOS+a]
+            add a, 1
+            set PC, copystrlen_nextchar
+
+;----------------PANIC--------------------
+:unimplemented
+            set a, unimplemented_str
+            jmp PANIC
+:PANIC
+            jsr clr_screen
+            set b, 0x8000                   ; Init loop counter=
+:PANIC_nextchar
+            ife [a], 0                      ; If the character is 0 ..
+                jmp end                 ; .. jump to the end
+            set [b], [a]                    ; Video ram starts at 0x8000, copy char there
+            add a, 1                        ; Increase loop counter
+            add b, 1
+            set PC, PANIC_nextchar          ; Loop
+            
+:end        set PC, end
+:unimplemented_str
+            dat "KERNEL PANIC!                   API CALL UNIMPLEMENTED!", 0
+
+;----------------TEST_PROGRAM------------------
+:test1
+            set z, POP              ;We don't need to know the calling program
+            set z, POP
+            set a, 0
+            set [test1_config+1], [screen_start]
+:test1_start
+            set PUSH, a
+            set i, 0                             ; Init loop counter, for clarity
+:test1_loop_out
+            set PUSH, z
+            set b, 0
+:test1_loop_in
+            add b, 1
+            ifg 0x0100, b
+                set PC, test1_loop_in
+            set PUSH, i
+            jsr sleep
+            set i, POP
+            add i, 1
+            set z, POP
+            ifg z, i
+                jmp test1_loop_out
+            set a, POP
+            add a, 1
+            ifg a, 9
+                set a, 0
+            set b, 0x30|0xF100
+            add b, a
+            set y, POP
+:test1_config
+            set [0x8000+y], b
+            set PUSH, y
+            jmp test1_start
+            jsr quit
+            sub PC, 1
+
+;----------------TEST_PROGRAM------------------
+:test2
+            set a, POP      ;Fetch the calling program
+            set i, 0
+:test2_nextchar
+            set PUSH, a
+            set PUSH, i
+            jsr sleep
+            set i, POP
+            set a, POP
+            set [test2_configin+1], PEEK
+:test2_configin
+            ife [test2_data+i], 0                      ; If the character is 0 ..
+                jmp test2_end                      ; .. jump to the end
+            set [test2_config+1], POP
+            set [test2_config+2], PEEK
+            set PUSH, [test2_config+1]
+:test2_config
+            set [0x8020+i], [test2_data+i]             ; Video ram starts at 0x8000, copy char there
+            add i, 1                             ; Increase loop counter
+            jmp test2_nextchar                     ; Loop
+
+:test2_end
+            ifg a, jumpstart
+                jsr quit
+            set a, POP      ;Give the new program our stack, because we aren't using it anymore
+            set a, POP
+            set a, [screen_width]
+            div a, 2
+            mul a, 7        ;3 lines and a half
+            add a, [screen_start]
+            set PUSH, a
+            set a, listTasks
+            jsr fork
+            jsr quit
+            sub PC, 1
+:test2_data
+            dat "FOO", 0
+            
+            
+;----------------TASK_LIST------------------
+:listTasks
+            set i, POP              ;We don't need to know the calling program
+            set b, POP
+            set x, 0
+            set y, output
+            set i, j
+            set i, [i+1]
+:listTasks_loop
+            set z, 0x20
+            mul z, x
+            add z, b
+            set c, SP
+            jsr mallocTmp       ;malloc Stack
+            set PUSH, z
+            set PUSH, y
+            set a, test2
+            jsr fork            ;fork test2
+            set SP, c
+            
+            set PUSH, x
+            set PUSH, i
+            set PUSH, j
+            set j, [i]
+            set j, [j]
+            jsr printHex
+            set j, POP
+            set i, POP
+            set x, POP
+            
+            set i, [i+1]
+            add x, 1
+            ifn j, i
+                jmp listTasks_loop
+            jsr quit
+            
+:printHex
+            set i, 0
+            add y, 3
+:printHex_loop
+            set a, j
+            jsr printHexChar
+            SHR j, 4
+            add i, 1
+            ifl i, 4
+                jmp printHex_loop
+            add y, 5
+            set [y], 0
+            add y, 1
+            set PC, POP
+:printHexChar
+            and a, 0xF
+            ifg a, 9
+                add a, 0x07
+            add a, 0x30|0xF100
+            set [y], a
+            sub y, 1
+            set PC, POP
+:output
+            dat "1234567890", "1234567890", "1234567890", "1234567890", "1234567890", "1234567890", 0
+
+
+;----------------------COLOR CYCLE TEST-------------------
+:color
+            set b, 0
+:color_inner
+            set a, 3
+            hwi 0
+            set PUSH, b
+            set a, 0
+:color_sleep
+            set PUSH, a
+            jsr sleep
+            set a, POP
+            add a, 1
+            ifl a, 32
+                jmp color_sleep
+            set b, POP
+            add b, 1
+            ifg b, 15
+                set b, 0
+            jmp color_inner

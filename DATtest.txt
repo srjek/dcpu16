@@ -1,0 +1,6 @@
+;%macro ddat 1
+;    dat 1, 1, 1, 1
+;%endmacro
+;ddat 10
+dat 1, 16, 10, 0xFF, "0123"
+;:test ddat 20

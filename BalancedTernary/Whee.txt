@@ -1,0 +1,57 @@
+trit = either -, 0, or +
+tryte = 6 trits
+words are 2 trytes (12 trits)
+
+ram is addressable from [-ceiling((3^6)/2), floor((3^6)/2)]
+
+for purposes of bitwise ops, + is true, - is negative, 0 is treated as unknown,
+and causes the corresponding trit in answer to be 0 if the answer can not be
+detrimined otherwise
+
+opcodes
+012345678901
+ooooooaaabbb
+
+
+
+
+
+--- Basic opcodes (? trits) ---------------------------------------------------
+ C | VAL  | NAME     | DESCRIPTION
+---+------+----------+---------------------------------------------------------
+ - |   00 | n/a      | special instruction - see below
+ - |   0- | SET b, a | sets b to a
+ - |   0+ | ADD b, a | sets b to b+a, sets EX to upper 2 trits of 8
+ - |      | SUB b, a | sets b to b-a, sets EX to upper 2 trits of 8
+ - |   -0 | MUL b, a | sets b to b*a, sets EX to ?
+ - |   -- | DIV b, a | sets b to b/a, sets EX to ? if a==0,
+   |      |          | sets b and EX to 0 instead.
+ - |      | MOD b, a | sets b to b%a. if a==0, sets b to 0 instead.
+ - |   +0 | AND b, a | sets b to b&a.
+ - |   +- | BOR b, a | sets b to b|a
+ - |   ++ | XOR b, a | sets b to b^a
+ - | 0x0c | SHR b, a | sets b to b>>>a, sets EX to ((b<<16)>>a)&0xffff 
+   |      |          | (logical shift)
+ - | 0x0d | ASR b, a | sets b to b>>a, sets EX to ((b<<16)>>>a)&0xffff 
+   |      |          | (arithmetic shift) (treats b as signed)
+ - | 0x0e | SHL b, a | sets b to b<<a, sets EX to ((b<<a)>>16)&0xffff
+ - | 0x0f | STI b, a | sets b to a, then increases I and J by 1
+ - | 0x10 | IFB b, a | performs next instruction only if (b&a)!=0
+ - | 0x11 | IFC b, a | performs next instruction only if (b&a)==0
+ - | 0x12 | IFE b, a | performs next instruction only if b==a 
+ - | 0x13 | IFN b, a | performs next instruction only if b!=a 
+ - | 0x14 | IFG b, a | performs next instruction only if b>a 
+ - | 0x15 | IFA b, a | performs next instruction only if b>a (signed)
+ - | 0x16 | IFL b, a | performs next instruction only if b<a 
+ - | 0x17 | IFU b, a | performs next instruction only if b<a (signed)
+ - | 0x18 | -        |
+ - | 0x19 | -        |
+ - | 0x1a | ADX b, a | sets b to b+a+EX, sets EX to 0x0001 if there is an over-
+   |      |          | flow, 0x0 otherwise
+ - | 0x1b | SBX b, a | sets b to b-a+EX, sets EX to 0xFFFF if there is an under-
+   |      |          | flow, 0x0 otherwise
+ - | 0x1c | -        | 
+ - | 0x1d | -        |
+ - | 0x1e | -        |
+ - | 0x1f | -        |
+---+------+----------+----------------------------------------------------------
