@@ -1092,6 +1092,7 @@ class reader:
         self.lineNum = 1
         self.charNum = 0
         self.inStr = None
+        self.grouping_level = 0
         
         self.tokenQueue = []
         self.inCodeblock = False
@@ -1177,6 +1178,10 @@ class reader:
                 self.inStr = char
             elif self.inStr == char:
                 self.inStr = None
+        if char in ("(",) and self.inStr == None:
+            self.grouping_level += 1
+        elif char in (")",) and self.inStr == None:
+            self.grouping_level -= 1
         if self.mode == "macroWillError":
             if not char.isspace():
                 if char == ";" and self.inStr == None:
@@ -1231,19 +1236,19 @@ class reader:
                 return
             self.curPart += char
         if self.mode in ("op", "macro"):
-            if self.mode == "macro" and char == ")" and self.inStr == None:
+            if self.mode == "macro" and char == ")" and self.inStr == None and self.grouping_level == 0:
                 self.readChar(",")
                 self.charNum -= 1
                 self.mode = "macroWillError"
                 return
-            if char == "," and self.inStr == None:
+            if char == "," and self.inStr == None and ((self.mode == "macro" and self.grouping_level == 1) or (self.mode == "op" and self.grouping_level == 0)):
                 self.curToken[2].append(self.curPart.strip())
                 self.curPart = ""
                 return
             self.curPart += char
             return
         if self.mode in ("preprocessor",):
-            if char.isspace() and self.inStr == None:
+            if char.isspace() and self.inStr == None and self.grouping_level == 0:
                 if self.curPart != "":
                     if self.curToken == None:
                         if self.curPart == "dat":

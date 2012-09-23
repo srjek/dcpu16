@@ -334,7 +334,7 @@ notifyScreenId:
             jmp PANIC
 :PANIC
             jsr clr_screen
-            set b, 0x8000                   ; Init loop counter=
+            set b, 0x8000                   ; Init loop counter
 :PANIC_nextchar
             ife [a], 0                      ; If the character is 0 ..
                 jmp end                 ; .. jump to the end
