@@ -1237,7 +1237,7 @@ class reader:
             self.curPart += char
         if self.mode in ("op", "macro"):
             if self.mode == "macro" and char == ")" and self.inStr == None and self.grouping_level == 0:
-                self.readChar(",")
+                self.grouping_level += 1; self.readChar(","); self.grouping_level -= 1
                 self.charNum -= 1
                 self.mode = "macroWillError"
                 return
