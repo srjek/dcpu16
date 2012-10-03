@@ -43,50 +43,53 @@ class reader:
         return (param[1:], i)
     def parseTokens(self):
         printError = self.printError
-        nextToken = self.tokens[0]
-        if nextToken[2] in self.operations:
-            if self.tokens[1][2] != "(":
-                printError("Expected \"(\" after \"" + nextToken + "\" at char " + str(self.tokens[1][1]), self.tokens[1][0])
-            param = ""
-            i = 2
-            while i < len(self.tokens) and self.tokens[i][2] != ")":
-                param += " " + self.tokens[i][2]
-                i += 1
-            print(nextToken[2] + " (" + param[1:] + ")")
-        elif nextToken[2] in ("int",):
-            name = self.tokens[1]
-            if not (name[2].isalnum() and name[2][0].isalpha()):
-                printError("Char " + str(name[1]) + ": Variable names must be alphanumeric and start with a letter", name[0])
-                (param, i) = self.getParam(3, (";",))
-                self.tokens = self.tokens[i+1:]
-                return
-            print(nextToken[2]+" "+name[2]+";")
-            i = 2
-            while self.tokens[i][2] != ";":
-                if self.tokens[i][2] not in (";", "=", ","):
-                    printError("Char " + str(self.tokens[i][1]) + ": Expected an '=', ';', or ','", self.tokens[i][0])
+        while len(self.tokens) > 0:
+            nextToken = self.tokens[0]
+            if nextToken[2] in self.operations:
+                if self.tokens[1][2] != "(":
+                    printError("Expected \"(\" after \"" + nextToken + "\" at char " + str(self.tokens[1][1]), self.tokens[1][0])
+                param = ""
+                i = 2
+                while i < len(self.tokens) and self.tokens[i][2] != ")":
+                    param += " " + self.tokens[i][2]
+                    i += 1
+                print(nextToken[2] + " (" + param[1:] + ")")
+            elif nextToken[2] in ("int",):
+                name = self.tokens[1]
+                if not (name[2].isalnum() and name[2][0].isalpha()):
+                    printError("Char " + str(name[1]) + ": Variable names must be alphanumeric and start with a letter", name[0])
                     (param, i) = self.getParam(3, (";",))
-                    break
-                if self.tokens[i][2] == "=":
-                    (param, i) = self.getParam(i+1, (";", ","))
-                    print(name[2]+" = "+param+";")
-                if self.tokens[i][2] == ",":
-                    name = self.tokens[i+1];
-                    if not (name[2].isalnum() and name[2][0].isalpha()):
-                        printError("Char " + str(name[1]) + ": Variable names must be alphanumeric and start with a letter", name[0])
+                    self.tokens = self.tokens[i+1:]
+                    return
+                print(nextToken[2]+" "+name[2]+";")
+                i = 2
+                while self.tokens[i][2] != ";":
+                    if self.tokens[i][2] not in (";", "=", ","):
+                        printError("Char " + str(self.tokens[i][1]) + ": Expected an '=', ';', or ','", self.tokens[i][0])
                         (param, i) = self.getParam(3, (";",))
                         break
-                    i += 2
-                    print(nextToken[2]+" "+name[2]+";")
-            self.tokens = self.tokens[i+1:]
+                    if self.tokens[i][2] == "=":
+                        (param, i) = self.getParam(i+1, (";", ","))
+                        print(name[2]+" = "+param+";")
+                    if self.tokens[i][2] == ",":
+                        name = self.tokens[i+1];
+                        if not (name[2].isalnum() and name[2][0].isalpha()):
+                            printError("Char " + str(name[1]) + ": Variable names must be alphanumeric and start with a letter", name[0])
+                            (param, i) = self.getParam(3, (";",))
+                            break
+                        i += 2
+                        print(nextToken[2]+" "+name[2]+";")
+                self.tokens = self.tokens[i+1:]
                     
         return
     
-    def pushToken(self, charNum=None):
+    def pushToken(self, charNum=None, token=None):
         if charNum == None:
             charNum = self.charNum
-        if self.curPart != "":
-            self.tokens.append((self.lineNum, charNum - len(self.curPart), self.curPart))
+        if token != None or self.curPart != "":
+            if token == None:
+                token = self.curPart
+            self.tokens.append((self.lineNum, charNum - len(token), token))
         self.curPart = ""
     def readChar(self, char):
         printError = self.printError
@@ -135,7 +138,7 @@ class reader:
             if char in ('"', "'") and self.inStr == None:
                 self.inStr = char
             if char in ("(", ")"):
-                self.tokens.append(char)
+                self.pushToken(token=char); #self.tokens.append(char)
                 return
             if self.curPart != "" and self.inStr == None and (self.curPart+char) not in self.symbols:
                 self.pushToken()
