@@ -14,7 +14,9 @@ class code0:
         return "?"
 
 class statement(code0):
-    def __init__(self, token):
+    def __init__(self, token=None, lineNum="?", statement=""):
+        if token == None:
+            token = (lineNum, "statement", statement)
         code0.__init__(self, token)
         if token[1] != "statement":
             printError("Passed token was a \"" + token[1] + "\" instead of a statement.", self.lineNum)
@@ -70,16 +72,52 @@ class op0(code0):
             self.code = code
         else:
             self.code.receiveNextCode(code)
+class opIf(op0):
+    def __init__(self, token):
+        op0.__init__(self, token)
+        if token[2].lower() != "if":
+            printError("Operation was \"" + token[2] + "\", not \"if\" as expected.", self.lineNum)
+        self.test = statement(lineNum=self.lineNum, statement=token[3])
+        self.isElse = False
+        self.elseCode = None
+    def printError(self, error):
+        printError(error, self.lineNum)
+    def needNextCode(self):
+        if self.code == None or (self.isElse and self.elseCode == None):
+            return True
+        return self.code.needNextCode() or (self.isElse and self.elseCode.needNextCode())
+    def receiveNextCode(self, code):
+        if self.code == None:
+            self.code = code
+        elif self.code.needNextCode():
+            self.code.receiveNextCode(code)
+        elif self.isElse and self.elseCode == None:
+            self.elseCode = code
+        elif self.isElse and (self.elseCode.needNextCode() or (code == "else" and type(self.elseCode) == opIf)):
+            self.elseCode.receiveNextCode(code)
+        elif code == "else":
+            if self.isElse:
+                printError("Unexpected else", self.lineNum)
+            self.isElse = True
+    def __repr__(self):
+        result = "if (" + repr(self.test)[:-1] + ")" + " " + repr(self.code)
+        if self.isElse:
+            result += "\nelse\n"
+            if self.elseCode == None:
+                result += "?"
+            else:
+                result += repr(self.elseCode)
+        return result
 class opWhile(op0):
     def __init__(self, token):
         op0.__init__(self, token)
         if token[2].lower() != "while":
             printError("Operation was \"" + token[2] + "\", not \"while\" as expected.", self.lineNum)
-        self.test = token[3]
+        self.test = statement(lineNum=self.lineNum, statement=token[3])
     def printError(self, error):
         printError(error, self.lineNum)
     def __repr__(self):
-        return "while (" + self.test + ")" + " " + repr(self.code)
+        return "while (" + repr(self.test)[:-1] + ")" + " " + repr(self.code)
 class opFor(op0):
     def __init__(self, token):
         op0.__init__(self, token)
@@ -94,14 +132,14 @@ class opFor(op0):
         if len(tmp) > 3:
             printError("Unexpected ';' before ')'", self.lineNum)
             
-        self.initializer = tmp[0]
-        self.test = tmp[1]
-        self.increment = tmp[2]
+        self.initializer = statement(lineNum=self.lineNum, statement=tmp[0].strip())
+        self.test = statement(lineNum=self.lineNum, statement=tmp[1].strip())
+        self.increment = statement(lineNum=self.lineNum, statement=tmp[2].strip())
         
     def printError(self, error):
         printError(error, self.lineNum)
     def __repr__(self):
-        return "for (" + self.initializer + ";" + self.test + ";" + self.increment + ")" + " " + repr(self.code)
+        return "for (" + repr(self.initializer)+" "+repr(self.test)+" "+repr(self.increment)[:-1] + ")" + " " + repr(self.code)
         
 
 def operation(token):
@@ -113,6 +151,8 @@ def operation(token):
         return opFor(token)
     elif token[2].lower() == "if":
         return opIf(token)
+    elif token[2].lower() == "else":
+        return "else"
     elif token[2].lower() == "do":
         return opDoWhile(token)
     else:
@@ -176,23 +216,29 @@ class reader:
             elif nextToken[1] == "}":
                 tmp = "}"
             elif nextToken[1] == "nothing":
-                tmp = statement((nextToken[0], "statement", ""));
-                #printCode(";", 2)
+                tmp = statement(lineNum=nextToken[0], statement="");
             elif nextToken[1] == "operation":
                 tmp = operation(nextToken)
-                #printCode(nextToken[2] + " (" + nextToken[3] + ")", 2)
             elif nextToken[1] == "declaration":
                 tmp = declaration(nextToken)
-                #printCode(nextToken[2] + " " + nextToken[3] + ";", 2)
             elif nextToken[1] == "statement":
                 tmp = statement(nextToken)
-                #printCode(nextToken[2] + ";", 2)
             else:
-                print("Failed to parse \""+nextToken[1]+"\" token during level 2 parse")
+                printError("Failed to parse \""+nextToken[1]+"\" token during level 2 parse", nextToken[0])
                 continue
             if len(self.code) > 0 and self.code[-1].needNextCode():
                 self.code[-1].receiveNextCode(tmp)
                 if not self.code[-1].needNextCode():
+                    if len(self.tokens2) > 0 and self.tokens2[0] == "else":
+                        if len(self.code) == 0:
+                            printError("Unexpected \"else\" at start of code", nextToken[0])
+                        elif type(self.code[-1]) == opIf:
+                            self.code[-1].receiveNextCode("else")
+                            self.tokens2 = self.tokens2[1:]
+                            continue
+                        else:
+                            printError("Unexpected \"else\"", nextToken[0])
+                        self.tokens2 = self.tokens2[1:]
                     printCode(repr(self.code[-1]), 2);
                 continue
             self.code.append(tmp);
@@ -215,6 +261,10 @@ class reader:
                 printCode(nextToken[2] + " (" + param[1:] + ")", 1)
                 self.tokens2.append((nextToken[0], "operation", nextToken[2], param[1:]))
                 self.tokens = self.tokens[i+1:]
+            elif nextToken[2] == "else":
+                self.tokens2.append("else")
+                printCode("else", 1)
+                self.tokens = self.tokens[1:]
             elif nextToken[2] == ";":
                 printCode(";", 1)
                 self.tokens2.append((nextToken[0],"nothing"));
