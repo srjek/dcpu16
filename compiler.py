@@ -10,6 +10,8 @@ class code0:
         return False
     def receiveNextCode(self, code):
         return
+    def getParentLoop(self, parent):
+        return
     def __repr__(self):
         return "?"
 
@@ -48,6 +50,9 @@ class block(code0):
             self.closed = True
         else:
             self.code.append(code)
+    def getParentLoop(self, parent):
+        for c in self.code:
+            c.getParentLoop(parent)
     def __repr__(self):
         if len(self.code) == 0: return ";"
         result = "{\n"
@@ -72,6 +77,21 @@ class op0(code0):
             self.code = code
         else:
             self.code.receiveNextCode(code)
+    def getParentLoop(self, parent):
+        self.code.getParentLoop(parent)
+class opBreak(op0):
+    def __init__(self, token):
+        op0.__init__(self, token)
+        if token[2].lower() != "break":
+            printError("Operation was \"" + token[2] + "\", not \"break\" as expected.", self.lineNum)
+    def needNextCode(self):
+        return False
+    def receiveNextCode(self, code):
+        return
+    def getParentLoop(self, parent):
+        self.parent = parent
+    def __repr__(self):
+        return "break;"
 class opIf(op0):
     def __init__(self, token):
         op0.__init__(self, token)
@@ -99,6 +119,10 @@ class opIf(op0):
             if self.isElse:
                 printError("Unexpected else", self.lineNum)
             self.isElse = True
+    def getParentLoop(self, parent):
+        self.code.getParentLoop(parent)
+        if self.elseCode != None:
+            self.elseCode.getParentLoop(parent)
     def __repr__(self):
         result = "if (" + repr(self.test)[:-1] + ")" + " " + repr(self.code)
         if self.isElse:
@@ -182,14 +206,16 @@ def operation(token):
         return "else"
     elif token[2].lower() == "do":
         return opDoWhile(token)
+    elif token[2].lower() == "break":
+        return opBreak(token)
     else:
-        printError("Operation \"" + token[2] + "\" is unknown")
+        printError("Operation \"" + token[2] + "\" is unknown", token[0])
     
 class reader:
     symbols = ("+", "-", "*", "/", "%", "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=",
                "~", "&", "|", "^", "<<", ">>", "!", "&&", "||", "?", ":", "==", "!=", "(", ")", "++", "--",
                ".", "->", "<", "<=", ">", ">=", "[", "]", ",", '"', "'")
-    operations = ("while", "for", "if", "do")
+    operations = ("while", "for", "if", "do", "break")
     def __init__(self):
         self.curPart = ""
         self.mode = "none"
@@ -278,7 +304,7 @@ class reader:
         while len(self.tokens) > 0:
             nextToken = self.tokens[0]
             if nextToken[2].lower() in self.operations:
-                if nextToken[2].lower() != "do":
+                if nextToken[2].lower() not in ("do", "break"):
                     if self.tokens[1][2] != "(":
                         printError("Expected \"(\" after \"" + nextToken[2] + "\" at char " + str(self.tokens[1][1]), self.tokens[1][0])
                     param = ""
@@ -289,7 +315,13 @@ class reader:
                     printCode(nextToken[2] + " (" + param[1:] + ")", 1)
                 else:
                     i = 0
-                    printCode(nextToken[2], 1)
+                    if nextToken[2].lower() == "break":
+                        if self.tokens[1][2] != ";":
+                            printError("Expected ';' after \"" + nextToken[2] + "\"", nextToken[0])
+                        i += 1
+                        printCode(nextToken[2]+";", 1)
+                    else:
+                        printCode(nextToken[2], 1)
                 self.tokens2.append((nextToken[0], "operation", nextToken[2], param[1:]))
                 self.tokens = self.tokens[i+1:]
             elif nextToken[2] == "else":
