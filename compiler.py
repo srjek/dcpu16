@@ -140,6 +140,33 @@ class opFor(op0):
         printError(error, self.lineNum)
     def __repr__(self):
         return "for (" + repr(self.initializer)+" "+repr(self.test)+" "+repr(self.increment)[:-1] + ")" + " " + repr(self.code)
+class opDoWhile(op0):
+    def __init__(self, token):
+        op0.__init__(self, token)
+        if token[2].lower() != "do":
+            printError("Operation was \"" + token[2] + "\", not \"do\" as expected.", self.lineNum)
+        self.test = None
+        self.followup = None
+    def printError(self, error):
+        printError(error, self.lineNum)
+    def needNextCode(self):
+        if self.code == None or self.test == None or self.followup == None:
+            return True
+        return self.code.needNextCode()
+    def receiveNextCode(self, code):
+        if self.code == None:
+            self.code = code
+        elif code == "else" or self.code.needNextCode():
+            self.code.receiveNextCode(code)
+        elif self.test == None and type(code) == opWhile:
+            self.test = code.test
+        elif self.code != None and self.test != None:
+            if not (type(code) == statement and code.statement == ""):
+                printError("Expected ';' after do while loop", self.lineNum)
+            else:
+                self.followup = ""
+    def __repr__(self):
+        return "do " + repr(self.code) + " while (" + repr(self.test)[:-1] + ");"
         
 
 def operation(token):
@@ -251,14 +278,18 @@ class reader:
         while len(self.tokens) > 0:
             nextToken = self.tokens[0]
             if nextToken[2].lower() in self.operations:
-                if self.tokens[1][2] != "(":
-                    printError("Expected \"(\" after \"" + nextToken + "\" at char " + str(self.tokens[1][1]), self.tokens[1][0])
-                param = ""
-                i = 2
-                while i < len(self.tokens) and self.tokens[i][2] != ")":
-                    param += " " + self.tokens[i][2]
-                    i += 1
-                printCode(nextToken[2] + " (" + param[1:] + ")", 1)
+                if nextToken[2].lower() != "do":
+                    if self.tokens[1][2] != "(":
+                        printError("Expected \"(\" after \"" + nextToken[2] + "\" at char " + str(self.tokens[1][1]), self.tokens[1][0])
+                    param = ""
+                    i = 2
+                    while i < len(self.tokens) and self.tokens[i][2] != ")":
+                        param += " " + self.tokens[i][2]
+                        i += 1
+                    printCode(nextToken[2] + " (" + param[1:] + ")", 1)
+                else:
+                    i = 0
+                    printCode(nextToken[2], 1)
                 self.tokens2.append((nextToken[0], "operation", nextToken[2], param[1:]))
                 self.tokens = self.tokens[i+1:]
             elif nextToken[2] == "else":
