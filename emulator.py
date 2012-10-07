@@ -183,9 +183,11 @@ class cpuControl(threading.Thread):
         self.ctrl = ctrlQueue
         self.state = stateQueue
         self.totalCycles = 0
+        self.quiting = True
         threading.Thread.__init__(self)
 
     def run(self):
+        self.quitting = False
         root = tkinter.Tk()
         mainframe = ttk.Frame(root, padding="3 3 12 12")
         mainframe.grid(column=0, row=1, sticky=(tkinter.N, tkinter.W, tkinter.E, tkinter.S))
@@ -221,12 +223,14 @@ class cpuControl(threading.Thread):
         ttk.Label(mainframe, textvariable=EX).grid(column=2, row=4, sticky=(tkinter.W, tkinter.E))
         disassembly = tkinter.StringVar()
         ttk.Label(root, textvariable=disassembly).grid(column=0, row=2, sticky=(tkinter.W, tkinter.E))
-        
+
         def bHex(a):
             result = hex(a)[2:]
             result = "0"*(4-len(result)) + result
             return result
         def cycle():
+            if self.quitting:
+                return
             self.ctrl.put(0)
             state = None
             while True:
@@ -266,6 +270,12 @@ class cpuControl(threading.Thread):
         ttk.Button(mainframe, text="Stop", command=stop).grid(column=2, row=0, sticky=tkinter.W)
         root.after(1000, cycle)
         root.mainloop()
+        self.quitting = True
+        root.quit()
+        try:
+            root.destroy()
+        except:
+            pass
         self.ctrl.put(-0x10c)
     
 def main():
@@ -353,6 +363,8 @@ def main():
                 print(line, file=sys.stderr)
         except queue.Empty:
             break
+    print("Some Tkinter things might throw a fit. I can't find a way to stop the errors, but the only thing they do is delay the program's exit.")
+    print("Feel free to Ctrl-C")
 
 if __name__ == '__main__':
     main()
