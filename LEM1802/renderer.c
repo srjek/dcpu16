@@ -16,10 +16,8 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
     uint16_t* fontRom;
     uint32_t* palette;
     int b, g, r;
-    int i;
     int* tile = (int*) malloc(128*8*4);
     int ramOffset;
-    int x, y;
     int lineWidth, xOffset, yOffset;
     uint32_t borderColor;
     uint16_t value;
@@ -27,6 +25,7 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
     int almostOffset, offset;
     int cx, cy;
     #endif
+    int i, x, y; //Loop counters
     
     if ( PyObject_GetBuffer(pyRam, &ramBuf, PyBUF_SIMPLE) == -1)
         return NULL;
@@ -52,13 +51,12 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
     #endif
     
     if (paletteAddress == 0) {          //Get the palette
+        for (i = 0; i < 16; i++) {
         #ifndef _MSC_VER
-        for (int i = 0; i < 16; i++) {
             int b = ((i >> 0) & 0x1) * 170;
             int g = ((i >> 1) & 0x1) * 170;
             int r = ((i >> 2) & 0x1) * 170;
         #else
-        for (i = 0; i < 16; i++) {
             b = ((i >> 0) & 0x1) * 170;
             g = ((i >> 1) & 0x1) * 170;
             r = ((i >> 2) & 0x1) * 170;
@@ -73,14 +71,13 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
             palette[i] = (r << 16) | (g << 8) | b ;
         }
     } else {
+        for (i = 0; i < 16; i++) {
         #ifndef _MSC_VER
-        for (int i = 0; i < 16; i++) {
             int value = ram[paletteAddress+i];
             int b = value & 0x000F;
             int g = (value & 0x00F0) >> 4;
             int r = (value & 0x0F00) >> 8;
         #else
-        for (i = 0; i < 16; i++) {
             value = ram[paletteAddress+i];
             b = value & 0x000F;
             g = (value & 0x00F0) >> 4;
@@ -92,7 +89,7 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
     }
     
     #ifndef _MSC_VER
-    int tile[128][4][8] = [0];
+    int tile[128][4][8] = {0};
     uint16_t* fontRom;
     #endif
     if (tileAddress != 0)       //Get the tiles
@@ -102,9 +99,9 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
     
     #ifndef _MSC_VER
     int ramOffset = 0;
-    for (int i = 0; i < 128; i++) {
-        for (int x = 0; x < 4; x += 2) {
-            for (int y = 7; y >= 0; y--) {
+    for (i = 0; i < 128; i++) {
+        for (x = 0; x < 4; x += 2) {
+            for (y = 7; y >= 0; y--) {
                 tile[i][x][y] = (fontRom[ramOffset] >> 8) & (1 << y);
                 tile[i][x+1][y] = fontRom[ramOffset] & (1 << y);
     #else
@@ -125,22 +122,22 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
     int lineWidth = (4*32+32);
     uint32_t borderColor = palette[borderColorIndex];
     
-    for (int x = 0; x < lineWidth; x++) {
-        for (int y = 0; y < 16; y++)
+    for (x = 0; x < lineWidth; x++) {
+        for (y = 0; y < 16; y++)
             display[(y*lineWidth) + x] = borderColor;
-        for (int y = 16+(12*8); y < 32+(12*8); y++)
+        for (y = 16+(12*8); y < 32+(12*8); y++)
             display[(y*lineWidth) + x] = borderColor;
     }
-    for (int y = 16; y < 16+(12*8); y++) {
-        for (int x = 0; x < 16; x++)
+    for (y = 16; y < 16+(12*8); y++) {
+        for (x = 0; x < 16; x++)
             display[(y*lineWidth) + x] = borderColor;
-        for (int x = lineWidth-16; x < lineWidth; x++)
+        for (x = lineWidth-16; x < lineWidth; x++)
             display[(y*lineWidth) + x] = borderColor;
     }
     
-    for (int x = 0; x < 32; x++) {
+    for (x = 0; x < 32; x++) {
         int xOffset = 16+(x*4);
-        for (int y = 0; y < 12; y++) {
+        for (y = 0; y < 12; y++) {
             int yOffset = 16+(y*8);
             uint16_t value = ram[mapAddress+(y*32+x)];
             uint16_t i = value & 0x7F;
@@ -152,9 +149,10 @@ PyObject* render(PyObject* pyRam, PyObject* pyDisplay, int mapAddress, int tileA
             //if ((value >> 7) & 0x1) == 1 and blinkTime >= 60:
             //    fg = bg
             
-            for (int cy = 0; cy < 8; cy++) {            //Render the tile
+            int cx, cy;
+            for (cy = 0; cy < 8; cy++) {            //Render the tile
                 int almostOffset = (yOffset+cy)*lineWidth;
-                for (int cx = 0; cx < 4; cx++) {
+                for (cx = 0; cx < 4; cx++) {
                     int offset = almostOffset + (xOffset+cx);
                     if (tile[i][cx][cy])
                         display[offset] = fg;
