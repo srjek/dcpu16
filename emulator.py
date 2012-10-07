@@ -269,7 +269,9 @@ class cpuControl(threading.Thread):
         self.ctrl.put(-0x10c)
     
 def main():
-    pygame.init()
+    import time
+    initTime = time.time()
+    #pygame.init()	#don't uncomment, unneccesary for pygame.clock, and we need to keep the rest of pygame isolated to one process
     clock = pygame.time.Clock()
     error = Queue(50)
 
@@ -300,15 +302,15 @@ def main():
     running = False
     i = 0
 
-    startTime = pygame.time.get_ticks()
-    print("Initialization took "+str(pygame.time.get_ticks()/1000)+" seconds")
+    from math import floor
+    startTime = floor(time.time()*1000)
+    print("Initialization took "+str(round(time.time()-initTime, 3))+" seconds")
     while executing:
         if running:
-            endTime = pygame.time.get_ticks()
-            cyclesPassed = (endTime - startTime) * 100
+            endTime = floor(time.time()*1000)
+            cyclesPassed = int((endTime - startTime) * 100)
             startTime = endTime
             comp1.cycle(cyclesPassed)
-            #comp1.cycle(2500)   #100000 / 40
         if updateState:
             state.put(comp1.getState())
             updateState = False
@@ -319,14 +321,14 @@ def main():
                 comp1.cycle(cycles)
             if cycles == -1:
                 running = True
-                startTime = pygame.time.get_ticks()
+                startTime = floor(time.time()*1000)
             if cycles == -2:
                 running = False
             if cycles == -3:
                 comp1.cycle(1)
                 comp1.cycle(comp1.cycles)
             if cycles == -0x10c:
-                pygame.event.post(pygame.event.Event(QUIT))
+                executing = False
         except queue.Empty:
             dummy = 42
 
@@ -334,17 +336,10 @@ def main():
             e = error.get_nowait()
             for line in e:
                 print(line, file=sys.stderr)
-            #print(repr(clock.get_fps()))
         except queue.Empty:
             dummy = 42
         
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                executing = False
-            elif event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    pygame.event.post(pygame.event.Event(QUIT))
-        clock.tick(40)
+        clock.tick(60)
     pygame.quit()
     state.put(tuple(), True)
     ctrlWindow.join()
