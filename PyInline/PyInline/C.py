@@ -213,7 +213,12 @@ static struct PyModuleDef %s_Module = {
 """ % (self._moduleName, self._moduleName, moduleMethods))
         # And finally an initialization method...
         srcFile.write("""
-__declspec(dllexport) PyObject* PyInit_%s(void) {
+#ifdef _WIN32
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT
+#endif
+DLLEXPORT PyObject* PyInit_%s(void) {
   PyObject* res = PyModule_Create(&%s_Module);
   if (!res) return NULL;
   return res;
