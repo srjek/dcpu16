@@ -32,7 +32,11 @@ class genericKeyboard(threading.Thread):
     def interrupt(self):
         A = self.register[0]
         if A == 0:
-            self.buffer = []
+            while True:
+                try:
+                    self.buffer.get_nowait()
+                except queue.Empty:
+                    break
         elif A == 1:
             try:
                 self.register[2] = self.buffer.get_nowait()
