@@ -720,7 +720,7 @@ class preprocessor_directive:
     def size(self):
         if self.directive in ("echo", "error", "macro", "label"):
             return 0
-        if self.directive in ("align", "incbin"):
+        if self.directive in ("align", "origin", "incbin"):
             return self._size
         if self.directive == "rep":
             size = 0
@@ -784,6 +784,8 @@ class preprocessor_directive:
             return tuple(code)
         if self.directive == "align":
             return (0,)*self._size
+        if self.directive == "origin":
+            return ()
         if self.directive == "macro":
             labels["$$macro$"+self.macroName] = (self.macroArgs, self.codeblock)
             return ()
@@ -853,8 +855,6 @@ class preprocessor_directive:
                 pass
         if self.directive == "equ":
             labels["$$labels"][self.varible] = address(address(value))
-        if self.directive == "origin":
-            labels["$$origin"] = address(address(value))
         return ()
     def isConstSize(self):
         if self.directive == "include":
@@ -862,7 +862,7 @@ class preprocessor_directive:
             for i in self.codeblock:
                 if i.isConstSize(): return True
             return False
-        return self.directive in ("echo", "error", "define", "undefine", "equ", "origin", "incbin", "macro", "label")
+        return self.directive in ("echo", "error", "define", "undefine", "equ", "incbin", "macro", "label")
     def getAddress(self):
         return self.address
     def optimize(self, labels):
@@ -924,6 +924,14 @@ class preprocessor_directive:
             lastSize = self._size
             self._size = tmp - (self.getAddress().getAddress() % tmp)
             return (lastSize != self._size) or result
+        if self.directive == "origin":
+            tmp = self.a.build(labels)
+            if type(tmp) != type(42):
+                self.printError("Can't set origin to an non-int boundary")
+                return False
+            lastSize = self._size
+            self._size = tmp - self.getAddress().getAddress()
+            return (lastSize != self._size) or result
         if self.directive == "rep":
             tmp = self.a.build(labels)
             if type(tmp) != type(42):
@@ -979,9 +987,6 @@ class preprocessor_directive:
             labels.pop("$$curAddress")
             labels["$$labels"][self.varible] = address(address(self.value))
             return (lastValue != self.value)
-        if self.directive == "origin":
-            labels["$$origin"] = address(address(self.a.build(labels)))
-            return False
         return result
     def optCodeblock(self, labels):
         if self.codeblock == None: return False
