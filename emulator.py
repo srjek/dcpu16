@@ -22,7 +22,7 @@ class dcpu16:
         self.hardware = []
         self.intQueue = Array(ctypes.c_uint16, [0]*259, lock=False)
         self.intLock = Lock()
-        self.callQueue = Queue(256)  #Holds callbacks that are requested by hardware       
+        self.callQueue = queue.Queue(256)  #Holds callbacks that are requested by hardware (only safe for threads to call)
         try:
             sys.stdout.errors
         except AttributeError:
@@ -37,8 +37,12 @@ class dcpu16:
 
     def addHardware(self, hardware):
         self.hardware.append(hardware)
-    def requestCallback(self, callback):
-        self.callQueue.put(callback)
+        return len(self.hardware)-1
+
+    ### Warning, thread safe, not process-safe
+    def requestCallback(self, callback_func, args):
+        self.callQueue.put((callback_func, args))
+
     def interrupt(self, msg):
         intQueue = self.intQueue
         intLock = self.intLock
@@ -76,16 +80,15 @@ class dcpu16:
         return (self.register, self.ram)
 
     def cycle(self, count):
-        actualCount = self.m.cycles(self.ram, self.register, self.intQueue, count - self.cycles, self.interrupt, self.HWIcallback)
-        self.cycles = actualCount - (count - self.cycles)
-        self.totalCycles += actualCount
-        
         while True:
             try:
-                callback = self.callQueue.get_nowait()
-                callback()
+                (callback, args) = self.callQueue.get_nowait()
+                callback(*args)
             except queue.Empty:
                 break
+        actualCount = self.m.cycles(self.ram, self.register, self.intQueue, count - self.cycles, self.interrupt, self.HWIcallback)
+        self.cycles += actualCount - count
+        self.totalCycles += count
         
     def disassemble(words):
         opcodes = {         "SET":0x01, "ADD":0x02, "SUB":0x03, "MUL":0x04, "MLI":0x05, "DIV":0x06, "DVI":0x07,
@@ -177,6 +180,54 @@ class dcpu16:
         dat = obj.read()
         obj.close()
         self.loadDatIntoRam(ramOffset, dat)
+
+class dcpu16Rom(threading.Thread):
+    def __init__(self, cpu, errorQueue, firmwareFile):
+        self.errorQueue = errorQueue
+        self.loadFile(firmwareFile)
+
+        self.register, self.ram = cpu.getInternals()
+        self.cpu = cpu
+        hwid = cpu.addHardware(self)
+
+        #Callbacks are processed before any cycles are run!
+        cpu.requestCallback(dcpu16Rom.startup, (self,)) 
+
+        threading.Thread.__init__(self)
+
+    def loadDat(self, dat):
+        firmware = []
+        for i in range(0, len(dat), 2):
+            if i+1 == len(dat):
+                dat[i+1] == 0
+            firmware.append( (dat[i] << 8) | dat[i+1] )
+        self.firmware = tuple(firmware[:512])
+    def loadFile(self, filepath):
+        obj = open(filepath, 'rb')
+        dat = obj.read()
+        obj.close()
+        self.loadDat(dat)
+
+    def startup(self):
+        self.cpu.cycles += self.interrupt() #We have to manage the interrupt ourselves...
+
+    def queryInfo(self):
+             #Manufacturer,    ID     , Version)
+        return (0, 0, 0)
+    def interrupt(self):
+        A = self.register[0] #Specs don't say anything about using this, so ignore
+
+        i = self.register[1] #Start copying into memory at position B
+        ram = self.ram
+        for word in self.firmware:
+            ram[i] = word
+            i += 1
+        return 512 #Specs don't say anything about this either, so I gave it 512 cycles, as the rom has 512 words
+
+    def run(self):
+        pass
+    def finishUp(self):
+        self.join()
 
 class cpuControl(threading.Thread):
     def __init__(self, ctrlQueue, stateQueue):
@@ -298,8 +349,10 @@ def main():
 
     from LEM1802 import LEM1802
     from genericKeyboard import genericKeyboard
+    rom = dcpu16Rom(comp1, error, "firmware.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
+    rom.start()
     monitor.start()
     keyboard.start()
 
@@ -353,6 +406,7 @@ def main():
     pygame.quit()
     state.put(tuple(), True)
     ctrlWindow.join()
+    rom.finishUp()
     monitor.finishUp()
     keyboard.finishUp()
 

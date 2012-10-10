@@ -180,13 +180,12 @@ _test11111:
 _test22222:
 .echo ".rep created data with a length of " + str(_test22222 - _test11111)
 .ifdef ADEFINITION
-.origin 0
 .if ADEFINITION==0x90
 .error "INVALID VALUE"
 .end
 .echo "ADEFINITION is defined as " + hex(ADEFINITION)
 .else
-.origin 10
+
 .echo "ADEFINITION is not defined"
 .end
 .undefine ADEFINITION
@@ -217,13 +216,13 @@ notifyScreenId:
 :boot
             set b, 0x8000
             set a, 5
-            hwi 0
+            hwi 1
             set b, 0
             set a, 3
-            hwi 0
+            hwi 1
             set b, 0x8000
             set a, 0
-            hwi 0
+            hwi 1
             set a, bootmsg
             jsr notify
             set SP, 0x0000          ;prepare stack of pointers to linked list items (linked list holds stack pointers)
@@ -491,7 +490,7 @@ notifyScreenId:
             set b, 0
 :color_inner
             set a, 3
-            hwi 0
+            hwi 1
             set PUSH, b
             set a, 0
 :color_sleep
