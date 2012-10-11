@@ -1,0 +1,136 @@
+;Floppy boot sector, or alternative firmware image
+
+.ifndef floppyStart
+.define floppyStart 1 ;Sector to start copying from floppy to ram   (0: boot rom, 1: floppy boot sector)
+.end
+
+; Don't move the boot code, the last sector to be read in will be the first
+:init
+    ; Enumerate devices
+    HWN I
+:device_loop
+    SUB I, 1
+    ; Query selected device and see if it's a hard disk or LEM-1802
+    HWQ I
+    IFE A, 0x5678
+        IFE B, 0x1234
+            SET [io_m35fd], I
+    IFE A, 0xF615
+        IFE B, 0x7349
+            SET [io_lem1802], I
+    IFN I, 0xFFFF
+        JMP device_loop
+:device_loop_complete
+    ; Check for error conditions
+    IFE [io_m35fd], 0xFFFF
+        JMP error_nodrive
+    ; Check for disk
+    SET A, 0 ; Poll device
+    HWI [io_m35fd]
+    IFE B, 0 ; STATE_NO_MEDIA
+        JMP error_nodisk
+
+    JMP load    ;About to load from floppy, the rest of code is in the last sector
+
+:error_nodrive
+    SET I, msg_nodrive
+    JMP pre_print_err
+:error_nodisk
+    SET I, msg_nodisk
+:pre_print_err  ;hehe, chain jumping to save a word of ram
+    JMP print_err
+
+:firmware
+;.org 0xfc00    ;commented out because we aren't moving
+:sector_start
+:load
+    SET X, floppyStart+1
+    SET Y, 0x0200
+:readSector
+    ; Copy as much of the floppy as possible to ram
+    SET A, 2 ; Read sector
+    HWI [io_m35fd]
+    IFN B, 1
+        JMP error_readerror
+:wait_for_completion
+    SET A, 0
+    HWI [io_m35fd]
+    IFN C, 0 ; Something failed
+        JMP error_readerror
+    IFN B, 1
+    IFN B, 2 
+        JMP wait_for_completion ;Device not ready
+    ; Device ready
+
+    ADD X, 1
+    ADD Y, 512
+    IFN Y, 0
+        JMP readSector
+
+    ;Prepare
+    SET [0], [waiting_instruction]  ;This instruction will execute until overwritten
+
+    SET X, floppyStart
+    ;Last (or rather, the first) Sector, no time to poll until completion, the ram is ripping up around us
+    SET A, 2 ; Read sector
+    HWI [io_m35fd]  ;My calculations say you have 3.25 cycles for every word written, don't fall behind. GO!
+    IFN B, 1
+        JMP error_readerror ;It's ok guys! False start, it failed.
+
+;Actually, floppy sectors are copied every game tick, which could be at anytime AFAIK.
+;However, this is ok because we started about right after the last sector was copied, so there should be plently of time
+:boot
+    ; Zero registers
+    SET A, 0    ;whee~, 1 cycle instructions all the way to the finish
+    SET B, 0
+    SET C, 0
+    SET X, 0
+    SET Y, 0
+    SET I, 0
+    SET J, 0
+    SET SP, 0
+    SET PC, 0   ;Jump back to the start, where a waiting instruction will hold until the drive writes the sector to ram
+
+:waiting_instruction
+    SUB PC, 1       ;Instruction must be read in one cycle, otherwise the disk drive could interfere
+
+:error_readerror
+    SET I, msg_readerror
+
+:print_err
+    IFE [io_lem1802], 0xFFFF
+        SUB PC, 1 ; Hang forever if there is no screen
+    SET A, 0
+    SET B, screen
+    HWI [io_lem1802]    ;Map the video memory for the screen
+    SET J, screen
+:print_loop
+    SET C, [I]
+    BOR C, 0xF000
+    STI [J], C
+    IFN [I], 0
+        JMP print_loop
+:end
+    SUB PC, 1
+
+:screen
+.reserve 384-(str_end-str_start)    ;Yep, strings have no color codes, so they should be invisible!
+
+:str_start      ;order these by when we stop needing them (atm, unneccesary, but in the future some strings could go at the front of the screen buffer)
+:msg_nodrive
+    dat "ATTACH M35FD AND REBOOT", 0
+:msg_nodisk
+    dat "INSERT DISK AND REBOOT", 0
+:msg_readerror
+    dat "DRIVE READ ERROR", 0
+:str_end
+
+
+:io_m35fd
+    dat 0xFFFF
+:io_lem1802
+    dat 0xFFFF
+:sector_end
+
+.origin firmware+(sector_end-sector_start)
+.align 512 ;In case if this file is included at the start of another file
