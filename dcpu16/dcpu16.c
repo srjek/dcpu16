@@ -39,14 +39,14 @@ val getValStruct(uint16_t* pointer, uint16_t value) {
     return result;
 }
 
-uint16_t nextWord(uint16_t* ram, uint16_t* registers, int* cycles) {
+uint16_t nextWord(uint16_t* ram, uint16_t* registers, long* cycles) {
     uint16_t result = ram[registers[PC]];
     registers[PC] += 1;// (registers[PC] + 1) & 0xFFFF;
     (*cycles) += 1;
     return result;
 }
 
-val read_val(uint16_t a, int isB, uint16_t* ram, uint16_t* registers, int* cycles) {
+val read_val(uint16_t a, int isB, uint16_t* ram, uint16_t* registers, long* cycles) {
     uint16_t pointer;
     if (a <= 0x07) {            //register
         return getValStruct(registers + a, registers[a]);
@@ -125,7 +125,7 @@ uint16_t underflow(uint32_t value, uint16_t* registers) {
     return value & 0xFFFF;
 }
 
-int skip(uint16_t* ram, uint16_t* registers, int* cycles) {
+int skip(uint16_t* ram, uint16_t* registers, long* cycles) {
     uint16_t instruction = nextWord(ram, registers, cycles);
     uint16_t op = instruction & 0x1F;
     uint16_t b_code = (instruction >> 5) & 0x1F;
@@ -136,7 +136,7 @@ int skip(uint16_t* ram, uint16_t* registers, int* cycles) {
         registers[PC] += 1;
     return (0x10 <= op) && (op <= 0x17);
 }
-void conditional(int condition, uint16_t* ram, uint16_t* registers, int* cycles) {
+void conditional(int condition, uint16_t* ram, uint16_t* registers, long* cycles) {
     if (!condition)
         while (skip(ram, registers, cycles));
 }
@@ -153,7 +153,7 @@ uint32_t callPyHWI(PyObject* pyHWI, int value) {
 }
 
 //MORE TODO IN HERE
-void execOp(uint16_t op, val b, val a, uint16_t* ram, uint16_t* registers, int* cycles) {
+void execOp(uint16_t op, val b, val a, uint16_t* ram, uint16_t* registers, long* cycles) {
     //This function doesn't handle op==0, caller detects that state and uses an alt function
     switch (op) {
         case 0x01:      //SET
@@ -267,7 +267,7 @@ void execOp(uint16_t op, val b, val a, uint16_t* ram, uint16_t* registers, int* 
 }
 
 //MORE TODO IN HERE
-void execExtOp(uint16_t op, val a, uint16_t* ram, uint16_t* registers, int* cycles, uint16_t* intQueue, PyObject* pyInt, PyObject* pyHWI) {
+void execExtOp(uint16_t op, val a, uint16_t* ram, uint16_t* registers, long* cycles, uint16_t* intQueue, PyObject* pyInt, PyObject* pyHWI) {
     uint32_t tmp;
     switch (op) {
         case 0x01:      //JSR <a>
@@ -704,9 +704,9 @@ PyObject* decode(PyObject* pyRam, PyObject* pyRegisters) {
 }
 
 PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, int count, PyObject* pyInt, PyObject* pyHWI,
-                                                                                            PyObject* pyIsCallback, PyObject* pyCallback)
+                                                                           PyObject* pyIsCallback, PyObject* pyCallback, PyObject* pyTime)
 {
-    int cycles = 0;  //REMEMBER, MICROSFT'S F "C COMPILER" is a tad out of date and needs all these varibles at top
+    long cycles = 0;  //REMEMBER, MICROSFT'S F "C COMPILER" is a tad out of date and needs all these varibles at top
     uint16_t instruction;
     uint16_t op;
     uint16_t b_code, a_code;
@@ -716,12 +716,14 @@ PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, i
     Py_buffer registersBuf;
     Py_buffer intQueueBuf;
     Py_buffer isCallbackBuf;
+    Py_buffer timeBuf;
     
     uint16_t* ram;
     uint16_t* registers;
     uint16_t* intQueue;
-    uint16_t* isCallback;
-    
+    unsigned long long* isCallback;
+    unsigned long long* time;
+
     if ( PyObject_GetBuffer(pyRam, &ramBuf, PyBUF_WRITABLE) == -1)
         return NULL;
     if ( PyObject_GetBuffer(pyRegisters, &registersBuf, PyBUF_WRITABLE) == -1) {
@@ -739,11 +741,19 @@ PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, i
         PyBuffer_Release(&intQueueBuf);
         return NULL;
     }
+    if ( PyObject_GetBuffer(pyTime, &timeBuf, PyBUF_WRITABLE) == -1) {
+        PyBuffer_Release(&ramBuf);
+        PyBuffer_Release(&registersBuf);
+        PyBuffer_Release(&intQueueBuf);
+        PyBuffer_Release(&isCallbackBuf);
+        return NULL;
+    }
     
     ram = (uint16_t*) ramBuf.buf;
     registers = (uint16_t*) registersBuf.buf;
     intQueue = (uint16_t*) intQueueBuf.buf;
-    isCallback = (uint16_t*) isCallbackBuf.buf;
+    isCallback = (unsigned long long*) isCallbackBuf.buf;
+    time = (unsigned long long*) timeBuf.buf;
     
     while (cycles < count) {
         instruction = nextWord(ram, registers, &cycles);
@@ -781,12 +791,15 @@ PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, i
         }
 
         //check for callbacks
-        if (isCallback[0] != 0) {
+        if (isCallback[0] <= (time[0]+cycles)) {
             if (PyCallable_Check(pyCallback))
                 PyObject_CallFunction(pyCallback, "");
         }
     }
     
+    time[0] += cycles;
+    
+    PyBuffer_Release(&timeBuf);
     PyBuffer_Release(&isCallbackBuf);
     PyBuffer_Release(&intQueueBuf);
     PyBuffer_Release(&registersBuf);

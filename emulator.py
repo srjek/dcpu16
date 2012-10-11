@@ -22,9 +22,10 @@ class dcpu16:
         self.hardware = []
         self.intQueue = Array(ctypes.c_uint16, [0]*259, lock=False)
         self.intLock = Lock()
-        self.callQueue = queue.Queue(256)  #Holds callbacks that are requested by hardware (only safe for threads to call)
-        self.waitingCallback = Array(ctypes.c_uint16, [0]*1, lock=False)
-        self.waitingCallbackLock = Lock()
+        self.callQueue = {}  #Holds callbacks that are requested by hardware (only safe for threads to call)
+        self.waitingCallback = Array(ctypes.c_ulonglong, [0]*1, lock=False)
+        self.callbackLock = Lock()
+        self.time = Array(ctypes.c_ulonglong, [0]*1, lock=False)
         try:
             sys.stdout.errors
         except AttributeError:
@@ -33,7 +34,7 @@ class dcpu16:
         self.m = PyInline.build(code="""
               PyObject* decode(PyObject* pyRam, PyObject* pyRegisters);
               PyObject* cycles(PyObject* ram, PyObject* registers, PyObject* intQueue, int count, PyObject* interruptCallback,
-                                                                PyObject* hardwareCallback, PyObject* isCallback, PyObject* callbackCallback);
+                                         PyObject* hardwareCallback, PyObject* isCallback, PyObject* callbackCallback,  PyObject* time);
               #include "../../dcpu16/dcpu16.c"
               """,
               language="C")#, forceBuild=True)
@@ -43,11 +44,12 @@ class dcpu16:
         return len(self.hardware)-1
 
     ### Warning, thread safe, not process-safe
-    def requestCallback(self, callback_func, args):
-        self.waitingCallbackLock.acquire()
-        self.callQueue.put((callback_func, args))
-        self.waitingCallback[0] = 1
-        self.waitingCallbackLock.release()
+    def scheduleCallback(self, time, callback_func, args):
+        self.callbackLock.acquire()
+        self.callQueue[time] = (callback_func, args)
+        if (self.waitingCallback[0] > 0) and (time < self.waitingCallback[0]):
+            self.waitingCallback[0] = time
+        self.callbackLock.release()
         
     def interrupt(self, msg):
         intQueue = self.intQueue
@@ -65,18 +67,18 @@ class dcpu16:
         if intQueue[0] == intQueue[1]:
             raise Exception("DCPU16 is on fire. Behavior undefined")
     def callbackCallback(self):
-        while True:
-            try:
-                (callback, args) = self.callQueue.get_nowait()
-                callback(*args)
-            except queue.Empty:
-                break
-        self.waitingCallbackLock.acquire()
-        if self.callQueue.empty():
+        self.callbackLock.acquire()
+        times = []
+        times.extend(self.callQueue.keys())
+        while len(times) > 0 and times[0] < self.time[0]:
+            (callback, args) = self.callQueue.pop(times[0])
+            callback(*args)
+            times.pop(0)
+        if len(times) == 0:
             self.waitingCallback[0] = 0
         else:
-            self.waitingCallback[0] = 1
-        self.waitingCallbackLock.release()
+            self.waitingCallback[0] = times[0]
+        self.callbackLock.release()
     def HWIcallback(self, request):
         hardware = self.hardware
         if request == -1:       #HWN
@@ -101,7 +103,7 @@ class dcpu16:
     def cycle(self, count):
         self.callbackCallback()
         actualCount = self.m.cycles(self.ram, self.register, self.intQueue, count - self.cycles, self.interrupt,
-                                                            self.HWIcallback, self.waitingCallback, self.callbackCallback)
+                                                 self.HWIcallback, self.waitingCallback, self.callbackCallback, self.time)
         self.cycles += actualCount - count
         self.totalCycles += count
         
@@ -392,6 +394,7 @@ def main():
             cyclesPassed = int((endTime - startTime) * 100)
             startTime = endTime
             comp1.cycle(cyclesPassed)
+            print("Cycles ran: "+repr(comp1.time[0]))
         if updateState:
             state.put(comp1.getState())
             updateState = False
