@@ -114,7 +114,7 @@
     SUB PC, 1
 
 :screen
-.reserve 384-(str_end-str_start)    ;Yep, strings have no color codes, so they should be invisible!
+.reserve 384-(str_end-str_start)    ;Yep, strings have no(rather, black) color codes, so they will be invisible!
 
 :str_start      ;order these by when we stop needing them (atm, unneccesary, but in the future some strings could go at the front of the screen buffer)
 :msg_nodrive
