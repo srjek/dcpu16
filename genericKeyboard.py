@@ -45,7 +45,7 @@ class genericKeyboard(threading.Thread):
         elif A == 2:
             self.register[2] = self.state(A & 0xFF)
         elif A == 3:
-            self.interrupt = register[1]
+            self.interruptMsg.value = register[1]
         return 0
 
     translate = {}

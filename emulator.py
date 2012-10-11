@@ -23,6 +23,8 @@ class dcpu16:
         self.intQueue = Array(ctypes.c_uint16, [0]*259, lock=False)
         self.intLock = Lock()
         self.callQueue = queue.Queue(256)  #Holds callbacks that are requested by hardware (only safe for threads to call)
+        self.waitingCallback = Array(ctypes.c_uint16, [0]*1, lock=False)
+        self.waitingCallbackLock = Lock()
         try:
             sys.stdout.errors
         except AttributeError:
@@ -30,7 +32,8 @@ class dcpu16:
             sys.stdout.errors = 'unknown'
         self.m = PyInline.build(code="""
               PyObject* decode(PyObject* pyRam, PyObject* pyRegisters);
-              PyObject* cycles(PyObject* ram, PyObject* registers, PyObject* intQueue, int count, PyObject* interruptCallback, PyObject* hardwareCallback);
+              PyObject* cycles(PyObject* ram, PyObject* registers, PyObject* intQueue, int count, PyObject* interruptCallback,
+                                                                PyObject* hardwareCallback, PyObject* isCallback, PyObject* callbackCallback);
               #include "../../dcpu16/dcpu16.c"
               """,
               language="C")#, forceBuild=True)
@@ -41,8 +44,11 @@ class dcpu16:
 
     ### Warning, thread safe, not process-safe
     def requestCallback(self, callback_func, args):
+        self.waitingCallbackLock.acquire()
         self.callQueue.put((callback_func, args))
-
+        self.waitingCallback[0] = 1
+        self.waitingCallbackLock.release()
+        
     def interrupt(self, msg):
         intQueue = self.intQueue
         intLock = self.intLock
@@ -58,6 +64,19 @@ class dcpu16:
         
         if intQueue[0] == intQueue[1]:
             raise Exception("DCPU16 is on fire. Behavior undefined")
+    def callbackCallback(self):
+        while True:
+            try:
+                (callback, args) = self.callQueue.get_nowait()
+                callback(*args)
+            except queue.Empty:
+                break
+        self.waitingCallbackLock.acquire()
+        if self.callQueue.empty():
+            self.waitingCallback[0] = 0
+        else:
+            self.waitingCallback[0] = 1
+        self.waitingCallbackLock.release()
     def HWIcallback(self, request):
         hardware = self.hardware
         if request == -1:       #HWN
@@ -80,13 +99,9 @@ class dcpu16:
         return (self.register, self.ram)
 
     def cycle(self, count):
-        while True:
-            try:
-                (callback, args) = self.callQueue.get_nowait()
-                callback(*args)
-            except queue.Empty:
-                break
-        actualCount = self.m.cycles(self.ram, self.register, self.intQueue, count - self.cycles, self.interrupt, self.HWIcallback)
+        self.callbackCallback()
+        actualCount = self.m.cycles(self.ram, self.register, self.intQueue, count - self.cycles, self.interrupt,
+                                                            self.HWIcallback, self.waitingCallback, self.callbackCallback)
         self.cycles += actualCount - count
         self.totalCycles += count
         
@@ -349,10 +364,13 @@ def main():
 
     from LEM1802 import LEM1802
     from genericKeyboard import genericKeyboard
-    rom = dcpu16Rom(comp1, error, "firmware.bin")
+    from M35FD import M35FD
+    rom = dcpu16Rom(comp1, error, "boot.bin")#"firmware.bin")
+    floppyDrive = M35FD(comp1, error, None, "PetriOS.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
     rom.start()
+    floppyDrive.start()
     monitor.start()
     keyboard.start()
 
@@ -407,6 +425,7 @@ def main():
     state.put(tuple(), True)
     ctrlWindow.join()
     rom.finishUp()
+    floppyDrive.finishUp()
     monitor.finishUp()
     keyboard.finishUp()
 

@@ -229,6 +229,7 @@ void execOp(uint16_t op, val b, val a, uint16_t* ram, uint16_t* registers, int* 
             conditional(b.value > a.value, ram, registers, cycles);
             break;
         case 0x15:      //IFA
+
             conditional(sign16(b.value) > sign16(a.value), ram, registers, cycles);
             break;
         case 0x16:      //IFL
@@ -507,6 +508,7 @@ PyObject* decode(PyObject* pyRam, PyObject* pyRegisters) {
         case 0x05:
             aStr = "Z";
             break;
+
         case 0x06:
             aStr = "I";
             break;
@@ -701,7 +703,8 @@ PyObject* decode(PyObject* pyRam, PyObject* pyRegisters) {
     return Py_BuildValue("sss", opStr, bStr, aStr);
 }
 
-PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, int count, PyObject* pyInt, PyObject* pyHWI)
+PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, int count, PyObject* pyInt, PyObject* pyHWI,
+                                                                                            PyObject* pyIsCallback, PyObject* pyCallback)
 {
     int cycles = 0;  //REMEMBER, MICROSFT'S F "C COMPILER" is a tad out of date and needs all these varibles at top
     uint16_t instruction;
@@ -712,10 +715,12 @@ PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, i
     Py_buffer ramBuf;
     Py_buffer registersBuf;
     Py_buffer intQueueBuf;
+    Py_buffer isCallbackBuf;
     
     uint16_t* ram;
     uint16_t* registers;
     uint16_t* intQueue;
+    uint16_t* isCallback;
     
     if ( PyObject_GetBuffer(pyRam, &ramBuf, PyBUF_WRITABLE) == -1)
         return NULL;
@@ -728,10 +733,17 @@ PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, i
         PyBuffer_Release(&registersBuf);
         return NULL;
     }
+    if ( PyObject_GetBuffer(pyIsCallback, &isCallbackBuf, PyBUF_SIMPLE) == -1) {
+        PyBuffer_Release(&ramBuf);
+        PyBuffer_Release(&registersBuf);
+        PyBuffer_Release(&intQueueBuf);
+        return NULL;
+    }
     
     ram = (uint16_t*) ramBuf.buf;
     registers = (uint16_t*) registersBuf.buf;
     intQueue = (uint16_t*) intQueueBuf.buf;
+    isCallback = (uint16_t*) isCallbackBuf.buf;
     
     while (cycles < count) {
         instruction = nextWord(ram, registers, &cycles);
@@ -767,8 +779,15 @@ PyObject* cycles(PyObject* pyRam, PyObject* pyRegisters, PyObject* pyIntQueue, i
             else
                 intQueue[0] += 1;
         }
+
+        //check for callbacks
+        if (isCallback[0] != 0) {
+            if (PyCallable_Check(pyCallback))
+                PyObject_CallFunction(pyCallback, "");
+        }
     }
     
+    PyBuffer_Release(&isCallbackBuf);
     PyBuffer_Release(&intQueueBuf);
     PyBuffer_Release(&registersBuf);
     PyBuffer_Release(&ramBuf);

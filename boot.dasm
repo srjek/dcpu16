@@ -1,7 +1,7 @@
 ;Floppy boot sector, or alternative firmware image
 
 .ifndef floppyStart
-.define floppyStart 1 ;Sector to start copying from floppy to ram   (0: boot rom, 1: floppy boot sector)
+.define floppyStart 0 ;Sector to start copying from floppy to ram   (0: boot rom, 1: floppy boot sector)
 .end
 
 ; Don't move the boot code, the last sector to be read in will be the first
@@ -18,7 +18,7 @@
     IFE A, 0xF615
         IFE B, 0x7349
             SET [io_lem1802], I
-    IFN I, 0xFFFF
+    IFN I, 0
         JMP device_loop
 :device_loop_complete
     ; Check for error conditions
@@ -89,10 +89,10 @@
     SET I, 0
     SET J, 0
     SET SP, 0
-    SET PC, 0   ;Jump back to the start, where a waiting instruction will hold until the drive writes the sector to ram
+    SET PC, 0   ;Jump back to the start, where a waiting instruction will hold(keep PC=0) until the drive writes the sector to ram
 
 :waiting_instruction
-    SUB PC, 1       ;Instruction must be read in one cycle, otherwise the disk drive could interfere
+    SET PC, 0       ;Instruction must be read in one cycle, otherwise the disk drive could interfere
 
 :error_readerror
     SET I, msg_readerror
