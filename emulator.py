@@ -366,12 +366,15 @@ def main():
 
     from LEM1802 import LEM1802
     from genericKeyboard import genericKeyboard
+    from genericClock import genericClock
     from M35FD import M35FD
     rom = dcpu16Rom(comp1, error, "boot.bin")#"firmware.bin")
+    clock = genericClock(comp1, error)
     floppyDrive = M35FD(comp1, error, None, "PetriOS.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
     rom.start()
+    clock.start()
     floppyDrive.start()
     monitor.start()
     keyboard.start()
@@ -427,6 +430,7 @@ def main():
     state.put(tuple(), True)
     ctrlWindow.join()
     rom.finishUp()
+    clock.finishUp()
     floppyDrive.finishUp()
     monitor.finishUp()
     keyboard.finishUp()

@@ -124,7 +124,7 @@ class M35FD(threading.Thread):
         intMsg = self.interruptMsg.value
         if intMsg != 0:
             self.cpu.interrupt(intMsg)
-    translate = {}
+
     def handleCommand(self, cmd, floppySector, ramOffset):
         self.imageLock.acquire()
         state = self.state.value
