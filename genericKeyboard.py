@@ -63,9 +63,9 @@ class genericKeyboard(threading.Thread):
                 elif event[0] == KEYUP:
                     self.state[key] = 0
                     self.buffer.put(key)
-                    intMsg = self.interruptMsg.value
-                    if intMsg != 0:
-                        self.cpu.interrupt(intMsg)
+                intMsg = self.interruptMsg.value
+                if intMsg != 0:
+                    self.cpu.interrupt(intMsg)
             except queue.Empty:
                 pass
     def finishUp(self):
