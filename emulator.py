@@ -378,6 +378,7 @@ def main():
     gui = cpuControl(ctrl, state)
     
     from LEM1802 import LEM1802
+    from SPED3 import SPED3
     from genericKeyboard import genericKeyboard
     from genericClock import genericClock
     from M35FD import M35FD
@@ -386,11 +387,13 @@ def main():
     floppyDrive = M35FD(comp1, error, gui, "PetriOS.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
+    hologram = SPED3(comp1, error)
     rom.start()
     clock.start()
     floppyDrive.start()
     monitor.start()
     keyboard.start()
+    hologram.start()
 
     gui.start()
     updateState = True
@@ -444,7 +447,8 @@ def main():
     floppyDrive.finishUp()
     monitor.finishUp()
     keyboard.finishUp()
-
+    hologram.finishUp()
+    
     while True:
         try:
             e = error.get_nowait()

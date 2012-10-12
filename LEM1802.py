@@ -21,6 +21,7 @@ class LEM1802(multiprocessing.Process):
         cpu.addHardware(self)
         multiprocessing.Process.__init__(self)
     def queryInfo(self):
+             #Manufacturer,    ID     , Version)
         return (0x1c6c8b36, 0x7349f615, 0x1802)
     
     def interrupt(self):

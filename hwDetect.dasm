@@ -413,7 +413,7 @@ jsr GetKeyboard
 :String_UnknownDevice dat 14, "Unknown Device"
 
 
-:Hardwares dat 6, HW1, HW2, HW3, HW4, HW5, HW6
+:Hardwares dat 7, HW1, HW2, HW3, HW4, HW5, HW6, HW7
 
 :HW1 dat HW1_Name, HW1_Model, 0x7349, 0xF615
 :HW2 dat HW2_Name, 0x0000, 0x30CF, 0x7406
@@ -421,6 +421,7 @@ jsr GetKeyboard
 :HW4 dat HW4_Name, HW4_Model, 0x74FA, 0x4CAE
 :HW5 dat HW5_Name, HW5_Model, 0x3B50, 0x703A
 :HW6 dat HW6_Name, HW6_Model, 0x40E4, 0x1D9D
+:HW7 dat HW7_Name, HW7_Model, 0x42BA, 0xBF3C
 
 :HW1_Name dat 18, "Low Energy Monitor"
 :HW1_Model dat 14, "LEM180X series"
@@ -432,12 +433,16 @@ jsr GetKeyboard
 :HW5_Model dat 9, "BRG MCD-1"
 :HW6_Name dat 23, "Suspension Chamber 2000"
 :HW6_Model dat 7, "SPC2000"
+:HW7_Name dat 63, "Suspended Particle Exciter                              Display"
+:HW7_Model dat 6, "SPED-3"
 
-:Vendors dat 3, VND1, VND2, VND3
+:Vendors dat 3, VND1, VND2, VND3, VND4
 :VND1 dat VND1_Name, 0x1C6C, 0x8B36
 :VND2 dat VND2_Name, 0x2154, 0x4948
 :VND3 dat VND3_Name, 0x4855, 0x07A1 ; HU 1953
+:VND4 dat VND3_Name, 0x1EB3, 0x7E91
 
 :VND1_Name dat 14, "Nya Elektriska"
 :VND2_Name dat 23, "Harold Innovation Tech."
 :VND3_Name dat 23, "Budapest Radiotech Gyar"
+:VND4_Name dat 14, "Mackapar Media"
