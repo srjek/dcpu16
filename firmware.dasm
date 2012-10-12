@@ -46,9 +46,10 @@
 :wait_for_completion
     SET A, 0
     HWI [io_m35fd]
-    IFE B, 1 ; Device ready
-        SET PC, boot ; Launch boot sector (DONE)
-    SET PC, wait_for_completion
+    IFN B, 1    ;STATE_READY
+    IFN B, 2    ;STATE_READY_WP
+        SET PC, wait_for_completion
+    SET PC, boot ; Launch boot sector (DONE)
 
 :error_nodrive
     IFE [io_lem1802], 0xFFFF

@@ -6,6 +6,8 @@ import ctypes
 import threading
 import queue
 from queue import Queue
+import tkinter
+from tkinter import ttk, filedialog, messagebox
 
 class M35FD(threading.Thread):
     STATE_NO_MEDIA =        0x0000
@@ -28,9 +30,10 @@ class M35FD(threading.Thread):
     
     RAMDISK = 0
     
-    def __init__(self, cpu, errorQueue, tkinterQueue, imagePath=None):
+    def __init__(self, cpu, errorQueue, gui, imagePath=None):
         self.register, self.ram = cpu.getInternals()
         self.cpu = cpu
+        self.gui = None
         self.errorQueue = errorQueue
 
         self.state = Value(ctypes.c_uint16, M35FD.STATE_NO_MEDIA, lock=False)
@@ -46,10 +49,80 @@ class M35FD(threading.Thread):
         cpu.addHardware(self)
         threading.Thread.__init__(self)
         #multiprocessing.Process.__init__(self)
+        
+        self.gui = gui
+        gui.callback(M35FD.__initGui__, (self,))
     def queryInfo(self):
              #Manufacturer,    ID     , Version)
-        return (0, 0x12345678, 0)
+        return (0x1eb37e91, 0x12345678, 3)  #TODO: device spec doesn't hace a legit id yet (it reuses the LEMs)
+    def __initGui__(self):
+        window = tkinter.Toplevel()
+        window.title("M35FD")
+        
+        mainframe = ttk.Frame(window, padding="3 3 12 12")
+        mainframe.grid(column=0, row=1, sticky=(tkinter.N, tkinter.W, tkinter.E, tkinter.S))
+        mainframe.columnconfigure(0, weight=1)
+        mainframe.rowconfigure(0, weight=1)
+        
+        imagePath = tkinter.StringVar()
+        ttk.Label(window, textvariable=imagePath).grid(column=0, row=0)
+        self.guiImagePath = imagePath
+        self._guiUpdatePath()
+        
+        ttk.Button(mainframe, text="Eject", command=self.eject).grid(column=0, row=0, sticky=(tkinter.W, tkinter.E))
+        ttk.Button(mainframe, text="Load as readonly", command=self.guiLoadReadonly).grid(column=0, row=1, sticky=(tkinter.W, tkinter.E))
+        ttk.Button(mainframe, text="Load as isolated ramdisk", command=self.guiLoadRamdisk).grid(column=0, row=2, sticky=(tkinter.W, tkinter.E))
+        ttk.Button(mainframe, text="Load", command=self.guiLoad).grid(column=0, row=3, sticky=(tkinter.W, tkinter.E))
+        ttk.Button(mainframe, text="Save", command=self.guiSave).grid(column=0, row=4, sticky=(tkinter.W, tkinter.E))
+        
+        self.window = window
     
+    def _guiUpdatePath(self):
+        if self.image == None:
+            self.guiImagePath.set("<None>")
+        elif self.imagePath == None:
+            self.guiImagePath.set("<Readonly RAM Disk>")
+        elif self.imagePath == M35FD.RAMDISK:
+            self.guiImagePath.set("<RAM Disk>")
+        else:
+            self.guiImagePath.set(str(self.imagePath))
+    def guiUpdatePath(self):
+        if self.gui != None:
+            self.gui.callback(M35FD._guiUpdatePath, (self,))
+    def eject(self):
+        self.handleCommand(M35FD.CMD_EJECT, 0, 0)
+    def getFileR(self):
+        imagePath = filedialog.askopenfilename(title="Select a floppy image to load", parent=self.window)
+        if (imagePath == "") or (imagePath == ()):
+            return None
+        return imagePath
+    def getFileW(self):
+        return filedialog.asksaveasfilename(title="Specify a file name to save as", parent=self.window)
+        if (imagePath == "") or (imagePath == ()):
+            return None
+        return imagePath
+    def showError(self, msg):
+        messagebox.showerror("Error", msg)
+    def guiLoadFile(self, filePath, readonly=False, ramdisk=True):
+        if filePath == None: return
+        try:
+            self.loadFile(filePath, readonly, ramdisk)
+        except Exception as e:
+            self.showError(str(e.args[0]))
+    def guiSaveFile(self, filePath):
+        if filePath == None: return
+        try:
+            self.saveFile(filePath)
+        except Exception as e:
+            self.showError(str(e.args[0]))
+    def guiLoadReadonly(self):
+        self.guiLoadFile(self.getFileR(), readonly=True)
+    def guiLoadRamdisk(self):
+        self.guiLoadFile(self.getFileR(), readonly=False, ramdisk=True)
+    def guiLoad(self):
+        self.guiLoadFile(self.getFileR(), readonly=False, ramdisk=False)
+    def guiSave(self):
+        self.guiSaveFile(self.getFileW())
 
     def _loadDat(self, dat, readonly=False):
         if self.state.value != M35FD.STATE_NO_MEDIA:
@@ -72,10 +145,12 @@ class M35FD(threading.Thread):
     def loadDat(self, dat, readonly=False):
         self.imageLock.acquire()
         self._loadDat(dat, readonly)
+        self.guiUpdatePath()
         self.imageLock.release()
     def loadFile(self, filepath, readonly=False, ramdisk=True):
         self.imageLock.acquire()
         if self.state.value != M35FD.STATE_NO_MEDIA:
+            self.imageLock.release()
             raise Exception("Floppy already inserted")
         image = open(filepath, 'rb')
         dat = image.read()
@@ -83,13 +158,14 @@ class M35FD(threading.Thread):
         self._loadDat(dat, readonly=readonly)
         if (not readonly) and (not ramdisk):
             self.imagePath = filepath
+        self.guiUpdatePath()
         self.imageLock.release()
     def _getDat(self):
         dat = []
         for obj in self.image:
             dat.append((obj >> 8) & 0xFF)
             dat.append(obj & 0xFF)
-        return dat
+        return bytes(dat)
     def getDat(self):
         self.imageLock.acquire()
         self._genDat()
@@ -98,7 +174,7 @@ class M35FD(threading.Thread):
         if self.state.value == M35FD.STATE_NO_MEDIA:
             raise Exception("No floppy inserted")
         image = open(filepath, 'wb')
-        image.write(self._genDat())
+        image.write(self._getDat())
         image.close()
     def saveFile(self, filepath=None):
         self.imageLock.acquire()
@@ -171,6 +247,7 @@ class M35FD(threading.Thread):
 
         if cmd == M35FD.CMD_EJECT:
             self.image = None
+            self.guiUpdatePath()
             if (self.state.value != M35FD.STATE_READY) and (self.state.value != M35FD.STATE_READY_WP):
                 self.error.value = M35FD.ERROR_EJECT
             self.changeState(M35FD.STATE_NO_MEDIA)

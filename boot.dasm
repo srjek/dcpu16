@@ -1,7 +1,7 @@
 ;Floppy boot sector, or alternative firmware image
 
 .ifndef floppyStart
-.define floppyStart 0 ;Sector to start copying from floppy to ram   (0: boot rom, 1: floppy boot sector)
+.define floppyStart 1 ;Sector to start copying from floppy to ram   (0: boot rom, 1: floppy boot sector)
 .end
 
 ; Don't move the boot code, the last sector to be read in will be the first

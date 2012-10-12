@@ -22,7 +22,7 @@ class dcpu16:
         self.hardware = []
         self.intQueue = Array(ctypes.c_uint16, [0]*259, lock=False)
         self.intLock = Lock()
-        self.callQueue = {}  #Holds callbacks that are requested by hardware (only safe for threads to call)
+        self.callQueue = {}  #Holds callbacks that are requested by hardware (only safe for threads to call?)
         self.waitingCallback = Array(ctypes.c_ulonglong, [0]*1, lock=False)
         self.callbackLock = Lock()
         self.time = Array(ctypes.c_ulonglong, [0]*1, lock=False)
@@ -252,8 +252,11 @@ class cpuControl(threading.Thread):
         self.state = stateQueue
         self.totalCycles = 0
         self.quiting = True
+        self.callbackQueue = queue.Queue()
         threading.Thread.__init__(self)
 
+    def callback(self, function, args):
+        self.callbackQueue.put((function, args))
     def run(self):
         self.quitting = False
         root = tkinter.Tk()
@@ -301,6 +304,12 @@ class cpuControl(threading.Thread):
                 return
             self.ctrl.put(0)
             state = None
+            while True:
+                try:
+                    (function, args) = self.callbackQueue.get_nowait()
+                    function(*args)
+                except queue.Empty:
+                    break
             while True:
                 try:
                     state = self.state.get_nowait()
@@ -364,13 +373,17 @@ def main():
     comp1.loadFileIntoRam(0, "PetriOS.bin")
     #comp1.loadFileIntoRam(0, "test.bin")
 
+    ctrl = Queue(20)
+    state = Queue(20)
+    gui = cpuControl(ctrl, state)
+    
     from LEM1802 import LEM1802
     from genericKeyboard import genericKeyboard
     from genericClock import genericClock
     from M35FD import M35FD
-    rom = dcpu16Rom(comp1, error, "boot.bin")#"firmware.bin")
+    rom = dcpu16Rom(comp1, error, "firmware.bin")
     clock = genericClock(comp1, error)
-    floppyDrive = M35FD(comp1, error, None, "PetriOS.bin")
+    floppyDrive = M35FD(comp1, error, gui, "PetriOS.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
     rom.start()
@@ -379,10 +392,7 @@ def main():
     monitor.start()
     keyboard.start()
 
-    ctrl = Queue(20)
-    state = Queue(20)
-    ctrlWindow = cpuControl(ctrl, state)
-    ctrlWindow.start()
+    gui.start()
     updateState = True
     executing = True
     running = False
@@ -428,7 +438,7 @@ def main():
         clock.tick(60)
     pygame.quit()
     state.put(tuple(), True)
-    ctrlWindow.join()
+    gui.join()
     rom.finishUp()
     clock.finishUp()
     floppyDrive.finishUp()
