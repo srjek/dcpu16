@@ -70,7 +70,7 @@ class dcpu16:
         self.callbackLock.acquire()
         times = []
         times.extend(self.callQueue.keys())
-        while len(times) > 0 and times[0] < self.time[0]:
+        while len(times) > 0 and times[0] <= self.time[0]:
             (callback, args) = self.callQueue.pop(times[0])
             callback(*args)
             times.pop(0)
@@ -207,8 +207,8 @@ class dcpu16Rom(threading.Thread):
         self.cpu = cpu
         hwid = cpu.addHardware(self)
 
-        #Callbacks are processed before any cycles are run!
-        cpu.requestCallback(dcpu16Rom.startup, (self,)) 
+        #Callbacks are processed before any cycles are run! (and after too....)
+        cpu.scheduleCallback(0, dcpu16Rom.startup, (self,)) 
 
         threading.Thread.__init__(self)
 
@@ -394,7 +394,6 @@ def main():
             cyclesPassed = int((endTime - startTime) * 100)
             startTime = endTime
             comp1.cycle(cyclesPassed)
-            print("Cycles ran: "+repr(comp1.time[0]))
         if updateState:
             state.put(comp1.getState())
             updateState = False
