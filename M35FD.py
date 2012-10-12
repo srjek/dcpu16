@@ -25,7 +25,9 @@ class M35FD(threading.Thread):
     CMD_READ =  1
     CMD_WRITE = 2
     CMD_EJECT = 3
-
+    
+    RAMDISK = 0
+    
     def __init__(self, cpu, errorQueue, tkinterQueue, imagePath=None):
         self.register, self.ram = cpu.getInternals()
         self.cpu = cpu
@@ -36,9 +38,10 @@ class M35FD(threading.Thread):
         self.interruptMsg = Value(ctypes.c_uint16, 0, lock=True)
 
         self.image = None
+        self.imagePath = None
         self.imageLock = Lock()
         if imagePath != None:
-            self.loadFileReadonly(imagePath)
+            self.loadFile(imagePath, readonly=True)
 
         cpu.addHardware(self)
         threading.Thread.__init__(self)
@@ -48,8 +51,7 @@ class M35FD(threading.Thread):
         return (0, 0x12345678, 0)
     
 
-    def loadDat(self, dat, readonly=False):
-        self.imageLock.acquire()
+    def _loadDat(self, dat, readonly=False):
         if self.state.value != M35FD.STATE_NO_MEDIA:
             self.imageLock.release()
             raise Exception("Floppy already inserted")
@@ -62,17 +64,46 @@ class M35FD(threading.Thread):
             image.extend((0,)*(1440*512-len(image)))
         self.image = image
         if readonly:
+            self.imagePath = None
             self.changeState(M35FD.STATE_READY_WP)
         else:
+            self.imagePath = M35FD.RAMDISK
             self.changeState(M35FD.STATE_READY)
+    def loadDat(self, dat, readonly=False):
+        self.imageLock.acquire()
+        self._loadDat(dat, readonly)
         self.imageLock.release()
-    def loadFileReadonly(self, filepath):
+    def loadFile(self, filepath, readonly=False, ramdisk=True):
+        self.imageLock.acquire()
         if self.state.value != M35FD.STATE_NO_MEDIA:
             raise Exception("Floppy already inserted")
-        obj = open(filepath, 'rb')
-        dat = obj.read()
-        obj.close()
-        self.loadDat(dat, readonly=True)
+        image = open(filepath, 'rb')
+        dat = image.read()
+        image.close()
+        self._loadDat(dat, readonly=readonly)
+        if (not readonly) and (not ramdisk):
+            self.imagePath = filepath
+        self.imageLock.release()
+    def _getDat(self):
+        dat = []
+        for obj in self.image:
+            dat.append((obj >> 8) & 0xFF)
+            dat.append(obj & 0xFF)
+        return dat
+    def getDat(self):
+        self.imageLock.acquire()
+        self._genDat()
+        self.imageLock.release()
+    def _saveFile(self, filepath=None):
+        if self.state.value == M35FD.STATE_NO_MEDIA:
+            raise Exception("No floppy inserted")
+        image = open(filepath, 'wb')
+        image.write(self._genDat())
+        image.close()
+    def saveFile(self, filepath=None):
+        self.imageLock.acquire()
+        self._saveFile(filepath)
+        self.imageLock.release()
 
 
     def interrupt(self):
@@ -100,7 +131,10 @@ class M35FD(threading.Thread):
             return
         for i in range(512):
             ram[ramOffset+i] = image[floppySector*512+i]
-        self.changeState(M35FD.STATE_READY_WP)
+        if self.imagePath == None:
+            self.changeState(M35FD.STATE_READY_WP)
+        else:
+            self.changeState(M35FD.STATE_READY)
         self.imageLock.release()
     def write(self, floppySector, ramOffset):
         ram = self.ram
@@ -111,7 +145,12 @@ class M35FD(threading.Thread):
             return
         for i in range(512):
             image[floppySector*512+i] = ram[(ramOffset+i)&0xFFFF]
-        self.changeState(M35FD.STATE_READY_WP)
+        if self.imagePath == None:
+            self.changeState(M35FD.STATE_READY_WP)
+        else:
+            self.changeState(M35FD.STATE_READY)
+            if self.imagePath != M35FD.RAMDISK:
+                self._saveFile()
         self.imageLock.release()
 
     def changeError(self, error):
