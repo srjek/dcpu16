@@ -31,12 +31,9 @@ class M35FD(threading.Thread):
         self.cpu = cpu
         self.errorQueue = errorQueue
 
-        self.running = Value("i", 0, lock=False)
         self.state = Value(ctypes.c_uint16, M35FD.STATE_NO_MEDIA, lock=False)
-        self.error = Value(ctypes.c_uint16, M35FD.ERROR_NONE, lock=True)
+        self.error = Value(ctypes.c_uint16, M35FD.ERROR_NONE, lock=False)
         self.interruptMsg = Value(ctypes.c_uint16, 0, lock=True)
-
-        self.cmdQueue = Queue()
 
         self.image = None
         self.imageLock = Lock()
@@ -81,34 +78,24 @@ class M35FD(threading.Thread):
     def interrupt(self):
         A = self.register[0]
         if A == 0:
+            self.imageLock.acquire()
             self.register[1] = self.state.value
             self.register[2] = self.error.value
             self.error.value = M35FD.ERROR_NONE
+            self.imageLock.release()
         elif A == 1:
             self.interruptMsg.Value = self.register[3]
         elif A == 2:
-            responseQueue = Queue()
-            self.cmdQueue.put((M35FD.CMD_READ, self.register[3], self.register[4], responseQueue))
-            try:
-                response = responseQueue.get(timeout=5)
-            except queue.Empty:
-                raise Exception("M35FD thread is not responding")
-            self.register[1] = response
+            self.register[1] = self.handleCommand(M35FD.CMD_READ, self.register[3], self.register[4])
         elif A == 3:
-            responseQueue = Queue()
-            self.cmdQueue.put((M35FD.CMD_WRITE, self.register[3], self.register[4], responseQueue))
-            try:
-                response = responseQueue.get(timeout=5)
-            except queue.Empty:
-                raise Exception("M35FD thread is not responding")
-            self.register[1] = response
+            self.register[1] = self.handleCommand(M35FD.CMD_WRITE, self.register[3], self.register[4])
         return 0
 
     def read(self, floppySector, ramOffset):
         ram = self.ram
-        image = self.image
         self.imageLock.acquire()
-        if self.image == None:
+        image = self.image
+        if image == None:
             self.imageLock.release()
             return
         for i in range(512):
@@ -117,9 +104,9 @@ class M35FD(threading.Thread):
         self.imageLock.release()
     def write(self, floppySector, ramOffset):
         ram = self.ram
-        image = self.image
         self.imageLock.acquire()
-        if self.image == None:
+        image = self.image
+        if image == None:
             self.imageLock.release()
             return
         for i in range(512):
@@ -138,54 +125,39 @@ class M35FD(threading.Thread):
         if intMsg != 0:
             self.cpu.interrupt(intMsg)
     translate = {}
+    def handleCommand(self, cmd, floppySector, ramOffset):
+        self.imageLock.acquire()
+        state = self.state.value
+        result = 0
+
+        if cmd == M35FD.CMD_EJECT:
+            self.image = None
+            if (self.state.value != M35FD.STATE_READY) and (self.state.value != M35FD.STATE_READY_WP):
+                self.error.value = M35FD.ERROR_EJECT
+            self.changeState(M35FD.STATE_NO_MEDIA)
+            result = 1
+
+        elif self.image == None:
+            self.changeError(M35FD.ERROR_NO_MEDIA)
+        elif (state != M35FD.STATE_READY) and (state != M35FD.STATE_READY_WP):
+            self.changeError(M35FD.ERROR_BUSY)
+        elif (state == M35FD.STATE_READY_WP) and (cmd == M35FD.CMD_WRITE):
+            self.changeError(M35FD.ERROR_PROTECTED)
+        elif floppySector >= 1440:
+            self.changeError(M35FD.ERROR_BAD_SECTOR)
+        else:
+            cpu = self.cpu
+            if cmd == M35FD.CMD_READ:
+                cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.read, (self, floppySector, ramOffset)) 
+            elif cmd == M35FD.CMD_WRITE:
+                cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.read, (self, floppySector, ramOffset)) 
+            self.changeState(M35FD.STATE_BUSY)
+            result = 1
+
+        self.imageLock.release()
+        return result
+        
     def run(self):
-        running = self.running
-        running.value = 1
-        cpu = self.cpu
-
-        while self.running.value == 1:
-            try:
-                cmdStruct = self.cmdQueue.get(timeout=0.1)
-                if cmdStruct == None:
-                    continue
-                (cmd, floppySector, ramOffset, responseQueue) = cmdStruct
-                self.imageLock.acquire()
-
-                if cmd == M35FD.CMD_EJECT:
-                    self.image = None
-                    if (self.state.value != M35FD.STATE_READY) and (self.state.value != M35FD.STATE_READY_WP):
-                        self.error.value = M35FD.ERROR_EJECT
-                    self.changeState(M35FD.STATE_NO_MEDIA)
-                    responseQueue.put(1)
-
-                elif self.image == None:
-                    self.changeError(M35FD.ERROR_NO_MEDIA)
-                    responseQueue.put(0)
-
-                elif (self.state.value != M35FD.STATE_READY) and (self.state.value != M35FD.STATE_READY_WP):
-                    self.changeError(M35FD.ERROR_BUSY)
-                    responseQueue.put(0)
-
-                elif (self.state.value == M35FD.STATE_READY_WP) and (cmd == M35FD.CMD_WRITE):
-                    self.changeError(M35FD.ERROR_PROTECTED)
-                    responseQueue.put(0)
-
-                elif floppySector >= 1440:
-                    self.changeError(M35FD.ERROR_BAD_SECTOR)
-                    responseQueue.put(0)
-
-                else:
-                    if cmd == M35FD.CMD_READ:
-                        self.cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.read, (self, floppySector, ramOffset)) 
-                    elif cmd == M35FD.CMD_WRITE:
-                        self.cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.read, (self, floppySector, ramOffset)) 
-                    self.changeState(M35FD.STATE_BUSY)
-                    responseQueue.put(1)
-
-                self.imageLock.release()
-            except queue.Empty:
-                pass
-            
+        return
     def finishUp(self):
-        self.running.value = 0
         self.join()
