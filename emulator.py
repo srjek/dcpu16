@@ -371,15 +371,14 @@ def main():
     error = Queue(50)
 
     comp1 = dcpu16()
-    comp1.ram[0] = 0x01 | (0x01 << 5) | (0x1F << 10)
-    comp1.ram[1] = 0x8000
-    comp1.ram[2] = 0x01 | (0x00 << 5) | (0x26 << 10)
-    comp1.ram[3] = 0x00 | (0x12 << 5) | (0x21 << 10)
-    comp1.ram[4] = 0x01 | (0x00 << 5) | (0x21 << 10)
-    comp1.ram[5] = 0x00 | (0x12 << 5) | (0x21 << 10)
-    comp1.ram[6] = 0x02 | (0x1C << 5) | (0x20 << 10)
-    comp1.loadFileIntoRam(0, "PetriOS.bin")
-    #comp1.loadFileIntoRam(0, "test.bin")
+    #comp1.ram[0] = 0x01 | (0x01 << 5) | (0x1F << 10)
+    #comp1.ram[1] = 0x8000
+    #comp1.ram[2] = 0x01 | (0x00 << 5) | (0x26 << 10)
+    #comp1.ram[3] = 0x00 | (0x12 << 5) | (0x21 << 10)
+    #comp1.ram[4] = 0x01 | (0x00 << 5) | (0x21 << 10)
+    #comp1.ram[5] = 0x00 | (0x12 << 5) | (0x21 << 10)
+    #comp1.ram[6] = 0x02 | (0x1C << 5) | (0x20 << 10)
+    #comp1.loadFileIntoRam(0, "PetriOS.bin")
 
     ctrl = Queue(20)
     state = Queue(20)
@@ -390,9 +389,9 @@ def main():
     from genericKeyboard import genericKeyboard
     from genericClock import genericClock
     from M35FD import M35FD
-    rom = dcpu16Rom(comp1, error, "boot.bin")#, "firmware.bin")
+    rom = dcpu16Rom(comp1, error, "firmware.bin")
     clock = genericClock(comp1, error)
-    floppyDrive = M35FD(comp1, error, gui, "clocktest.bin")#"PetriOS.bin")
+    floppyDrive = M35FD(comp1, error, gui, None)
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
     #hologram = SPED3(comp1, error)
