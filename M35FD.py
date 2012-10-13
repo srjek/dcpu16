@@ -126,7 +126,6 @@ class M35FD(threading.Thread):
 
     def _loadDat(self, dat, readonly=False):
         if self.state.value != M35FD.STATE_NO_MEDIA:
-            self.imageLock.release()
             raise Exception("Floppy already inserted")
         image = []
         for i in range(0, len(dat), 2):
@@ -144,7 +143,11 @@ class M35FD(threading.Thread):
             self.changeState(M35FD.STATE_READY)
     def loadDat(self, dat, readonly=False):
         self.imageLock.acquire()
-        self._loadDat(dat, readonly)
+        try:
+            self._loadDat(dat, readonly)
+        except:
+            self.imageLock.release()
+            raise
         self.guiUpdatePath()
         self.imageLock.release()
     def loadFile(self, filepath, readonly=False, ramdisk=True):
@@ -155,7 +158,11 @@ class M35FD(threading.Thread):
         image = open(filepath, 'rb')
         dat = image.read()
         image.close()
-        self._loadDat(dat, readonly=readonly)
+        try:
+            self._loadDat(dat, readonly)
+        except:
+            self.imageLock.release()
+            raise
         if (not readonly) and (not ramdisk):
             self.imagePath = filepath
         self.guiUpdatePath()
@@ -178,7 +185,11 @@ class M35FD(threading.Thread):
         image.close()
     def saveFile(self, filepath=None):
         self.imageLock.acquire()
-        self._saveFile(filepath)
+        try:
+            self._saveFile(filepath)
+        except:
+            self.imageLock.release()
+            raise
         self.imageLock.release()
 
 

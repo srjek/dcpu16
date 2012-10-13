@@ -384,7 +384,7 @@ def main():
     from M35FD import M35FD
     rom = dcpu16Rom(comp1, error, "boot.bin")#, "firmware.bin")
     clock = genericClock(comp1, error)
-    floppyDrive = M35FD(comp1, error, gui, "binary-cubeOS.bin")#"PetriOS.bin")
+    floppyDrive = M35FD(comp1, error, gui, "clocktest.bin")#"PetriOS.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
     #hologram = SPED3(comp1, error)

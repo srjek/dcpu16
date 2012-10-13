@@ -53,7 +53,7 @@ class genericClock(threading.Thread):
         elif A == 1:
             self.register[2] = self.ticks.value
         elif A == 2:
-            self.interruptMsg.value = register[1]
+            self.interruptMsg.value = self.register[1]
         return 0
         
     def run(self):
