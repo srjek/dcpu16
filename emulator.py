@@ -46,7 +46,10 @@ class dcpu16:
     ### Warning, thread safe, not process-safe
     def scheduleCallback(self, time, callback_func, args):
         self.callbackLock.acquire()
-        self.callQueue[time] = (callback_func, args)
+        if time in self.callQueue:
+            self.callQueue[time].append((callback_func, args))
+        else:
+            self.callQueue[time] = [(callback_func, args)]
         if (self.waitingCallback[0] > 0) and (time < self.waitingCallback[0]):
             self.waitingCallback[0] = time
         self.callbackLock.release()
@@ -67,18 +70,23 @@ class dcpu16:
         if intQueue[0] == intQueue[1]:
             raise Exception("DCPU16 is on fire. Behavior undefined")
     def callbackCallback(self):
-        self.callbackLock.acquire()
+        callbackLock = self.callbackLock
         times = []
         times.extend(self.callQueue.keys())
+        callbackLock.acquire()
+        self.waitingCallback[0] = 0
+        callbackLock.release()
         while len(times) > 0 and times[0] <= self.time[0]:
-            (callback, args) = self.callQueue.pop(times[0])
-            callback(*args)
+            callbackLock.acquire()
+            callbacks = self.callQueue.pop(times[0])
+            callbackLock.release()
+            for (callback, args) in callbacks:
+                callback(*args)
             times.pop(0)
-        if len(times) == 0:
-            self.waitingCallback[0] = 0
-        else:
+        callbackLock.acquire()
+        if (len(times) != 0) and (times[0] < self.waitingCallback[0]):
             self.waitingCallback[0] = times[0]
-        self.callbackLock.release()
+        callbackLock.release()
     def HWIcallback(self, request):
         hardware = self.hardware
         if request == -1:       #HWN
@@ -208,7 +216,7 @@ class dcpu16Rom(threading.Thread):
         hwid = cpu.addHardware(self)
 
         #Callbacks are processed before any cycles are run! (and after too....)
-        cpu.scheduleCallback(0, dcpu16Rom.startup, (self,)) 
+        cpu.scheduleCallback(0, dcpu16Rom.startup, (self,))
 
         threading.Thread.__init__(self)
 

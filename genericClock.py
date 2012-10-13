@@ -1,5 +1,4 @@
-#import pygame, sys, traceback
-from pygame.locals import *
+import sys, traceback
 #import multiprocessing
 from multiprocessing import Value, Array, Lock
 import ctypes
@@ -49,13 +48,13 @@ class genericClock(threading.Thread):
             self.timing.value = timing
             self.ticks.value = 0
             cpu = self.cpu
-            cpu.scheduleCallback(cpu.time[0]+self.timing.value, genericClock.tick, (self, uid.value))
+            cpu.scheduleCallback(cpu.time[0]+timing, genericClock.tick, (self, uid.value))
         elif A == 1:
             self.register[2] = self.ticks.value
         elif A == 2:
             self.interruptMsg.value = self.register[1]
         return 0
-        
+    
     def run(self):
         return
     def finishUp(self):
