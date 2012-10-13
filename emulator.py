@@ -378,22 +378,22 @@ def main():
     gui = cpuControl(ctrl, state)
     
     from LEM1802 import LEM1802
-    from SPED3 import SPED3
+    #from SPED3 import SPED3
     from genericKeyboard import genericKeyboard
     from genericClock import genericClock
     from M35FD import M35FD
-    rom = dcpu16Rom(comp1, error, "firmware.bin")
+    rom = dcpu16Rom(comp1, error, "boot.bin")#, "firmware.bin")
     clock = genericClock(comp1, error)
-    floppyDrive = M35FD(comp1, error, gui, "PetriOS.bin")
+    floppyDrive = M35FD(comp1, error, gui, "binary-cubeOS.bin")#"PetriOS.bin")
     monitor = LEM1802(comp1, error)
     keyboard = genericKeyboard(comp1, error, monitor)
-    hologram = SPED3(comp1, error)
+    #hologram = SPED3(comp1, error)
     rom.start()
     clock.start()
     floppyDrive.start()
     monitor.start()
     keyboard.start()
-    hologram.start()
+    #hologram.start()
 
     gui.start()
     updateState = True
@@ -447,7 +447,7 @@ def main():
     floppyDrive.finishUp()
     monitor.finishUp()
     keyboard.finishUp()
-    hologram.finishUp()
+    #hologram.finishUp()
     
     while True:
         try:

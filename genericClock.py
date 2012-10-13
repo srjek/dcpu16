@@ -40,7 +40,7 @@ class genericClock(threading.Thread):
     def interrupt(self):
         A = self.register[0]
         if A == 0:
-            uid = self.uid.value
+            uid = self.uid
             uid.value = (uid.value+1) & 0xFFFF
             B = self.register[1]
             timing = 0
