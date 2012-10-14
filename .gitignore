@@ -4,3 +4,5 @@ __pycache__
 *.bin
 mem.dmp
 *~
+bin/assembler.py
+bin/emulator.py
