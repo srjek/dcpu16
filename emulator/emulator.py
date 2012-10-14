@@ -219,7 +219,8 @@ class dcpu16Rom(threading.Thread):
     def __init__(self, cpu, errorQueue, firmwareFile):
         self.errorQueue = errorQueue
         self.loadFile(firmwareFile)
-
+        self.enable()
+        
         self.register, self.ram = cpu.getInternals()
         self.cpu = cpu
         hwid = cpu.addHardware(self)
@@ -242,8 +243,13 @@ class dcpu16Rom(threading.Thread):
         obj.close()
         self.loadDat(dat)
 
+    def enable(self):
+        self.enabled = True
+    def disable(self):
+        self.enabled = False
     def startup(self):
-        self.cpu.cycles += self.interrupt() #We have to manage the interrupt ourselves...
+        if self.enabled:
+            self.cpu.cycles += self.interrupt() #We have to manage the interrupt ourselves...
 
     def queryInfo(self):
              #Manufacturer,    ID     , Version)
@@ -407,32 +413,42 @@ def parseCmdlineArguments():
     devices = getDevices()#["LEM1802", "genericKeyboard", "genericClock", "M35FD", "SPED3"]
     
     parser = argparse.ArgumentParser(description="Emulates systems and accessories from 0x10c. Any devices specified attach to the last cpu before.")
+    parser.add_argument("--image", nargs=1, action=maintainOrder, help="Disables cpu boot sequence, preloads [image] into memory")
     for cpu in cpus:
         parser.add_argument("--"+cpu, nargs=0, action=maintainOrder, help="Creates a "+cpu+".")
     for dev in devices:
         parser.add_argument("--"+dev, nargs=0, action=maintainOrder, help="Creates a "+dev+".")
-    args = parser.parse_args().ordered_args
+    namespace = parser.parse_args()
+    args = ()
+    if 'ordered_args' in namespace:
+        args = parser.parse_args()
     print(args)
     
     configuration = []
     defaultCpu = ("dcpu16",)
     curCpu = "default"
     curHardware = []
+    curImage = None
+    
     for cmd, opt in args:
         if cmd in cpus:
             if not ((curCpu == "default") and (len(curHardware) == 0)):
                 if curCpu == "default": curCpu = defaultCpu
-                configuration.append((curCpu, tuple(curHardware)))
+                configuration.append((curCpu, tuple(curHardware), curImage))
             tmp = [cmd]
             tmp.extend(opt)
             curCpu = tuple(tmp)
             curHardware = []
+            curImage=None
         elif cmd in devices:
             tmp = [cmd]
             tmp.extend(opt)
             curHardware.append(tuple(tmp))
+        elif cmd == "image":
+            curImage = opt[0]
     if curCpu == "default": curCpu = defaultCpu
-    configuration.append((curCpu, tuple(curHardware)))
+    configuration.append((curCpu, tuple(curHardware), curImage))
+    
     print(tuple(configuration))
     return tuple(configuration)
 
@@ -445,6 +461,8 @@ def main():
     
     devicePath = getDevices()
     configuration = parseCmdlineArguments()
+    
+    comp = []
     
     comp1 = dcpu16()
     #comp1.ram[0] = 0x01 | (0x01 << 5) | (0x1F << 10)
