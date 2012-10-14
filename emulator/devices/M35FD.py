@@ -10,6 +10,10 @@ import tkinter
 from tkinter import ttk, filedialog, messagebox
 
 class M35FD(threading.Thread):
+    needGui = True
+    needMonitor = False
+    isMonitor = False
+    
     STATE_NO_MEDIA =        0x0000
     STATE_READY =           0x0001
     STATE_READY_WP =        0x0002

@@ -8,6 +8,10 @@ import queue
 from queue import Queue
 
 class genericKeyboard(threading.Thread):
+    needGui = False
+    needMonitor = True
+    isMonitor = False
+    
     def __init__(self, cpu, errorQueue, monitor):
         self.register, self.ram = cpu.getInternals()
         self.cpu = cpu

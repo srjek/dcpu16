@@ -7,6 +7,10 @@ import queue
 from queue import Queue
 
 class genericClock(threading.Thread):
+    needGui = False
+    needMonitor = False
+    isMonitor = False
+    
     def __init__(self, cpu, errorQueue):
         self.register, self.ram = cpu.getInternals()
         self.cpu = cpu

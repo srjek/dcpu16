@@ -10,6 +10,10 @@ import queue
 from queue import Queue
 
 class SPED3(multiprocessing.Process):
+    needGui = False
+    needMonitor = False
+    isMonitor = False
+    
     STATE_NO_DATA = 0x0000
     STATE_RUNNING = 0x0001
     STATE_TURNING = 0x0002

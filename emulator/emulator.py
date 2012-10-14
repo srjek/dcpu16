@@ -1,4 +1,4 @@
-import pygame, sys
+import pygame, sys, os
 from pygame.locals import *
 import multiprocessing
 from multiprocessing import Value, Array, Queue, Lock
@@ -7,7 +7,16 @@ import threading
 import queue
 import tkinter
 from tkinter import ttk
-    
+
+emulatorRoot = ""
+if __name__ == '__main__':
+    emulatorRoot = os.path.dirname(os.path.realpath(sys.argv[0]))
+else:
+    emulatorRoot = os.path.dirname(os.path.realpath(__file__))
+emulatorRoot = os.path.abspath(emulatorRoot)
+sys.path.insert(0, os.path.join(emulatorRoot, "core"))
+os.chdir(emulatorRoot)
+
 from PyInline import C
 import PyInline, sys, dummyFile
 #sys.stderr.errors = 'unknown' #sys.stderr = dummyFile.dummyFile()
@@ -35,7 +44,7 @@ class dcpu16:
               PyObject* decode(PyObject* pyRam, PyObject* pyRegisters);
               PyObject* cycles(PyObject* ram, PyObject* registers, PyObject* intQueue, int count, PyObject* interruptCallback,
                                          PyObject* hardwareCallback, PyObject* isCallback, PyObject* callbackCallback,  PyObject* time);
-              #include "../../dcpu16/dcpu16.c"
+              #include "../../core/dcpu16.c"
               """,
               language="C")#, forceBuild=True)
 
@@ -363,13 +372,80 @@ class cpuControl(threading.Thread):
             pass
         self.ctrl.put(-0x10c)
     
+def getDevices():
+    devices = {}
+    deviceRoot = os.path.join(emulatorRoot, "devices")
+    files = os.listdir(deviceRoot)
+    for name in files:
+        path = os.path.join(deviceRoot, name)
+        if os.path.isdir(path):
+            pass
+        elif path.endswith(".py") and os.path.isfile(path):
+            name = name[:-3]
+        else:
+            continue
+        if name in devices:
+            print("Conflicting device names ("+repr(name)+")", file=sys.stderr)
+            devices[name] = None
+        else:
+            devices[name] = path
+    for device in list(devices.keys()):
+        if devices[device] == None:
+            devices.pop(device)
+    return devices
+def parseCmdlineArguments():
+    import argparse
+    class maintainOrder(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            if not 'ordered_args' in namespace:
+                setattr(namespace, 'ordered_args', [])
+            previous = namespace.ordered_args
+            previous.append((self.dest, values))
+            setattr(namespace, 'ordered_args', previous)
+        
+    cpus = ["dcpu16"]
+    devices = getDevices()#["LEM1802", "genericKeyboard", "genericClock", "M35FD", "SPED3"]
+    
+    parser = argparse.ArgumentParser(description="Emulates systems and accessories from 0x10c. Any devices specified attach to the last cpu before.")
+    for cpu in cpus:
+        parser.add_argument("--"+cpu, nargs=0, action=maintainOrder, help="Creates a "+cpu+".")
+    for dev in devices:
+        parser.add_argument("--"+dev, nargs=0, action=maintainOrder, help="Creates a "+dev+".")
+    args = parser.parse_args().ordered_args
+    print(args)
+    
+    configuration = []
+    defaultCpu = ("dcpu16",)
+    curCpu = "default"
+    curHardware = []
+    for cmd, opt in args:
+        if cmd in cpus:
+            if not ((curCpu == "default") and (len(curHardware) == 0)):
+                if curCpu == "default": curCpu = defaultCpu
+                configuration.append((curCpu, tuple(curHardware)))
+            tmp = [cmd]
+            tmp.extend(opt)
+            curCpu = tuple(tmp)
+            curHardware = []
+        elif cmd in devices:
+            tmp = [cmd]
+            tmp.extend(opt)
+            curHardware.append(tuple(tmp))
+    if curCpu == "default": curCpu = defaultCpu
+    configuration.append((curCpu, tuple(curHardware)))
+    print(tuple(configuration))
+    return tuple(configuration)
+
 def main():
     import time
     initTime = time.time()
     #pygame.init()	#don't uncomment, unneccesary for pygame.clock, and we need to keep the rest of pygame isolated to one process
     clock = pygame.time.Clock()
     error = Queue(50)
-
+    
+    devicePath = getDevices()
+    configuration = parseCmdlineArguments()
+    
     comp1 = dcpu16()
     #comp1.ram[0] = 0x01 | (0x01 << 5) | (0x1F << 10)
     #comp1.ram[1] = 0x8000
@@ -384,23 +460,60 @@ def main():
     state = Queue(20)
     gui = cpuControl(ctrl, state)
     
-    from LEM1802 import LEM1802
-    #from SPED3 import SPED3
-    from genericKeyboard import genericKeyboard
-    from genericClock import genericClock
-    from M35FD import M35FD
-    rom = dcpu16Rom(comp1, error, "firmware.bin")
-    clock = genericClock(comp1, error)
-    floppyDrive = M35FD(comp1, error, gui, None)
-    monitor = LEM1802(comp1, error)
-    keyboard = genericKeyboard(comp1, error, monitor)
-    #hologram = SPED3(comp1, error)
-    rom.start()
-    clock.start()
-    floppyDrive.start()
-    monitor.start()
-    keyboard.start()
-    #hologram.start()
+    emulatorCore = os.path.join(emulatorRoot, "core")
+    firmwarePath = os.path.join(emulatorCore, "firmware.bin")
+    devices = []
+    devices.append( dcpu16Rom(comp1, error, firmwarePath) )
+    
+    lastMonitor = None
+    import imp
+    for device in configuration[0][1]:
+        name = device[0]
+        args = device[1:]
+        path = devicePath[name]
+        if path.endswith(".py"):
+            path = os.path.dirname(path)
+        
+        module = None
+        try:
+            tmp = imp.find_module(name, [path,])
+            module = imp.load_module(name, *tmp)
+        except ImportError:
+            print("Failed to load device "+repr(name),file=sys.stderr)
+            if tmp[0] != None: tmp[0].close()
+            continue
+        if tmp[0] != None: tmp[0].close()
+        device_class = []
+        exec("device_class.append(module."+name+")")
+        device_class = device_class[0]
+        initArgs = [comp1, error]
+        if device_class.needGui:
+            initArgs.append(gui)
+        if device_class.needMonitor:
+            initArgs.append(lastMonitor)
+        devices.append(device_class(*initArgs))
+        if device_class.isMonitor:
+            lastMonitor = devices[-1]
+    for device in devices:
+        device.start()
+    
+#    from LEM1802 import LEM1802
+#    #from SPED3 import SPED3
+#    from genericKeyboard import genericKeyboard
+#    from genericClock import genericClock
+#    from M35FD import M35FD
+#    rom = dcpu16Rom(comp1, error, "firmware.bin")
+#    clock = genericClock(comp1, error)
+#    floppyDrive = M35FD(comp1, error, gui, None)
+#    monitor = LEM1802(comp1, error)
+#    keyboard = genericKeyboard(comp1, error, monitor)
+#    #hologram = SPED3(comp1, error)
+#    rom.start()
+#    clock.start()
+#    floppyDrive.start()
+#    monitor.start()
+#    keyboard.start()
+#    #hologram.start()
 
     gui.start()
     updateState = True
@@ -449,12 +562,17 @@ def main():
     pygame.quit()
     state.put(tuple(), True)
     gui.join()
-    rom.finishUp()
-    clock.finishUp()
-    floppyDrive.finishUp()
-    monitor.finishUp()
-    keyboard.finishUp()
-    #hologram.finishUp()
+    
+    
+    for devive in devices:
+        device.finishUp()
+        
+#    rom.finishUp()
+#    clock.finishUp()
+#    floppyDrive.finishUp()
+#    monitor.finishUp()
+#    keyboard.finishUp()
+#    #hologram.finishUp()
     
     while True:
         try:

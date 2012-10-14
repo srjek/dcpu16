@@ -1,4 +1,4 @@
-import pygame, sys, traceback
+import pygame, sys, os, traceback
 from pygame.locals import *
 import multiprocessing
 from multiprocessing import Value, Array
@@ -7,7 +7,18 @@ import ctypes
 import queue
 from queue import Queue
 
+LEM1806_Root = ""
+if __name__ == '__main__':
+    LEM1806_Root = os.path.dirname(os.path.realpath(sys.argv[0]))
+else:
+    LEM1806_Root = os.path.dirname(os.path.realpath(__file__))
+LEM1806_Root = os.path.abspath(LEM1806_Root)
+
 class LEM1802(multiprocessing.Process):
+    needGui = False
+    needMonitor = False
+    isMonitor = True
+    
     def __init__(self, cpu, errorQueue):
         self.register, self.ram = cpu.getInternals()
         self.errorQueue = errorQueue
@@ -54,7 +65,7 @@ class LEM1802(multiprocessing.Process):
         return 0
 
     def getDefaultFont():
-        fontImg = pygame.image.load("LEM1802/font.png")
+        fontImg = pygame.image.load("font.png")
         fontRom = []
         for y in range(4):
             for x in range(32):
@@ -95,6 +106,7 @@ class LEM1802(multiprocessing.Process):
         self.running.value = 0
         self.join()
     def run(self):
+        os.chdir(LEM1806_Root)
         try:
             from PyInline import C
             import PyInline, sys, dummyFile
@@ -102,7 +114,7 @@ class LEM1802(multiprocessing.Process):
             sys.stdout = dummyFile.dummyFile() #sys.stdout.errors = 'unknown'
             m = PyInline.build(code="""
                   PyObject* render(PyObject* ram, PyObject* display, int mapAddress, int tileAddress, PyObject* fontRom, int paletteAddress, int borderColor, int blink);
-                  #include "../../LEM1802/renderer.c"
+                  #include "../../renderer.c"
                   """,
                   language="C")
             
@@ -119,7 +131,7 @@ class LEM1802(multiprocessing.Process):
             pygame.display.set_caption("LEM1802")
             display = pygame.Surface((w*pw+16*2, h*ph+16*2))
             
-            bootImg = pygame.image.load("LEM1802/boot.png")
+            bootImg = pygame.image.load("boot.png")
             fontRom = bytes(Array(ctypes.c_uint16, LEM1802.getDefaultFont(), lock=False))
             #defaultPalette = LEM1802.getDefaultPalette()
             
@@ -156,7 +168,10 @@ class LEM1802(multiprocessing.Process):
                             pygame.event.post(pygame.event.Event(QUIT))
                     elif event.type == KEYUP:
                         for handler in self.keyHandlers:
-                            handler.put((event.type, event.key))
+                            try:
+                                handler.put_nowait((event.type, event.key))
+                            except Queue.Full:
+                                errorQueue.put("A key handler queue was full")
                 #extDisplay.blit(pygame.transform.scale2x(pygame.transform.scale2x(display)), (0, 0))
                 pygame.transform.scale(display, extSize, extDisplay)
                 pygame.display.update()
