@@ -8,15 +8,15 @@ try:
     import queue
     from queue import Queue
 
-    LEM1806_Root = ""
+    LEM1802_Root = ""
     if __name__ == '__main__':
-        LEM1806_Root = os.path.dirname(os.path.realpath(sys.argv[0]))
+        LEM1802_Root = os.path.dirname(os.path.realpath(sys.argv[0]))
     else:
-        LEM1806_Root = os.path.dirname(os.path.realpath(__file__))
-    LEM1806_Root = os.path.abspath(LEM1806_Root)
+        LEM1802_Root = os.path.dirname(os.path.realpath(__file__))
+    LEM1802_Root = os.path.abspath(LEM1802_Root)
 
     tmp = os.getcwd()
-    os.chdir(LEM1806_Root)
+    os.chdir(LEM1802_Root)
     from PyInline import C
     import PyInline
     m = PyInline.build(code="""
@@ -77,7 +77,7 @@ try:
             return 0
 
         def getDefaultFont():
-            fontImg = pygame.image.load("font.png")
+            fontImg = pygame.image.load(os.path.join(LEM1802_Root, "font.png"))
             fontRom = []
             for y in range(4):
                 for x in range(32):
@@ -123,7 +123,7 @@ try:
                 import sys, dummyFile
                 sys.stderr = dummyFile.queueFile(self.errorQueue) #sys.stderr.errors = 'unknown'
                 sys.stdout = dummyFile.dummyFile() #sys.stdout.errors = 'unknown'
-                os.chdir(LEM1806_Root)
+                os.chdir(LEM1802_Root)
                 
                 pygame.init()
                 clock = pygame.time.Clock()
@@ -194,6 +194,9 @@ try:
                 pygame.quit()
             except Exception as e:
                 exc_type, exc_value, exc_traceback = sys.exc_info()
+                tmp = open("/home/srjek/dcpu16/emulator/devices/LEM1802/ERRORERROR", "w")
+                tmp.write("\n".join(traceback.format_exc().splitlines()))
+                tmp.close()
                 self.errorQueue.put(traceback.format_exc().splitlines())
             self.errorQueue.put(sys.stdout.buffer.split("\n"))
             self.errorQueue.put(sys.stderr.buffer.split("\n"))
