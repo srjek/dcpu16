@@ -6,8 +6,6 @@ import ctypes
 import threading
 import queue
 from queue import Queue
-import tkinter
-from tkinter import ttk, filedialog, messagebox
 
 class M35FD(threading.Thread):
     needGui = True
@@ -52,7 +50,6 @@ class M35FD(threading.Thread):
 
         cpu.addHardware(self)
         threading.Thread.__init__(self)
-        #multiprocessing.Process.__init__(self)
         
         self.gui = gui
         gui.callback(M35FD.__initGui__, (self,))
@@ -60,6 +57,8 @@ class M35FD(threading.Thread):
              #Manufacturer,    ID     , Version)
         return (0x1eb37e91, 0x12345678, 3)  #TODO: device spec doesn't hace a legit id yet (it reuses the LEMs)
     def __initGui__(self):
+        import tkinter
+        from tkinter import ttk, filedialog, messagebox
         window = tkinter.Toplevel()
         window.title("M35FD")
         
