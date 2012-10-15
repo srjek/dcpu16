@@ -401,7 +401,6 @@ class main(multiprocessing.Process): #(threading.Thread):
         sys.stderr = dummyFile.queueFile(self.errorQueue)
         sys.stdout = dummyFile.dummyFile()
         try:
-            os.chdir(dcpu16_Root)
             #pygame.init()	#don't uncomment, unneccesary for pygame.clock, and we need to keep the rest of pygame isolated to one process
             clock = pygame.time.Clock()
             error = Queue(50)
@@ -410,7 +409,10 @@ class main(multiprocessing.Process): #(threading.Thread):
             state = Queue(20)
             gui = cpuControl(ctrl, state)
             
+            tmp = os.getcwd()
+            os.chdir(dcpu16_Root)
             comp = dcpu16()
+            os.chdir(tmp)
             firmwarePath = os.path.join(dcpu16_Root, "firmware.bin")
             devices = [ dcpu16Rom(comp, error, firmwarePath) ]
             if self.imagePath != None:
@@ -448,6 +450,8 @@ class main(multiprocessing.Process): #(threading.Thread):
                 devices.append(device_class(*initArgs))
                 if device_class.isMonitor:
                     lastMonitor = devices[-1]
+                    
+            os.chdir(dcpu16_Root)
             for device in devices:
                 device.start()
 
@@ -482,7 +486,7 @@ class main(multiprocessing.Process): #(threading.Thread):
                         running = False
                     if cycles == -3:
                         comp.cycle(1)
-                        comp.cycle(comp1.cycles)
+                        comp.cycle(comp.cycles)
                     if cycles == -0x10c:
                         executing.value = 0
                 except queue.Empty:

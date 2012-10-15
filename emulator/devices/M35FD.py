@@ -1,11 +1,11 @@
-#import pygame, sys, traceback
-from pygame.locals import *
+import os
 #import multiprocessing
 from multiprocessing import Value, Array, Lock
 import ctypes
 import threading
 import queue
 from queue import Queue
+origRoot = os.getcwd()
 
 class M35FD(threading.Thread):
     needGui = True
@@ -96,13 +96,19 @@ class M35FD(threading.Thread):
         self.handleCommand(M35FD.CMD_EJECT, 0, 0)
     def getFileR(self):
         from tkinter import ttk, filedialog, messagebox
+        tmp = os.getcwd()
+        os.chdir(origRoot)
         imagePath = filedialog.askopenfilename(title="Select a floppy image to load", parent=self.window)
+        os.chdir(tmp)
         if (imagePath == "") or (imagePath == ()):
             return None
         return imagePath
     def getFileW(self):
         from tkinter import ttk, filedialog, messagebox
-        return filedialog.asksaveasfilename(title="Specify a file name to save as", parent=self.window)
+        tmp = os.getcwd()
+        os.chdir(origRoot)
+        imagePath = filedialog.asksaveasfilename(title="Specify a file name to save as", parent=self.window)
+        os.chdir(tmp)
         if (imagePath == "") or (imagePath == ()):
             return None
         return imagePath

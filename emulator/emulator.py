@@ -165,7 +165,6 @@ def main():
     cpuPath = getCPUs()
     devicePath = getDevices()
     configuration = parseCmdlineArguments()
-    os.chdir(emulatorRoot)  #some cmdline arguments depend on cwd, so wait until now to move
     
     gui = rootGui()
     running = Value("i", 1, lock=False)
@@ -191,6 +190,8 @@ def main():
         if tmp[0] != None: tmp[0].close()
         cpu_class = module.main
         comp.append(cpu_class(running, error, args, imagePath, devicePath, deviceConfig))
+    
+    os.chdir(emulatorRoot)  #some cmdline arguments depend on cwd, so wait until now to move
     
     for cpu in comp:
         cpu.start()
