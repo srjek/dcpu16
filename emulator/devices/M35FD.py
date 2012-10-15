@@ -95,11 +95,13 @@ class M35FD(threading.Thread):
     def eject(self):
         self.handleCommand(M35FD.CMD_EJECT, 0, 0)
     def getFileR(self):
+        from tkinter import ttk, filedialog, messagebox
         imagePath = filedialog.askopenfilename(title="Select a floppy image to load", parent=self.window)
         if (imagePath == "") or (imagePath == ()):
             return None
         return imagePath
     def getFileW(self):
+        from tkinter import ttk, filedialog, messagebox
         return filedialog.asksaveasfilename(title="Specify a file name to save as", parent=self.window)
         if (imagePath == "") or (imagePath == ()):
             return None

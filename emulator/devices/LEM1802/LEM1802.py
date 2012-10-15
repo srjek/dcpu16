@@ -15,6 +15,16 @@ try:
         LEM1806_Root = os.path.dirname(os.path.realpath(__file__))
     LEM1806_Root = os.path.abspath(LEM1806_Root)
 
+    tmp = os.getcwd()
+    os.chdir(LEM1806_Root)
+    from PyInline import C
+    import PyInline
+    m = PyInline.build(code="""
+          PyObject* render(PyObject* ram, PyObject* display, int mapAddress, int tileAddress, PyObject* fontRom, int paletteAddress, int borderColor, int blink);
+          #include "../../renderer.c"
+          """,
+          language="C")
+    os.chdir(tmp)
 
     class LEM1802(multiprocessing.Process):
         needGui = False
@@ -106,24 +116,14 @@ try:
             self.keyHandlers.append(handler)
         def finishUp(self):
             self.running.value = 0
-            self.join(1)
+            self.join(5)
             self.terminate()
         def run(self):
             try:
                 import sys, dummyFile
                 sys.stderr = dummyFile.queueFile(self.errorQueue) #sys.stderr.errors = 'unknown'
                 sys.stdout = dummyFile.dummyFile() #sys.stdout.errors = 'unknown'
-                print("Whee~1", file=sys.stderr)
                 os.chdir(LEM1806_Root)
-                from PyInline import C
-                import PyInline
-                print("Whee~2", file=sys.stderr)
-                m = PyInline.build(code="""
-                      PyObject* render(PyObject* ram, PyObject* display, int mapAddress, int tileAddress, PyObject* fontRom, int paletteAddress, int borderColor, int blink);
-                      #include "../../renderer.c"
-                      """,
-                      language="C")
-                print("Whee~3", file=sys.stderr)
                 
                 pygame.init()
                 clock = pygame.time.Clock()
