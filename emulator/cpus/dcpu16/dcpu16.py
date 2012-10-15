@@ -394,8 +394,6 @@ class main(multiprocessing.Process): #(threading.Thread):
         multiprocessing.Process.__init__(self)
     def finishUp(self):
         self.running.value = 0
-        self.join(10)
-        self.terminate()
     def run(self):
         import time
         sys.stderr = dummyFile.queueFile(self.errorQueue)
@@ -417,12 +415,11 @@ class main(multiprocessing.Process): #(threading.Thread):
             devices = [ dcpu16Rom(comp, error, firmwarePath) ]
             if self.imagePath != None:
                 devices[0].disable()
-                print(devices[0].enabled)
                 comp.loadFileIntoRam(0, self.imagePath)
                     
             devicePath = self.devicePath
             lastMonitor = None
-            import imp
+            import importlib
             for device in self.deviceConfig:
                 name = device[0]
                 args = device[1:]
@@ -432,13 +429,15 @@ class main(multiprocessing.Process): #(threading.Thread):
                 
                 module = None
                 try:
-                    tmp = imp.find_module(name, [path,])
-                    module = imp.load_module(name, *tmp)
+                    tmp = importlib.find_loader(name, [path])
+                    module = tmp.load_module(name)
+                    #tmp = imp.find_module(name, [path,])
+                    #module = imp.load_module(name, *tmp)
                 except ImportError:
                     print("Failed to load device "+repr(name),file=sys.stderr)
-                    if tmp[0] != None: tmp[0].close()
+                    #if tmp[0] != None: tmp[0].close()
                     continue
-                if tmp[0] != None: tmp[0].close()
+                #if tmp[0] != None: tmp[0].close()
                 device_class = []
                 exec("device_class.append(module."+name+")")
                 device_class = device_class[0]
@@ -507,6 +506,10 @@ class main(multiprocessing.Process): #(threading.Thread):
             
             for device in devices:
                 device.finishUp()
+            for device in devices:
+                device.join(5)
+                if hasattr(device, "terminate"):
+                    device.terminate()
             
             while True:
                 try:

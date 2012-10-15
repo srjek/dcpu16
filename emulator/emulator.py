@@ -166,12 +166,20 @@ def main():
     devicePath = getDevices()
     configuration = parseCmdlineArguments()
     
+    sys.path.append(os.path.join(emulatorRoot, "devices", "LEM1802"))
+    import LEM1802
+    sys.path = sys.path[:-1]
+    
+    import multiprocessing, logging
+    #logger = multiprocessing.log_to_stderr()
+    #logger.setLevel(multiprocessing.SUBDEBUG)
+    
     gui = rootGui()
     running = Value("i", 1, lock=False)
     error = Queue(200)
     comp = []
     
-    import imp
+    import importlib
     for cpu, imagePath, deviceConfig in configuration:
         name = cpu[0]
         args = cpu[1:]
@@ -181,13 +189,15 @@ def main():
         
         module = None
         try:
-            tmp = imp.find_module(name, [path,])
-            module = imp.load_module(name, *tmp)
+            tmp = importlib.find_loader(name, [path])
+            module = tmp.load_module(name)
+            #tmp = imp.find_module(name, [path])
+            #module = imp.load_module(name, *tmp)
         except ImportError:
             print("Failed to load cpu "+repr(name),file=sys.stderr)
-            if tmp[0] != None: tmp[0].close()
+            #if tmp[0] != None: tmp[0].close()
             continue
-        if tmp[0] != None: tmp[0].close()
+        #if tmp[0] != None: tmp[0].close()
         cpu_class = module.main
         comp.append(cpu_class(running, error, args, imagePath, devicePath, deviceConfig))
     
@@ -215,6 +225,10 @@ def main():
     for cpu in comp:
         cpu.finishUp()
         checkQueue()
-
+    for cpu in comp:
+        cpu.join(10)
+        cpu.terminate()
+        checkQueue()
+        
 if __name__ == '__main__':
     main()
