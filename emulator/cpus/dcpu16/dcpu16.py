@@ -381,11 +381,11 @@ class cpuControl(threading.Thread):
         self.ctrl.put(-0x10c)
 
 class main(multiprocessing.Process): #(threading.Thread):
-    def __init__(self, sysRunning, errorQueue, args, imagePath, devicePath, deviceConfig):
+    def __init__(self, sysRunning, errorQueue, args, imagePath, deviceClass, deviceConfig):
         if len(args) > 0:
             print("dcpu16 doesn't except args, ignoring." ,file=sys.stderr)
         self.imagePath = imagePath
-        self.devicePath = devicePath
+        self.deviceClass = deviceClass
         self.deviceConfig = deviceConfig
         self.running = Value("i", 1, lock=False)
         self.sysRunning = sysRunning
@@ -416,31 +416,15 @@ class main(multiprocessing.Process): #(threading.Thread):
             if self.imagePath != None:
                 devices[0].disable()
                 comp.loadFileIntoRam(0, self.imagePath)
-                    
-            devicePath = self.devicePath
+    
+            deviceClass = self.deviceClass
             lastMonitor = None
             import importlib
             for device in self.deviceConfig:
                 name = device[0]
                 args = device[1:]
-                path = devicePath[name]
-                if path.endswith(".py"):
-                    path = os.path.dirname(path)
+                device_class = deviceClass[name]
                 
-                module = None
-                try:
-                    tmp = importlib.find_loader(name, [path])
-                    module = tmp.load_module(name)
-                    #tmp = imp.find_module(name, [path,])
-                    #module = imp.load_module(name, *tmp)
-                except ImportError:
-                    print("Failed to load device "+repr(name),file=sys.stderr)
-                    #if tmp[0] != None: tmp[0].close()
-                    continue
-                #if tmp[0] != None: tmp[0].close()
-                device_class = []
-                exec("device_class.append(module."+name+")")
-                device_class = device_class[0]
                 initArgs = [comp, error]
                 if device_class.needGui:
                     initArgs.append(gui)

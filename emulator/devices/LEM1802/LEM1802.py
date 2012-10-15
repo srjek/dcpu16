@@ -3,9 +3,9 @@ from pygame.locals import *
 import multiprocessing
 from multiprocessing import Value, Array
 import ctypes
-#import threading
 import queue
 from queue import Queue
+
 LEM1802_Root = ""
 if __name__ == '__main__':
     LEM1802_Root = os.path.dirname(os.path.realpath(sys.argv[0]))

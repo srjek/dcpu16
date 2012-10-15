@@ -11,53 +11,61 @@ else:
 emulatorRoot = os.path.abspath(emulatorRoot)
 sys.path.insert(0, os.path.join(emulatorRoot, "core"))
 
+def getPlugins(dirpath="", useNameAsClass=False):
+    plugins = {}
+    files = os.listdir(dirpath)
+    for name in files:
+        path = os.path.join(dirpath, name)
+        if name.startswith("_"):
+            continue
+        elif os.path.isdir(path):
+            pass
+        elif path.endswith(".py") and os.path.isfile(path):
+            name = name[:-3]
+        else:
+            continue
+        if name in plugins:
+            print("Conflicting plugin names ("+repr(name)+")", file=sys.stderr)
+            plugins[name] = None
+        else:
+            plugins[name] = path
+    for name in list(plugins.keys()):
+        if plugins[name] == None:
+            plugins.pop(name)
+            
+    import importlib
+    for name in list(plugins.keys()):
+        path = plugins[name]
+        if path.endswith(".py"):
+            path = os.path.dirname(path)
+        
+        module = None
+        try:
+            tmp = importlib.find_loader(name, [path])
+            module = tmp.load_module(name)
+            #tmp = imp.find_module(name, [path])
+            #module = imp.load_module(name, *tmp)
+        except ImportError:
+            print("Failed to load plugin "+repr(name),file=sys.stderr)
+            plugins.pop(name)
+            #if tmp[0] != None: tmp[0].close()
+            continue
+        #if tmp[0] != None: tmp[0].close()
+        if useNameAsClass:
+            module_class = []
+            exec("module_class.append(module."+name+")")
+            plugins[name] = module_class[0]
+        else:
+            plugins[name] = module.main
+    return plugins
 def getCPUs():
-    cpus = {}
     cpuRoot = os.path.join(emulatorRoot, "cpus")
-    files = os.listdir(cpuRoot)
-    for name in files:
-        path = os.path.join(cpuRoot, name)
-        if name.startswith("_"):
-            continue
-        elif os.path.isdir(path):
-            pass
-        elif path.endswith(".py") and os.path.isfile(path):
-            name = name[:-3]
-        else:
-            continue
-        if name in cpus:
-            print("Conflicting cpu names ("+repr(name)+")", file=sys.stderr)
-            cpus[name] = None
-        else:
-            cpus[name] = path
-    for name in list(cpus.keys()):
-        if cpus[name] == None:
-            cpus.pop(name)
-    return cpus
+    return getPlugins(cpuRoot, useNameAsClass=False)
 def getDevices():
-    devices = {}
     deviceRoot = os.path.join(emulatorRoot, "devices")
-    files = os.listdir(deviceRoot)
-    for name in files:
-        path = os.path.join(deviceRoot, name)
-        if name.startswith("_"):
-            continue
-        elif os.path.isdir(path):
-            pass
-        elif path.endswith(".py") and os.path.isfile(path):
-            name = name[:-3]
-        else:
-            continue
-        if name in devices:
-            print("Conflicting device names ("+repr(name)+")", file=sys.stderr)
-            devices[name] = None
-        else:
-            devices[name] = path
-    for name in list(devices.keys()):
-        if devices[name] == None:
-            devices.pop(name)
-    return devices
-def parseCmdlineArguments():
+    return getPlugins(deviceRoot, useNameAsClass=True)
+    
+def parseCmdlineArguments(cpus, devices):
     import argparse
     class maintainOrder(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
@@ -67,8 +75,8 @@ def parseCmdlineArguments():
             previous.append((self.dest, values))
             setattr(namespace, 'ordered_args', previous)
         
-    cpus = getCPUs()#["dcpu16"]
-    devices = getDevices()#["LEM1802", "genericKeyboard", "genericClock", "M35FD", "SPED3"]
+    #cpus = ["dcpu16"]
+    #devices = ["LEM1802", "genericKeyboard", "genericClock", "M35FD", "SPED3"]
     
     parser = argparse.ArgumentParser(description="Emulates systems and accessories from 0x10c. Any devices specified attach to the last cpu before.")
     parser.add_argument("--image", nargs=1, action=maintainOrder, help="Disables cpu boot sequence, preloads [image] into memory")
@@ -162,9 +170,9 @@ def main():
     import time
     initTime = time.time()
     
-    cpuPath = getCPUs()
-    devicePath = getDevices()
-    configuration = parseCmdlineArguments()
+    cpus = getCPUs()
+    devices = getDevices()
+    configuration = parseCmdlineArguments(cpus, devices)
     
     sys.path.append(os.path.join(emulatorRoot, "devices", "LEM1802"))
     import LEM1802
@@ -183,23 +191,8 @@ def main():
     for cpu, imagePath, deviceConfig in configuration:
         name = cpu[0]
         args = cpu[1:]
-        path = cpuPath[name]
-        if path.endswith(".py"):
-            path = os.path.dirname(path)
-        
-        module = None
-        try:
-            tmp = importlib.find_loader(name, [path])
-            module = tmp.load_module(name)
-            #tmp = imp.find_module(name, [path])
-            #module = imp.load_module(name, *tmp)
-        except ImportError:
-            print("Failed to load cpu "+repr(name),file=sys.stderr)
-            #if tmp[0] != None: tmp[0].close()
-            continue
-        #if tmp[0] != None: tmp[0].close()
-        cpu_class = module.main
-        comp.append(cpu_class(running, error, args, imagePath, devicePath, deviceConfig))
+        cpu_class = cpus[name]
+        comp.append(cpu_class(running, error, args, imagePath, devices, deviceConfig))
     
     os.chdir(emulatorRoot)  #some cmdline arguments depend on cwd, so wait until now to move
     
