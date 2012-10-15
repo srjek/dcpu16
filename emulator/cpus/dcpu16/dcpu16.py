@@ -419,7 +419,6 @@ class main(multiprocessing.Process): #(threading.Thread):
     
             deviceClass = self.deviceClass
             lastMonitor = None
-            import importlib
             for device in self.deviceConfig:
                 name = device[0]
                 args = device[1:]

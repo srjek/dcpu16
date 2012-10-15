@@ -41,8 +41,12 @@ def getPlugins(dirpath="", useNameAsClass=False):
         
         module = None
         try:
-            tmp = importlib.find_loader(name, [path])
-            module = tmp.load_module(name)
+            sys.path.insert(0, path)
+            module = __import__(name, globals(), locals(), [], 0)
+            globals()[name] = module
+            sys.path = sys.path[1:]
+            #tmp = importlib.find_loader(name, [path])
+            #module = tmp.load_module(name)
             #tmp = imp.find_module(name, [path])
             #module = imp.load_module(name, *tmp)
         except ImportError:
@@ -52,9 +56,7 @@ def getPlugins(dirpath="", useNameAsClass=False):
             continue
         #if tmp[0] != None: tmp[0].close()
         if useNameAsClass:
-            module_class = []
-            exec("module_class.append(module."+name+")")
-            plugins[name] = module_class[0]
+            plugins[name] = eval("module."+name, globals(), locals())
         else:
             plugins[name] = module.main
     return plugins
