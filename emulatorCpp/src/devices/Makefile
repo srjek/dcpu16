@@ -10,11 +10,11 @@ print_device_objs:
 	@echo $(DEVICES) | tr " " "\n" | sed "s:.*:&/&.o:" | tr "\n" " "
 	
 $(DEVICES):
-	@cd $@; make $@.o
+	@cd $@ && $(MAKE) $@.o
     
 .PHONY: clean $(CLEANDEVICES) devices $(DEVICES) devices.h print_device_objs
 
 clean: $(CLEANDEVICES)
 	rm -f devices.h
 $(CLEANDEVICES):
-	@cd $(@:clean-%=%); make clean
+	@cd $(@:clean-%=%) && $(MAKE) clean

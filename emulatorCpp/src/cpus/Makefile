@@ -10,11 +10,11 @@ print_cpu_objs:
 	@echo $(CPUS) | tr " " "\n" | sed "s:.*:&/&.o:" | tr "\n" " "
 	
 $(CPUS):
-	@cd $@; make $@.o
+	@cd $@ && $(MAKE) $@.o
     
 .PHONY: clean $(CLEANCPUS) cpus $(CPUS) cpus.h print_cpu_objs
 
 clean: $(CLEANCPUS)
 	rm -f cpus.h
 $(CLEANCPUS):
-	@cd $(@:clean-%=%); make clean
+	@cd $(@:clean-%=%) && $(MAKE) clean

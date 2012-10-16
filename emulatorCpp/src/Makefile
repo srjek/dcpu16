@@ -25,9 +25,9 @@ $(PROGRAM):$(OBJECTS) devices cpus
 	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS)
 
 devices:
-	@cd devices; make devices
+	@cd devices && $(MAKE) devices
 cpus:
-	@cd cpus; make cpus
+	@cd cpus && $(MAKE) cpus
     
 .PHONY: clean all run devices cpus
 run: all
@@ -36,5 +36,5 @@ run: all
 clean:
 	rm -f *.o
 	rm -f $(PROGRAM)
-	@cd cpus; make clean
-	@cd devices; make clean
+	@cd cpus && $(MAKE) clean
+	@cd devices && $(MAKE) clean
