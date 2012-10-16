@@ -1,10 +1,10 @@
 DEVICES := $(shell find * -type d -print)
 CLEANDEVICES := $(DEVICES:%=clean-%)
 	
-devices: devices.h $(DEVICES)
+devices: $(DEVICES)
 
 devices.h:
-	./build-devices_h $(CPUS) > devices.h
+	./build-devices_h > devices.h
 
 print_device_objs:
 	@echo $(DEVICES) | tr " " "\n" | sed "s:.*:&/&.o:" | tr "\n" " "

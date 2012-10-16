@@ -1,0 +1,2 @@
+#define LEM1802_CMDLINE_HELP \
+	{ wxCMD_LINE_SWITCH, NULL, wxT("LEM1802"), wxT("DEVICES!") },

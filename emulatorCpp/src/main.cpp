@@ -1,6 +1,9 @@
 #include <iostream>
 #include <wx/cmdline.h>
-#include "wx/wx.h" 
+#include "wx/wx.h"
+
+#include "cpus/cpus.h"
+#include "devices/devices.h"
 
 class emulatorApp: public wxApp
 {
@@ -14,7 +17,8 @@ static const wxCmdLineEntryDesc g_cmdLineDesc [] =
      { wxCMD_LINE_SWITCH, wxT("h"), wxT("help"), wxT("displays help on the command line parameters"),
           wxCMD_LINE_VAL_NONE, wxCMD_LINE_OPTION_HELP },
      { wxCMD_LINE_SWITCH, wxT("s"), wxT("silent"), wxT("disables the GUI") },
- 
+     CPUS_CMDLINE_HELP
+     DEVICES_CMDLINE_HELP
      { wxCMD_LINE_NONE }
 };
 

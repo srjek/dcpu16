@@ -12,24 +12,30 @@ DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s
 
 # implementation
 
+all:	$(PROGRAM)
+
 .SUFFIXES:      .o .cpp
 
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
+main.o: cpus.h devices.h
 
-all:	$(PROGRAM)
 
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
 $(PROGRAM):$(OBJECTS) devices cpus
 	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS)
 
-devices:
-	@cd devices && $(MAKE) devices
 cpus:
 	@cd cpus && $(MAKE) cpus
+cpus.h:
+	@cd cpus && $(MAKE) cpus.h
+devices:
+	@cd devices && $(MAKE) devices
+devices.h:
+	@cd devices && $(MAKE) devices.h
     
-.PHONY: clean all run devices cpus
+.PHONY: clean all run devices cpus cpus.h devices.h
 run: all
 	./$(PROGRAM)
 

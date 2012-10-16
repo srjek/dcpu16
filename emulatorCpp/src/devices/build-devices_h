@@ -1,1 +1,7 @@
+#!/bin/bash
+
 find * -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
+echo -e "\n#define DEVICES_CMDLINE_HELP \\"
+find * -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
+#echo -e "{ wxCMD_LINE_SWITCH, wxT(\"d\"), wxT(\"devices\"), wxT(\"DEVICES!\") },"
+echo ""

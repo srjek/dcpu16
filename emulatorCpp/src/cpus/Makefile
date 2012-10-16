@@ -1,10 +1,10 @@
 CPUS := $(shell find * -type d -print)
 CLEANCPUS := $(CPUS:%=clean-%)
 	
-cpus: cpus.h $(CPUS)
+cpus: $(CPUS)
 
 cpus.h:
-	./build-cpus_h $(CPUS) > cpus.h
+	./build-cpus_h > cpus.h
 
 print_cpu_objs:
 	@echo $(CPUS) | tr " " "\n" | sed "s:.*:&/&.o:" | tr "\n" " "
