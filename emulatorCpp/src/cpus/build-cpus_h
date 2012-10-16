@@ -1,0 +1,1 @@
+find * -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
