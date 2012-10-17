@@ -1,7 +1,7 @@
-#include <iostream>
 #include <wx/cmdline.h>
 #include "wx/wx.h"
 
+#include "sysConfig.h"
 #include "cpus/cpus.h"
 #include "devices/devices.h"
 
@@ -16,9 +16,10 @@ static const wxCmdLineEntryDesc g_cmdLineDesc [] =
 {
      { wxCMD_LINE_SWITCH, wxT("h"), wxT("help"), wxT("displays help on the command line parameters"),
           wxCMD_LINE_VAL_NONE, wxCMD_LINE_OPTION_HELP },
-     { wxCMD_LINE_SWITCH, wxT("s"), wxT("silent"), wxT("disables the GUI") },
+     { wxCMD_LINE_SWITCH, NULL, wxT("image"), wxT("Disables a cpu's boot sequence, instead loading the specified image into ram directly.")},
      CPUS_CMDLINE_HELP
      DEVICES_CMDLINE_HELP
+     { wxCMD_LINE_PARAM, NULL, NULL, NULL, wxCMD_LINE_VAL_NONE, wxCMD_LINE_PARAM_OPTIONAL | wxCMD_LINE_PARAM_MULTIPLE },
      { wxCMD_LINE_NONE }
 };
 
@@ -49,7 +50,6 @@ IMPLEMENT_APP(emulatorApp)
  
 void emulatorApp::OnInitCmdLine(wxCmdLineParser& parser)
 {
-    std::cout << "test1" << "\n";
     parser.SetDesc (g_cmdLineDesc);
     // must refuse '/' as parameter starter or cannot use "/path" style paths
     parser.SetSwitchChars (wxT("-"));
@@ -57,7 +57,6 @@ void emulatorApp::OnInitCmdLine(wxCmdLineParser& parser)
 bool emulatorApp::OnCmdLineParsed(wxCmdLineParser& parser)
 {
     bool silent_mode = parser.Found(wxT("s"));
-    std::cout << "test2" << silent_mode << "\n";
  
     // to get at your unnamed parameters use
     /*wxArrayString files;
@@ -76,7 +75,17 @@ bool emulatorApp::OnInit()
 {
     if (!wxApp::OnInit())
         return false;
-        
+    
+    emulationConfig test = emulationConfig(argc-1, argv+1);
+    for (int i = 0; i < test.systems.size(); i++) {
+        sysConfig* system = test.systems[i];
+        std::cout << "System 1" << std::endl;
+        std::cout << "\tCPU: " << system->cpu->name << std::endl;
+        for (int j = 0; j < system->devices.size(); j++) {
+            deviceConfig* device = system->devices[j];
+            std::cout << "\tDevice " << j << ": " << device->name << std::endl;
+        }
+    }
     masterWindow *master = new masterWindow( wxPoint(50, 50));
     master->Show(true);
     SetTopWindow(master);

@@ -1,7 +1,36 @@
 #!/bin/bash
 
+echo "#include \"wx/wx.h\"" #We need some typedefs and string comparsion
+echo "#include \"../sysConfig.h\""  #We need the cpuConfig definition
+echo ""
+
+#Include available cpus
 find * -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
+echo ""
+
+#Header guard
+echo "#ifndef emulator_cpus_h"
+echo "#define emulator_cpus_h"
+
+#create define for cmdline argument table
 echo -e "\n#define CPUS_CMDLINE_HELP \\"
 find * -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
 #echo -e "{ wxCMD_LINE_SWITCH, wxT(\"c\"), wxT(\"cpus\"), wxT(\"CPUS!\") },"
 echo ""
+
+#Helper methods to find a device from it's coresponding cmdline arg
+echo "bool findCpu(wxChar* arg) {"
+find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
+echo "    return false;"
+echo "}"
+
+echo "cpuConfig* createCpuConfig(int& argc, wxChar**& argv) {"
+echo "    wxChar* arg = argv[0];"
+echo "    argc--; argv++;"
+find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"
+echo "    argc++; argv--;"
+echo "    return NULL;"
+echo "}"
+
+echo ""
+echo "#endif"
