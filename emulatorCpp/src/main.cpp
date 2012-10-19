@@ -79,7 +79,7 @@ bool emulatorApp::OnInit()
     emulationConfig test = emulationConfig(argc-1, argv+1);
     for (int i = 0; i < test.systems.size(); i++) {
         sysConfig* system = test.systems[i];
-        std::cout << "System 1" << std::endl;
+        std::cout << "System " << i << ":" << std::endl;
         std::cout << "\tCPU: " << system->cpu->name << std::endl;
         for (int j = 0; j < system->devices.size(); j++) {
             deviceConfig* device = system->devices[j];
