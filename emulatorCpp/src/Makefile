@@ -10,7 +10,10 @@ OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 CPU_OBJS := $(shell cd cpus; make print_cpu_objs | tr " " "\n" | sed "s:.*:cpus/&:" | tr "\n" " ")
 DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s:.*:devices/&:" | tr "\n" " ")
 
-# implementation
+STATIC :=
+ifeq ($(shell uname), MINGW32_NT-6.1)
+STATIC := --static
+endif
 
 all:	$(PROGRAM)
 
@@ -24,7 +27,7 @@ main.o: cpus.h devices.h
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
 $(PROGRAM):$(OBJECTS) devices cpus
-	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS)
+	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(STATIC)
 
 cpus:
 	@cd cpus && $(MAKE) cpus
