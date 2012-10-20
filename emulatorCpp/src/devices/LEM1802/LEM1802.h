@@ -1,6 +1,5 @@
 #include "../../device.h"
 #include "../../cpu.h"
-#include "../../sysConfig.h"
 
 #ifndef emulator_LEM1802_h
 #define emulator_LEM1802_h

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "#include \"wx/wx.h\"" #We need some typedefs and string comparsion
-echo "#include \"../sysConfig.h\""  #We need the cpuConfig definition
+echo "#include \"../cpu.h\""  #We need the cpuConfig definition
 echo ""
 
 #Include available cpus

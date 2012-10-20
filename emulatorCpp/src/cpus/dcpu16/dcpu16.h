@@ -1,5 +1,4 @@
 #include "../../cpu.h"
-#include "../../sysConfig.h"
 #include <iostream>
 
 #ifndef emulator_dcpu16_h

@@ -1,10 +1,9 @@
 #include <wx/cmdline.h>
 #include "wx/wx.h"
 
-#include "sysConfig.h"
+#include "emulation.h"
 #include "cpus/cpus.h"
 #include "devices/devices.h"
-#include "system.h"
 
 class emulatorApp: public wxApp
 {
@@ -14,8 +13,7 @@ class emulatorApp: public wxApp
     virtual int OnExit();
 private:
     emulationConfig* config;
-    compSystem** systems;
-    int nSystems;
+    emulation* environment;
 };
 static const wxCmdLineEntryDesc g_cmdLineDesc [] =
 {
@@ -81,29 +79,18 @@ bool emulatorApp::OnInit() {
         return false;
     
     config = new emulationConfig(argc-1, argv+1);
-    for (int i = 0; i < config->systemConfigs.size(); i++) {
-        sysConfig* system = config->systemConfigs[i];
-        std::cout << "System " << i << ":" << std::endl;
-        std::cout << "\tCPU: " << system->cpu->name << std::endl;
-        for (int j = 0; j < system->devices.size(); j++) {
-            deviceConfig* device = system->devices[j];
-            std::cout << "\tDevice " << j << ": " << device->name << std::endl;
-        }
-    }
+    config->print();
     
     masterWindow *master = new masterWindow( wxPoint(50, 50));
     master->Show(true);
     SetTopWindow(master);
     
-    config->createSystems(systems, nSystems);
+    environment = config->createEmulation();
     return true;
 } 
 int emulatorApp::OnExit() {
-    for (int i = 0; i < nSystems; i++) {
-            delete systems[i];
-    }
-    delete[] systems;
-    free(config);
+    delete environment;
+    delete config;
     return wxApp::OnExit();
 } 
 

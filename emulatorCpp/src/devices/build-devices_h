@@ -1,6 +1,10 @@
 #!/bin/bash
 
-#Include available cpus
+echo "#include \"wx/wx.h\"" #We need some typedefs and string comparsion
+echo "#include \"../cpu.h\""  #We need the deviceConfig definition
+echo ""
+
+#Include available devices
 find * -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
 
 #Header guard

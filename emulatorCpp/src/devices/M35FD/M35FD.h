@@ -1,6 +1,5 @@
 #include "../../device.h"
 #include "../../cpu.h"
-#include "../../sysConfig.h"
 
 #ifndef emulator_M35FD_h
 #define emulator_M35FD_h
