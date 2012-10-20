@@ -14,7 +14,10 @@ public:
     M35FDConfig(int& argc, wxChar**& argv) {
         name = "M35FD";
     }
-    device* createDevice(cpu host) {
+    device* createDevice(cpu* host) {
+        int id = getId();
+        int cpuId = (int) host;
+        std::cout << "M35FD #" << id << " created attached to #" << cpuId << std::endl;
         //TODO
         return NULL;
     }

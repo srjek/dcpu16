@@ -10,12 +10,17 @@ using namespace std;
 #ifndef emulator_sysConfig_h
 #define emulator_sysConfig_h
 
+int getId() {
+    static int id = 0;
+    return id++;
+}
+
 class cpuConfig {
+protected:
+    cpuConfig(): name("") { };
 public:
     const char* name;
     virtual cpu* createCpu()=0;
-protected:
-    cpuConfig(): name("") { };
 };
 #include "cpus/dcpu16/dcpu16.h" //Default cpu
 #include "cpus/cpus.h"   //helper methods to find a cpu
@@ -25,9 +30,11 @@ protected:
     deviceConfig(): name("") { };
 public:
     const char* name;
-    virtual device* createDevice(cpu host)=0;
+    virtual device* createDevice(cpu* host)=0;
 };
 #include "devices/devices.h"   //helper methods to find a device
+
+#include "system.h" //TODO: Yell at me (srjek) to reorganze the code in a way that doesn't require careful ordering of includes
 
 class sysConfig {
 public:
@@ -87,26 +94,35 @@ public:
         while (devices.size() > 0)
             devices.pop_back();
     }
+    compSystem* createSystem() {
+        return new compSystem(cpu, imagePath, devices);
+    }
 };
 
 class emulationConfig {
 public:
-    vector<sysConfig*> systems;
+    vector<sysConfig*> systemConfigs;
     
     emulationConfig(int argc, wxChar** argv) {
         if (argc == 0)
-            systems.push_back(new sysConfig(argc, argv));
+            systemConfigs.push_back(new sysConfig(argc, argv));
         while (argc > 0) {
-            systems.push_back(new sysConfig(argc, argv));
+            systemConfigs.push_back(new sysConfig(argc, argv));
         }
     }
     ~emulationConfig() {
-        for (int i = 0; i < systems.size(); i++) {
-            sysConfig* tmp = systems[i];
+        for (int i = 0; i < systemConfigs.size(); i++) {
+            sysConfig* tmp = systemConfigs[i];
             delete tmp;
         }
-        while (systems.size() > 0)
-            systems.pop_back();
+        while (systemConfigs.size() > 0)
+            systemConfigs.pop_back();
+    }
+    void createSystems(compSystem**& systems, int& size) {
+        size = systemConfigs.size();
+        systems = new compSystem*[size];
+        for (int i = 0; i < size; i++)
+            systems[i] = systemConfigs[i]->createSystem();
     }
 };
 
