@@ -30,7 +30,8 @@ public:
         for (int i = 0; i < numDevices; i++)
             devices[i] = deviceConfigs[i]->createDevice(sysCpu);
         
-        sysCpu->createCtrlWindow();
+        sysCpu->createWindow();
+        //TODO: create device windows
     }
     ~compSystem() {
         

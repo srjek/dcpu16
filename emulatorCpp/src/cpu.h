@@ -12,7 +12,8 @@ wxWindow* getTopLevelWindow();
 
 class cpu {
 public:
-    virtual void createCtrlWindow() =0;
+    virtual void createWindow() =0;
+    virtual wxWindow* getWindow() =0;
     virtual void loadImage(const wxChar* imagePath) =0;
     virtual void Run() =0;
 };
