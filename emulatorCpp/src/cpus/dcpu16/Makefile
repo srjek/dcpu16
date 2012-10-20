@@ -1,15 +1,20 @@
 OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 
+CXX = $(shell wx-config --cxx)
+PROGRAM = emulator
+# wx-config --cxxflags
+WX_CXXFLAGS = $(shell wx-config --cxxflags)
+
 # implementation
 
 .SUFFIXES:      .o .cpp
 
 .cpp.o :
 	$(CXX) -c  -o $@ $<
-
-all:	$(PROGRAM)
+dcpu16.o: dcpu16.cpp dcpu16.h ../../cpu.h
+	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
     
-.PHONY: clean all
+.PHONY: clean
 
 clean:
 	rm -f *.o

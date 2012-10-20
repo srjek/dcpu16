@@ -8,8 +8,8 @@ using namespace std;
 #include "system.h"
 
 
-#ifndef emulator_sysConfig_h
-#define emulator_sysConfig_h
+#ifndef emulator_emulation_h
+#define emulator_emulation_h
 
 class emulation {
     compSystem** systems;

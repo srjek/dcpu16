@@ -1,16 +1,11 @@
 #include <vector>
 using namespace std;
 
+#include "wx/wx.h"
+
 #include "cpu.h"
 #include "device.h"
-
-#ifndef emulator_getid
-#define emulator_getid
-int getId() {
-    static int id = 0;
-    return id++;
-}
-#endif
+#include "thread.h"
 
 #include "cpus/dcpu16/dcpu16.h" //Default cpu
 #include "cpus/cpus.h"   //helper methods to find a cpu
@@ -19,7 +14,7 @@ int getId() {
 #ifndef emulator_system_h
 #define emulator_system_h
 
-class compSystem: public wxThread {
+class compSystem: public thread, public wxThread {
 protected:
     cpu *sysCpu;
     device** devices;
@@ -34,17 +29,28 @@ public:
         devices = new device*[numDevices];
         for (int i = 0; i < numDevices; i++)
             devices[i] = deviceConfigs[i]->createDevice(sysCpu);
+        
+        sysCpu->createCtrlWindow();
     }
     ~compSystem() {
+        
         //for (int i = 0; i < numDevices; i++)
         //    delete devices[i];
         delete[] devices;
-        //delete sysCpu;
+        delete sysCpu;
     }
     
+    wxThreadError Create() {
+        return wxThread::Create(1024*1024); //1 MB
+    }
+    wxThreadError Run() { return wxThread::Run(); }
     ExitCode Entry() {
+        sysCpu->Run();
         return 0;
     }
+    void Stop() {
+    }
+    wxThread::ExitCode Wait() { return wxThread::Wait(); }
 };
 
 class sysConfig {

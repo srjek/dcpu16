@@ -1,12 +1,14 @@
+#include "wx/wx.h"
+
 #include "cpu.h"
+#include "thread.h"
 
 #ifndef emulator_device_h
 #define emulator_device_h
 
-class device {
+class device: public thread {
 public:
-    virtual bool hasWindow();
-    virtual wxWindow createWindow();
+    virtual void createWindow() =0;
 };
 
 class deviceConfig {

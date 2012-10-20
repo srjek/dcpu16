@@ -1,5 +1,4 @@
 #include "../../cpu.h"
-#include <iostream>
 
 #ifndef emulator_dcpu16_h
 #define emulator_dcpu16_h
@@ -9,16 +8,9 @@
 	
 class dcpu16Config: public cpuConfig {
 public:
-    dcpu16Config() { name = "dcpu16"; }
-    dcpu16Config(int& argc, wxChar**& argv) {
-        name = "dcpu16";
-    }
-    cpu* createCpu() {
-        int id = getId();
-        std::cout << "dcpu16 #" << id << " created" << std::endl;
-        //TODO
-        return (cpu*) id;//NULL
-    }
+    dcpu16Config();
+    dcpu16Config(int& argc, wxChar**& argv);
+    cpu* createCpu();
 };
 
 #endif

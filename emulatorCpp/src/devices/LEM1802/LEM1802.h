@@ -14,9 +14,6 @@ public:
         name = "LEM1802";
     }
     device* createDevice(cpu* host) {
-        int id = getId();
-        int cpuId = (int) host;
-        std::cout << "LEM1802 #" << id << " created attached to #" << cpuId << std::endl;
         //TODO
         return NULL;
     }

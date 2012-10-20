@@ -1,20 +1,12 @@
 #include <wx/cmdline.h>
 #include "wx/wx.h"
 
+#include "main.h"
 #include "emulation.h"
 #include "cpus/cpus.h"
 #include "devices/devices.h"
 
-class emulatorApp: public wxApp
-{
-    virtual bool OnInit();
-    virtual void OnInitCmdLine(wxCmdLineParser& parser);
-    virtual bool OnCmdLineParsed(wxCmdLineParser& parser);
-    virtual int OnExit();
-private:
-    emulationConfig* config;
-    emulation* environment;
-};
+
 static const wxCmdLineEntryDesc g_cmdLineDesc [] =
 {
      { wxCMD_LINE_SWITCH, wxT("h"), wxT("help"), wxT("displays help on the command line parameters"),
@@ -48,6 +40,7 @@ BEGIN_EVENT_TABLE(masterWindow, wxFrame)
     EVT_BUTTON(ID_Quit, masterWindow::OnQuit)
 END_EVENT_TABLE()
 
+#define emulatorAppImplmented
 IMPLEMENT_APP(emulatorApp)
 
  
@@ -84,18 +77,23 @@ bool emulatorApp::OnInit() {
     masterWindow *master = new masterWindow( wxPoint(50, 50));
     master->Show(true);
     SetTopWindow(master);
+    SetExitOnFrameDelete(true);
     
-    environment = config->createEmulation();
     return true;
 } 
+int emulatorApp::OnRun() {
+    environment = config->createEmulation();
+    return wxApp::OnRun();
+} 
 int emulatorApp::OnExit() {
-    delete environment;
+    if (environment)
+        delete environment;
     delete config;
     return wxApp::OnExit();
 } 
 
 masterWindow::masterWindow(const wxPoint& pos)
-: wxFrame( NULL, -1, _(""), pos, wxSize(200,200) )
+: wxFrame( NULL, -1, _("0x10c emulator"), pos, wxSize(200,200) )
 {
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(new wxStaticText(this, -1, _("0x10c emulator")), 0, wxALIGN_CENTER_HORIZONTAL, 0);
