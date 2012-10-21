@@ -21,24 +21,31 @@ all:	$(PROGRAM)
 
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
-main.o: cpus.h devices.h
+main.o: cpus/cpus.h devices/devices.h
 
 
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
-$(PROGRAM):$(OBJECTS) devices cpus
+$(PROGRAM):$(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
 	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(STATIC)
 
-cpus:
+#Do nothing
+$(CPU_OBJS): cpus FORCE
+	@echo -n ""
+$(DEVICE_OBJS): devices FORCE
+	@echo -n ""
+
+cpus: FORCE
 	@cd cpus && $(MAKE) cpus
-cpus.h:
+cpus/cpus.h: FORCE
 	@cd cpus && $(MAKE) cpus.h
-devices:
+devices: FORCE
 	@cd devices && $(MAKE) devices
-devices.h:
+devices/devices.h: FORCE
 	@cd devices && $(MAKE) devices.h
-    
-.PHONY: clean all run devices cpus cpus.h devices.h
+
+FORCE: ;
+.PHONY: clean all run
 run: all
 	./$(PROGRAM)
 
