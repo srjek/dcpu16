@@ -11,7 +11,7 @@ WX_CXXFLAGS = $(shell wx-config --cxxflags)
 
 .cpp.o :
 	$(CXX) -c  -o $@ $<
-dcpu16.o: dcpu16.cpp dcpu16.h ../../cpu.h
+dcpu16.o: dcpu16.cpp dcpu16.h ../../cpu.h ../../strhelper.h
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
     
 .PHONY: clean

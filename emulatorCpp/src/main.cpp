@@ -96,8 +96,10 @@ masterWindow::masterWindow(const wxPoint& pos)
 : wxFrame( NULL, -1, _("0x10c emulator"), pos, wxSize(200,200) )
 {
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+    sizer->AddSpacer(2);
     sizer->Add(new wxStaticText(this, -1, _("0x10c emulator")), 0, wxALIGN_CENTER_HORIZONTAL, 0);
-    sizer->Add(new wxButton(this, ID_Quit, _("Quit")), 0, 0, 0);
+    sizer->AddSpacer(4);
+    sizer->Add(new wxButton(this, ID_Quit, _("Quit")), 0, wxALIGN_CENTER_HORIZONTAL, 0);
     sizer->SetSizeHints(this);
     SetSizer(sizer);
 
