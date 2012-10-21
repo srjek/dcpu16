@@ -133,8 +133,9 @@ public:
     void loadImage(const wxChar* imagePath) {
         for (int i = 0; i < 13; i++)
             registers[i] = 0xFFFF - i;
-        ram[registers[DCPU16_REG_PC]] = 0x1 | (0x0 << 5) | (0x1F << 10);
+        ram[registers[DCPU16_REG_PC]] = 0x1 | (0x10 << 5) | (0x1F << 10);
         ram[(registers[DCPU16_REG_PC]+1)&0xFFFF] = 0x8000;
+        ram[(registers[DCPU16_REG_PC]+2)&0xFFFF] = 0x8000;
         return; //TODO
     }
     void Run() {
@@ -180,13 +181,40 @@ public:
         } else {
             length += wxStrcpy(buffer, opStr, bufferSize);
             buffer[length++] = wxT(' ');
+            unsigned short PC = (registers[DCPU16_REG_PC]+1)&0xFFFF;
             
             if (op != 0) {
                 length += wxStrcpy(buffer+length, values[b_code], bufferSize-length);
+                if (buffer[length-1] == wxT('@')) {
+                    buffer[length-1] = wxT('0');
+                    buffer[length++] = wxT('x');
+                    printHex(buffer+length, 4, ram[PC]);
+                    PC = (PC+1)&0xFFFF;
+                    length += 4;
+                } else if (buffer[length-2] == wxT('@')) {
+                    buffer[length-2] = wxT('0');
+                    buffer[length-1] = wxT('x');
+                    printHex(buffer+length, 4, ram[PC]);
+                    length += 4;
+                    PC = (PC+1)&0xFFFF;
+                    buffer[length++] = wxT(']');
+                }
                 buffer[length++] = wxT(',');
                 buffer[length++] = wxT(' ');
             }
             length+= wxStrcpy(buffer+length, values[a_code], bufferSize-length);
+            if (buffer[length-1] == wxT('@')) {
+                buffer[length-1] = wxT('0');
+                buffer[length++] = wxT('x');
+                printHex(buffer+length, 4, ram[PC]);
+                length += 4;
+            } else if (buffer[length-2] == wxT('@')) {
+                buffer[length-2] = wxT('0');
+                buffer[length-1] = wxT('x');
+                printHex(buffer+length, 4, ram[PC]);
+                length += 4;
+                buffer[length++] = wxT(']');
+            }
         }
         return length;
     }
@@ -243,7 +271,8 @@ void dcpu16CtrlWindow::update() {
     
     
     wxChar curInstruction_TXT[1001] = wxT(" ");
-    cpu->disassembleCurInstruction(curInstruction_TXT+1, 1000);
+    int length = cpu->disassembleCurInstruction(curInstruction_TXT+1, 1000);
+    curInstruction_TXT[length+1] = 0;
     curInstruction->SetLabel(curInstruction_TXT);
 }
 
