@@ -21,6 +21,7 @@ public:
     virtual void Run() =0;
     virtual void Stop() =0;
     
+    unsigned short ram[];
     //Returns hardware num
     virtual unsigned int addHardware(device* hw) =0;
 };

@@ -155,7 +155,7 @@ public:
     }
     ~dcpu16() {
         if (ctrlWindow)
-            delete ctrlWindow;
+            ctrlWindow->Close(true);
     }
     void createWindow() {
         ctrlWindow = new dcpu16CtrlWindow(wxPoint(50, 50), this);
