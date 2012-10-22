@@ -51,6 +51,6 @@ run: all
 
 clean:
 	rm -f *.o
-	rm -f $(PROGRAM)
+	rm -f $(PROGRAM) $(PROGRAM).exe
 	@cd cpus && $(MAKE) clean
 	@cd devices && $(MAKE) clean
