@@ -21,7 +21,7 @@ all:	$(PROGRAM)
 
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
-main.o: cpus/cpus.h devices/devices.h
+main.o: cpus/cpus.h devices/devices.h emulation.h system.h cpu.h device.h thread.h
 
 
 #$(PROGRAM):$(SOURCES)

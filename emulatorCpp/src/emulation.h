@@ -14,18 +14,33 @@ using namespace std;
 class emulation {
     compSystem** systems;
     int nSystems;
-    public:
-        emulation(vector<sysConfig*> systemConfigs) {
-            nSystems = systemConfigs.size();
-            systems = new compSystem*[nSystems];
-            for (int i = 0; i < nSystems; i++)
-                systems[i] = systemConfigs[i]->createSystem();
+public:
+    emulation(vector<sysConfig*> systemConfigs) {
+        nSystems = systemConfigs.size();
+        systems = new compSystem*[nSystems];
+        for (int i = 0; i < nSystems; i++)
+            systems[i] = systemConfigs[i]->createSystem();
+    }
+    ~emulation() {
+        for (int i = 0; i < nSystems; i++)
+                delete systems[i];
+        delete[] systems;
+    }
+    
+    void Run() {
+        for (int i = 0; i < nSystems; i++) {
+            systems[i]->Create();
+            systems[i]->Run();
         }
-        ~emulation() {
-            for (int i = 0; i < nSystems; i++)
-                    delete systems[i];
-            delete[] systems;
-        }
+    }
+    void Stop() {
+        for (int i = 0; i < nSystems; i++)
+            systems[i]->Stop();
+    }
+    void Wait() {
+        for (int i = 0; i < nSystems; i++)
+            systems[i]->Wait();
+    }
 };
 
 class emulationConfig {

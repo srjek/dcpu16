@@ -7,13 +7,14 @@ class emulationConfig;
 #endif
 
 class emulatorApp: public wxApp {
+public:
     virtual bool OnInit();
     virtual void OnInitCmdLine(wxCmdLineParser& parser);
     virtual bool OnCmdLineParsed(wxCmdLineParser& parser);
     virtual int OnRun();
     virtual int OnExit();
+    emulation* environment;
 private:
     emulationConfig* config;
-    emulation* environment;
 };
 #endif

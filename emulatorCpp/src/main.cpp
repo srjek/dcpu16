@@ -18,26 +18,24 @@ static const wxCmdLineEntryDesc g_cmdLineDesc [] =
      { wxCMD_LINE_NONE }
 };
 
-class masterWindow: public wxFrame
-{
+class masterWindow: public wxFrame {
+    emulatorApp* app;
 public:
-
-    masterWindow(const wxPoint& pos);
+    masterWindow(emulatorApp* app, const wxPoint& pos);
 
     void OnQuit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
+    void OnClose(wxCloseEvent& event);
 
     DECLARE_EVENT_TABLE()
 };
 
-enum
-{
+enum {
     ID_Quit = 1,
-    ID_About,
 };
 
 BEGIN_EVENT_TABLE(masterWindow, wxFrame)
     EVT_BUTTON(ID_Quit, masterWindow::OnQuit)
+    EVT_CLOSE(masterWindow::OnClose)
 END_EVENT_TABLE()
 
 #define emulatorAppImplmented
@@ -74,27 +72,33 @@ bool emulatorApp::OnInit() {
     config = new emulationConfig(argc-1, argv+1);
     config->print();
     
-    masterWindow *master = new masterWindow( wxPoint(50, 50));
+    masterWindow *master = new masterWindow(this, wxPoint(50, 50));
     master->Show(true);
     SetTopWindow(master);
     SetExitOnFrameDelete(true);
     
+    environment = config->createEmulation();
+    
     return true;
 } 
 int emulatorApp::OnRun() {
-    environment = config->createEmulation();
+    environment->Run();
     return wxApp::OnRun();
 } 
 int emulatorApp::OnExit() {
-    if (environment)
+    if (environment) {
+        environment->Stop();
+        environment->Wait();
         delete environment;
+    }
     delete config;
     return wxApp::OnExit();
 } 
 
-masterWindow::masterWindow(const wxPoint& pos)
+masterWindow::masterWindow(emulatorApp* app, const wxPoint& pos)
 : wxFrame( NULL, -1, _("0x10c emulator"), pos, wxSize(200,200) )
 {
+    this->app = app;
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     sizer->AddSpacer(2);
     sizer->Add(new wxStaticText(this, -1, _("0x10c emulator")), 0, wxALIGN_CENTER_HORIZONTAL, 0);
@@ -118,15 +122,14 @@ masterWindow::masterWindow(const wxPoint& pos)
     SetStatusText( _("Welcome to wxWidgets!") );*/
 }
 
-void masterWindow::OnQuit(wxCommandEvent& WXUNUSED(event))
-{
+void masterWindow::OnQuit(wxCommandEvent& WXUNUSED(event)) {
     Close(TRUE);
 }
 
-/*
-void masterWindow::OnAbout(wxCommandEvent& WXUNUSED(event))
-{
-    wxMessageBox( _("This is a wxWidgets Hello world sample"),
-                  _("About Hello World"),
-                  wxOK | wxICON_INFORMATION, this);
-}*/
+void masterWindow::OnClose(wxCloseEvent& WXUNUSED(event)) {
+    if (app->environment) {
+        app->environment->Stop();
+        app->environment->Wait();
+    }
+    Destroy();
+}

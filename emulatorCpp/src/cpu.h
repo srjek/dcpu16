@@ -12,10 +12,12 @@ wxWindow* getTopLevelWindow();
 
 class cpu {
 public:
+    volatile bool running;
     virtual void createWindow() =0;
     virtual wxWindow* getWindow() =0;
     virtual void loadImage(const wxChar* imagePath) =0;
     virtual void Run() =0;
+    virtual void Stop() =0;
 };
 
 class cpuConfig {

@@ -20,7 +20,7 @@ protected:
     device** devices;
     int numDevices;
 public:
-    compSystem(cpuConfig* cpuConfig, const wxChar* imagePath, vector<deviceConfig*> deviceConfigs) {
+    compSystem(cpuConfig* cpuConfig, const wxChar* imagePath, vector<deviceConfig*> deviceConfigs): wxThread(wxTHREAD_JOINABLE) {
         sysCpu = cpuConfig->createCpu();
         if (wxStrlen(imagePath) != 0)
             sysCpu->loadImage(imagePath);
@@ -42,16 +42,24 @@ public:
     }
     
     wxThreadError Create() {
-        return wxThread::Create(1024*1024); //1 MB
+        return wxThread::Create(10*1024*1024); //10 MB
     }
     wxThreadError Run() { return wxThread::Run(); }
     ExitCode Entry() {
-        sysCpu->Run();
+        while (sysCpu->running) {
+            sysCpu->Run();
+            TestDestroy();
+        }
         return 0;
     }
     void Stop() {
+        sysCpu->Stop();
     }
-    wxThread::ExitCode Wait() { return wxThread::Wait(); }
+    wxThread::ExitCode Wait() {
+        if (IsRunning())
+            return wxThread::Wait();
+        return 0;
+    }
 };
 
 class sysConfig {
