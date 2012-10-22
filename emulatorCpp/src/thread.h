@@ -4,6 +4,7 @@
 #define emulator_thread_h
 
 class thread {
+public:
     virtual wxThreadError Create() =0;
     virtual wxThreadError Run() =0;
     virtual void Stop() =0;

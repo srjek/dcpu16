@@ -1,7 +1,6 @@
 OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 
 CXX = $(shell wx-config --cxx)
-PROGRAM = emulator
 # wx-config --cxxflags
 WX_CXXFLAGS = $(shell wx-config --cxxflags)
 

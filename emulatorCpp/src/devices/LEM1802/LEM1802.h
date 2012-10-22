@@ -1,3 +1,4 @@
+#include "wx/wx.h"
 #include "../../device.h"
 #include "../../cpu.h"
 
@@ -13,10 +14,7 @@ public:
     LEM1802Config(int& argc, wxChar**& argv) {
         name = "LEM1802";
     }
-    device* createDevice(cpu* host) {
-        //TODO
-        return NULL;
-    }
+    device* createDevice(cpu* host);
 };
 
 #endif

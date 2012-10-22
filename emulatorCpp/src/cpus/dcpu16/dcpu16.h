@@ -1,3 +1,4 @@
+#include "wx/wx.h"
 #include "../../cpu.h"
 
 #ifndef emulator_dcpu16_h

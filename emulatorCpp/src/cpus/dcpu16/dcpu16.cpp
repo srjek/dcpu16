@@ -1,8 +1,9 @@
 #include <iostream>
-#include "dcpu16.h"
-#include "../../strHelper.h"
 #include <wx/filename.h>
 #include <wx/wfstream.h>
+#include "dcpu16.h"
+#include "../../strHelper.h"
+#include "../../device.h"
 
 class dcpu16;
 
@@ -137,6 +138,8 @@ protected:
     unsigned short registers[13];
     int cycles; //This is our debt/credit counter
     unsigned long long totalCycles; //This is how many cycles total we have done
+    device* hardware[0x10000];
+    unsigned long hwLength;
     
 public:
     dcpu16() {
@@ -145,6 +148,8 @@ public:
         for (int i = 0; i < 13; i++)
             registers[i] = 0;
         totalCycles = 0;
+        hwLength = 0;
+        
         running = true;
         cmdState = 1;
     }
@@ -380,6 +385,7 @@ protected:
     }
     //MORE TODO IN HERE
     void execExtOp(uint16_t op, val a) {
+        unsigned int num;
         unsigned long tmp;
         switch (op) {
             case 0x01:      //JSR <a>
@@ -421,21 +427,19 @@ protected:
             case 0x0E:
             case 0x0F:
                 break;
-            case 0x10:      //HWN -- TODO
-/*                if (PyCallable_Check(pyHWI))
-                    write_val(a, callPyHWI(pyHWI, HWI_HWN) & 0xFFFF); */
+            case 0x10:      //HWN
+                write_val(a, hwLength);
                 break;
-            case 0x11:      //HWQ -- TODO
-/*                if (PyCallable_Check(pyHWI)) {
-                    tmp = callPyHWI(pyHWI, HWI_HWQ_BA | ((int) a.value));
-                    registers[REG_A] = (uint16_t) (tmp & 0xFFFF);
-                    registers[REG_B] = (uint16_t) ((tmp >> 16) & 0xFFFF);
-                    tmp = callPyHWI(pyHWI, HWI_HWQ_C | ((int) a.value));
-                    registers[REG_C] = (uint16_t) (tmp & 0xFFFF);
-                    tmp = callPyHWI(pyHWI, HWI_HWQ_YX | ((int) a.value));
-                    registers[REG_X] = (uint16_t) (tmp & 0xFFFF);
-                    registers[REG_Y] = (uint16_t) ((tmp >> 16) & 0xFFFF);
-                } */
+            case 0x11:      //HWQ
+                num = a.value;
+                tmp = hardware[num]->getId();
+                registers[DCPU16_REG_A] = (unsigned short) (tmp & 0xFFFF);
+                registers[DCPU16_REG_B] = (unsigned short) ((tmp >> 16) & 0xFFFF);
+                tmp = hardware[num]->getVersion();
+                registers[DCPU16_REG_C] = (unsigned short) (tmp & 0xFFFF);
+                tmp = hardware[num]->getManufacturer();
+                registers[DCPU16_REG_X] = (unsigned short) (tmp & 0xFFFF);
+                registers[DCPU16_REG_Y] = (unsigned short) ((tmp >> 16) & 0xFFFF);
                 break;
             case 0x12:      //HWI -- TODO
 /*                if (PyCallable_Check(pyHWI))
@@ -457,7 +461,7 @@ protected:
                 cycles += opcodeCycles[op];
                 execOp(op, b, a);
             } else {
-                cycles += extOpcodeCycles[op];
+                cycles += extOpcodeCycles[b_code];
                 execExtOp(b_code, a);
             }
             
@@ -469,6 +473,11 @@ protected:
     
     
 public:
+    unsigned int addHardware(device* hw) {
+        hardware[hwLength] = hw;
+        return hwLength++;
+    }
+    
     void loadImage(const wxChar* imagePath) {
         /*for (int i = 0; i < 13; i++)
             registers[i] = 0xFFFF - i;

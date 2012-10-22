@@ -31,7 +31,8 @@ public:
             devices[i] = deviceConfigs[i]->createDevice(sysCpu);
         
         sysCpu->createWindow();
-        //TODO: create device windows
+        for (int i = 0; i < numDevices; i++)
+            devices[i]->createWindow();
     }
     ~compSystem() {
         
@@ -46,6 +47,8 @@ public:
     }
     wxThreadError Run() { return wxThread::Run(); }
     ExitCode Entry() {
+        for (int i = 0; i < numDevices; i++)
+            devices[i]->Run();
         while (sysCpu->running) {
             sysCpu->Run();
             TestDestroy();
@@ -53,9 +56,13 @@ public:
         return 0;
     }
     void Stop() {
+        for (int i = 0; i < numDevices; i++)
+            devices[i]->Stop();
         sysCpu->Stop();
     }
     wxThread::ExitCode Wait() {
+        for (int i = 0; i < numDevices; i++)
+            devices[i]->Wait();
         if (IsRunning())
             return wxThread::Wait();
         return 0;

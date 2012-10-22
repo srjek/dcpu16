@@ -10,6 +10,8 @@
 DECLARE_APP(emulatorApp);
 wxWindow* getTopLevelWindow();
 
+class cpu;
+#include "device.h"
 class cpu {
 public:
     volatile bool running;
@@ -18,6 +20,9 @@ public:
     virtual void loadImage(const wxChar* imagePath) =0;
     virtual void Run() =0;
     virtual void Stop() =0;
+    
+    //Returns hardware num
+    virtual unsigned int addHardware(device* hw) =0;
 };
 
 class cpuConfig {
