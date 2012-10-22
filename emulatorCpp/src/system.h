@@ -51,6 +51,7 @@ public:
             devices[i]->Run();
         while (sysCpu->running) {
             sysCpu->Run();
+            Sleep(100);
             TestDestroy();
         }
         return 0;

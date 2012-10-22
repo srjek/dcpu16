@@ -384,7 +384,7 @@ protected:
         }
     }
     //MORE TODO IN HERE
-    void execExtOp(uint16_t op, val a) {
+    void execExtOp(int op, val a) {
         unsigned int num;
         unsigned long tmp;
         switch (op) {
@@ -525,7 +525,6 @@ public:
             else if (cmdState == 1)
                 cycle(10000);
             lastCmdState = cmdState;
-            Sleep(100);
             if (ctrlWindow) {
                 wxCommandEvent tmp = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED, ID_ButtonDoesNotExist);
                 ctrlWindow->AddPendingEvent(tmp);
