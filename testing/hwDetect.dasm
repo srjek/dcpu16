@@ -389,9 +389,9 @@ jsr GetKeyboard
 	set pc, pop
 
 
-:ScreenID dat 0x0000
+:ScreenID dat 0xFFFF
 :ScreenAddress dat 0x1000
-:KeyboardID	dat 0x0000
+:KeyboardID	dat 0xFFFF
 
 :CurrentDevice dat 0
 
