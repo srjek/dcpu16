@@ -13,6 +13,8 @@ public:
     virtual unsigned long getId() =0;
     virtual unsigned long getVersion() =0;
     virtual unsigned long getManufacturer() =0;
+    
+    virtual int interrupt() =0;
 };
 
 class deviceConfig {

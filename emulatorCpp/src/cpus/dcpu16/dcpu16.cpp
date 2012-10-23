@@ -118,13 +118,13 @@ protected:
     static const int opcodeCycles[];
     class val {
     public:
-        unsigned short* pointer;
+        volatile unsigned short* pointer;
         unsigned short value;
-        val(unsigned short* pointer) {
+        val(volatile unsigned short* pointer) {
             this->pointer = pointer;
             this->value = *pointer;
         }
-        val(unsigned short* pointer, unsigned short value) {
+        val(volatile unsigned short* pointer, unsigned short value) {
             this->pointer = pointer;
             this->value = value;
         }
@@ -134,8 +134,8 @@ protected:
     volatile int cmdState;
     int lastCmdState;
     
-    unsigned short ram[0x10000];
-    unsigned short registers[13];
+    //volatile unsigned short ram[0x10000];
+    //volatile unsigned short registers[13];
     int cycles; //This is our debt/credit counter
     unsigned long long totalCycles; //This is how many cycles total we have done
     device* hardware[0x10000];
@@ -143,6 +143,8 @@ protected:
     
 public:
     dcpu16() {
+        ram = new unsigned short[0x10000];
+        registers = new unsigned short[13];
         for (int i = 0; i < 0x10000; i++)
             ram[i] = 0;
         for (int i = 0; i < 13; i++)
@@ -156,6 +158,8 @@ public:
     ~dcpu16() {
         if (ctrlWindow)
             ctrlWindow->Close(true);
+        delete[] ram;
+        delete[] registers;
     }
     void createWindow() {
         ctrlWindow = new dcpu16CtrlWindow(wxPoint(50, 50), this);
@@ -432,18 +436,21 @@ protected:
                 break;
             case 0x11:      //HWQ
                 num = a.value;
-                tmp = hardware[num]->getId();
-                registers[DCPU16_REG_A] = (unsigned short) (tmp & 0xFFFF);
-                registers[DCPU16_REG_B] = (unsigned short) ((tmp >> 16) & 0xFFFF);
-                tmp = hardware[num]->getVersion();
-                registers[DCPU16_REG_C] = (unsigned short) (tmp & 0xFFFF);
-                tmp = hardware[num]->getManufacturer();
-                registers[DCPU16_REG_X] = (unsigned short) (tmp & 0xFFFF);
-                registers[DCPU16_REG_Y] = (unsigned short) ((tmp >> 16) & 0xFFFF);
+                if (num < hwLength) {
+                    tmp = hardware[num]->getId();
+                    registers[DCPU16_REG_A] = (unsigned short) (tmp & 0xFFFF);
+                    registers[DCPU16_REG_B] = (unsigned short) ((tmp >> 16) & 0xFFFF);
+                    tmp = hardware[num]->getVersion();
+                    registers[DCPU16_REG_C] = (unsigned short) (tmp & 0xFFFF);
+                    tmp = hardware[num]->getManufacturer();
+                    registers[DCPU16_REG_X] = (unsigned short) (tmp & 0xFFFF);
+                    registers[DCPU16_REG_Y] = (unsigned short) ((tmp >> 16) & 0xFFFF);
+                }
                 break;
-            case 0x12:      //HWI -- TODO
-/*                if (PyCallable_Check(pyHWI))
-                    (*cycles) += callPyHWI(pyHWI, a.value); */
+            case 0x12:      //HWI
+                num = a.value;
+                if (num < hwLength)
+                    cycles += hardware[num]->interrupt();
                 break;
         }
     }

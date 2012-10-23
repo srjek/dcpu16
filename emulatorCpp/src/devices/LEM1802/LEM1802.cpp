@@ -3,15 +3,39 @@
 #include <wx/dcbuffer.h>
 #include "LEM1802.h"
 
+class RenderTimer : public wxTimer {
+    wxPanel* panel;
+    unsigned long long counter;
+public:
+    RenderTimer(wxPanel* panel) : wxTimer() {
+        this->panel = panel;
+        counter = 0;
+    }
+    void Notify() {
+        panel->Refresh();
+        panel->Update();
+        std::cout.flush();
+    }
+    void start() {
+        wxTimer::Start(1000/60);
+    }
+};
+ 
 class LEM1802;
 
 class LEM1802DisplayPanel: public wxPanel {
+    friend class RenderTimer;
 protected:
     LEM1802* device;
+    RenderTimer timer;
 public:
-    LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, LEM1802* device): wxPanel(parent, wxID_ANY, wxPoint(0, 0), size) {
+    LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, LEM1802* device):
+                wxPanel(parent, wxID_ANY, wxPoint(0, 0), size),
+                timer(this)
+    {
         this->device = device;
         SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+        timer.start();
     }
     void paintEvent(wxPaintEvent& evt) {
         wxBufferedPaintDC dc(this);
@@ -27,8 +51,9 @@ class LEM1802Display: public wxFrame {
 protected:
     LEM1802* device;
 public:
-    LEM1802Display(wxWindow* parent, const wxPoint& pos, const wxSize& size, LEM1802* device): wxFrame(parent, -1, _("LEM1802"), pos, size) {
+    LEM1802Display(wxWindow* parent, const wxPoint& pos, const wxSize& size, LEM1802* device): wxFrame(parent, -1, _("LEM1802"), pos, wxSize(-1, -1)) {
         this->device = device;
+        SetClientSize(size);
         new LEM1802DisplayPanel(this, size, device);
     }
     void OnClose(wxCloseEvent& event);
@@ -42,6 +67,7 @@ END_EVENT_TABLE()
 class LEM1802: public device {
     friend class LEM1802Display;
     friend class LEM1802DisplayPanel;
+    friend class RenderTimer;
 protected:
     cpu* host;
     LEM1802Display* display;
@@ -50,14 +76,18 @@ protected:
     volatile unsigned short paletteAddress;
     volatile unsigned short borderColor;
     
+    unsigned short fontRom[128*2];
+    
     static const int w = 32;
     static const int pw = 4;
     static const int h = 12;
     static const int ph = 8;
     static const int border = 16;
     static const int scale = 3;
-    static const int width = (w*pw+border*2)*scale;
-    static const int height = (h*ph+border*2)*scale;
+    static const int prescaleWidth = w*pw+border*2;
+    static const int prescaleHeight = h*ph+border*2;
+    static const int width = prescaleWidth*scale;
+    static const int height = prescaleHeight*scale;
 public:
     LEM1802(cpu* host) {
         this->host = host;
@@ -67,23 +97,81 @@ public:
         tileAddress = 0;
         paletteAddress = 0;
         borderColor = 0;
+        
+        //Load font rom
+        wxInitAllImageHandlers();
+        wxImage fontImg(wxString(wxT("font.png")), wxBITMAP_TYPE_PNG);   //TODO: load from install directory
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 32; x++) {
+                int xOffset = x*4;
+                int yOffset = y*8;
+                for (int cx = 0; cx < 2; cx++) {
+                    unsigned short charByte0 = 0;
+                    unsigned short charByte1 = 0;
+                    for (int cy = 0; cy < 8; cy++) {
+                        if ((fontImg.GetRed(xOffset+cx*2, yOffset+cy) & 0xFF) > 128)
+                            charByte0 |= (1 << cy);
+                        if ((fontImg.GetRed(xOffset+cx*2+1, yOffset+cy) & 0xFF) > 128)
+                            charByte1 |= (1 << cy);
+                    }
+                    fontRom[y*32+x] = (charByte0 << 8) | charByte1;
+                }
+            }
+        }
     }
     ~LEM1802() {
         if (display)
             display->Close(true);
     }
-    virtual void createWindow() {
+    void createWindow() {
         display = new LEM1802Display(host->getWindow(), wxPoint(50, 50), wxSize(width, height), this);
         display->Show(true);
     }
-    virtual unsigned long getManufacturer() {
+    unsigned long getManufacturer() {
         return 0x1c6c8b36;  //Nya Elektriska
     }
-    virtual unsigned long getId() {
+    unsigned long getId() {
         return 0x7349f615;  //LEM180X series
     }
-    virtual unsigned long getVersion() {
+    unsigned long getVersion() {
         return 0x1802;  //1802
+    }
+    
+    int interrupt() {
+        unsigned short A = host->registers[0];
+        if (A == 0)
+            mapAddress = host->registers[1];
+        else if (A == 1)
+            tileAddress = host->registers[1];
+        else if (A == 2)
+            paletteAddress = host->registers[1];
+        else if (A == 3)
+            borderColor = host->registers[1];
+        else if (A == 4) {
+            unsigned short address = host->registers[1];
+            volatile unsigned short* ram = host->ram;
+            for (int i = 0; i < 128*2; i++)
+                ram[(address+i)&0xFFFF] = fontRom[i];
+            return 256;
+        } else if (A == 5) {
+            unsigned short address = host->registers[1];
+            volatile unsigned short* ram = host->ram;
+            for (int i = 0; i < 16; i++) {
+                int b = ((i >> 0) & 0x1) * 10;
+                int g = ((i >> 1) & 0x1) * 10;
+                int r = ((i >> 2) & 0x1) * 10;
+                if (i == 6)
+                    g -= 5;
+                else if (i >= 8) {
+                    r += 5;
+                    g += 5;
+                    b += 5;
+                }
+                ram[address+i] = (r << 8 | g << 4 | b) & 0xFFFF;
+            }
+            return 16;
+        }
+        return 0;
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
@@ -95,10 +183,10 @@ public:
 
 void LEM1802DisplayPanel::render(wxDC& dc) {
     int blink = 0;
-    unsigned short* ram = device->host->ram;
-    wxImage image(device->width, device->height, false);
+    volatile unsigned short* ram = device->host->ram;
+    wxImage image(device->prescaleWidth, device->prescaleHeight, false);
     
-    uint32_t* display = (uint32_t*) image.GetData();
+    unsigned char* display = image.GetData();
     
     uint32_t palette[4*16];
     if (device->paletteAddress == 0) {          //Get the palette
@@ -126,13 +214,13 @@ void LEM1802DisplayPanel::render(wxDC& dc) {
         }
     }
     int tile[128][4][8] = {0};
-    unsigned short* fontRom;
+    volatile unsigned short* fontRom;
     int ramOffset;
     if (device->tileAddress != 0) {       //Get the tiles
         fontRom = ram;
         ramOffset = device->tileAddress;
     } else {
-        fontRom = ram;//fontRomBuf.buf;
+        fontRom = device->fontRom;
         ramOffset = 0;
     }
     for (int i = 0; i < 128; i++) {
@@ -151,16 +239,32 @@ void LEM1802DisplayPanel::render(wxDC& dc) {
     uint32_t borderColor = palette[device->borderColor];
     
     for (int x = 0; x < lineWidth; x++) {
-        for (int y = 0; y < 16; y++)
-            display[(y*lineWidth) + x] = borderColor;
-        for (int y = 16+(12*8); y < 32+(12*8); y++)
-            display[(y*lineWidth) + x] = borderColor;
+        for (int y = 0; y < 16; y++) {
+            int offset = (y*lineWidth) + x;
+            display[offset*3] = (borderColor >> 16) & 0xFF;
+            display[offset*3+1] = (borderColor >> 8) & 0xFF;
+            display[offset*3+2] = borderColor & 0xFF;
+        }
+        for (int y = 16+(12*8); y < 32+(12*8); y++) {
+            int offset = (y*lineWidth) + x;
+            display[offset*3] = (borderColor >> 16) & 0xFF;
+            display[offset*3+1] = (borderColor >> 8) & 0xFF;
+            display[offset*3+2] = borderColor & 0xFF;
+        }
     }
     for (int y = 16; y < 16+(12*8); y++) {
-        for (int x = 0; x < 16; x++)
-            display[(y*lineWidth) + x] = borderColor;
-        for (int x = lineWidth-16; x < lineWidth; x++)
-            display[(y*lineWidth) + x] = borderColor;
+        for (int x = 0; x < 16; x++) {
+            int offset = (y*lineWidth) + x;
+            display[offset*3] = (borderColor >> 16) & 0xFF;
+            display[offset*3+1] = (borderColor >> 8) & 0xFF;
+            display[offset*3+2] = borderColor & 0xFF;
+        }
+        for (int x = lineWidth-16; x < lineWidth; x++) {
+            int offset = (y*lineWidth) + x;
+            display[offset*3] = (borderColor >> 16) & 0xFF;
+            display[offset*3+1] = (borderColor >> 8) & 0xFF;
+            display[offset*3+2] = borderColor & 0xFF;
+        }
     }
     
     for (int x = 0; x < 32; x++) {
@@ -182,15 +286,21 @@ void LEM1802DisplayPanel::render(wxDC& dc) {
                 int almostOffset = (yOffset+cy)*lineWidth;
                 for (cx = 0; cx < 4; cx++) {
                     int offset = almostOffset + (xOffset+cx);
-                    if (tile[i][cx][cy])
-                        display[offset] = fg;
-                    else
-                        display[offset] = bg;
+                    if (tile[i][cx][cy]) {
+                        display[offset*3] = (fg >> 16) & 0xFF;
+                        display[offset*3+1] = (fg >> 8) & 0xFF;
+                        display[offset*3+2] = fg & 0xFF;
+                    } else {
+                        display[offset*3] = (bg >> 16) & 0xFF;
+                        display[offset*3+1] = (bg >> 8) & 0xFF;
+                        display[offset*3+2] = bg & 0xFF;
+                    }
                 }
             }
         }
     }
     
+    image.Rescale(device->width, device->height);
     wxBitmap bitmap(image, -1);
     dc.DrawBitmap(bitmap, 0, 0, false);
 }
