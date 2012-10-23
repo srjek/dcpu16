@@ -11,7 +11,7 @@ WX_CXXFLAGS = $(shell wx-config --cxxflags)
 .cpp.o :
 	$(CXX) -c  -o $@ $<
 LEM1802.o: LEM1802.cpp LEM1802.h ../../device.h ../../cpu.h
-	$(CXX) $(WX_CXXFLAGS) -std=gnu++11 -c  -o $@ $<
+	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
     
 .PHONY: clean
 
