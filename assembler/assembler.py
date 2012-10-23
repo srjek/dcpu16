@@ -630,7 +630,7 @@ class preprocessor_directive:
                 self.printError("Could not understand the arguments "+repr(extra)+" for incbin")
             _size = os.path.getsize(self.filepath)
             if _size % 2 != 0:
-                size += 1
+                _size += 1
             self._size = int(_size)
             return
         if self.directive == "include":
