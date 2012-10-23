@@ -114,7 +114,7 @@ public:
                         if ((fontImg.GetRed(xOffset+cx*2+1, yOffset+cy) & 0xFF) > 128)
                             charByte1 |= (1 << cy);
                     }
-                    fontRom[y*32+x] = (charByte0 << 8) | charByte1;
+                    fontRom[(y*32+x)*2+cx] = (charByte0 << 8) | charByte1;
                 }
             }
         }
@@ -215,7 +215,7 @@ void LEM1802DisplayPanel::render(wxDC& dc) {
     }
     int tile[128][4][8] = {0};
     volatile unsigned short* fontRom;
-    int ramOffset;
+    unsigned int ramOffset;
     if (device->tileAddress != 0) {       //Get the tiles
         fontRom = ram;
         ramOffset = device->tileAddress;
