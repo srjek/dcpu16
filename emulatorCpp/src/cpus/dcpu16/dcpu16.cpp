@@ -137,9 +137,15 @@ protected:
     //volatile unsigned short ram[0x10000];
     //volatile unsigned short registers[13];
     int cycles; //This is our debt/credit counter
-    unsigned long long totalCycles; //This is how many cycles total we have done
+    volatile unsigned long long totalCycles; //This is how many cycles total we have done
     device* hardware[0x10000];
     unsigned long hwLength;
+    
+    volatile unsigned short intQueue[256];
+    volatile int intQueueStart;
+    volatile int intQueueEnd;
+    
+    volatile bool onFire;
     
 public:
     dcpu16() {
@@ -149,8 +155,12 @@ public:
             ram[i] = 0;
         for (int i = 0; i < 13; i++)
             registers[i] = 0;
+            
         totalCycles = 0;
         hwLength = 0;
+        intQueueStart = 0;
+        intQueueStart = 0;
+        onFire = false;
         
         running = true;
         cmdState = 1;
@@ -171,7 +181,6 @@ public:
             return ctrlWindow;
         return getTopLevelWindow();
     }
-    
     
 protected:
     unsigned short nextWord() {
@@ -387,7 +396,6 @@ protected:
                 break;
         }
     }
-    //MORE TODO IN HERE
     void execExtOp(int op, val a) {
         unsigned int num;
         unsigned long tmp;
@@ -405,10 +413,10 @@ protected:
             case 0x06:
                 break;
             case 0x07:      //HCF
+                onFire = true;
                 break;
-            case 0x08:      //INT -- TODO
-                /* if (PyCallable_Check(pyInt))
-                    PyObject_CallFunction(pyInt, "i", a.value); */
+            case 0x08:      //INT
+                interrupt(a.value);
                 break;
             case 0x09:      //IAG <a>
                 write_val(a, registers[DCPU16_REG_IA]);
@@ -473,13 +481,42 @@ protected:
             }
             
             //TODO: check for callbacks?
-            //TODO: check interrupts
+            if ((intQueueStart != intQueueEnd) && (registers[DCPU16_REG_IAQ] == 0)) {
+                if (registers[DCPU16_REG_IA] != 0) {
+                    //IAQ 1 -- should enable queuing
+                    registers[DCPU16_REG_IAQ] = 1;
+                    //SET PUSH, PC
+                    execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_PC));
+                    //SET PUSH, A
+                    execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_A));
+                    //SET PC, IA
+                    registers[DCPU16_REG_PC] = registers[DCPU16_REG_IA];
+                    //SET A, <msg>
+                    registers[DCPU16_REG_A] = intQueue[intQueueStart];
+                }
+                if (intQueueStart >= 256)
+                    intQueueStart = 0;
+                else
+                    intQueueStart++;
+            }
         }
         totalCycles += count;
     }
     
     
 public:
+    void interrupt(unsigned short msg) {
+        intQueue[intQueueEnd] = msg;
+        int tmp = intQueueStart;
+        if (intQueueEnd+1 >= 256)
+            intQueueEnd = 0;
+        else
+            intQueueEnd++;
+        
+        if (intQueueEnd == tmp)
+            onFire = true; //raise Exception("DCPU16 is on fire. Behavior undefined")
+    }
+    
     unsigned int addHardware(device* hw) {
         hardware[hwLength] = hw;
         return hwLength++;
