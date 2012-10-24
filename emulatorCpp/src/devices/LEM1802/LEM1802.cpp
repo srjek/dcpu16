@@ -28,15 +28,11 @@ class LEM1802DisplayPanel: public wxPanel {
 protected:
     LEM1802* device;
     RenderTimer timer;
+    wxLongLong displayReadyAt;
+    unsigned short lastMapAddress;
+    wxBitmap bootBitmap;
 public:
-    LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, LEM1802* device):
-                wxPanel(parent, wxID_ANY, wxPoint(0, 0), size),
-                timer(this)
-    {
-        this->device = device;
-        SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-        timer.start();
-    }
+    LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, LEM1802* device);
     void paintEvent(wxPaintEvent& evt) {
         wxBufferedPaintDC dc(this);
         render(dc);
@@ -67,7 +63,6 @@ END_EVENT_TABLE()
 class LEM1802: public device {
     friend class LEM1802Display;
     friend class LEM1802DisplayPanel;
-    friend class RenderTimer;
 protected:
     cpu* host;
     LEM1802Display* display;
@@ -180,12 +175,33 @@ public:
     wxThread::ExitCode Wait() { return 0; }
 };
 
-
+LEM1802DisplayPanel::LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, LEM1802* device):
+                wxPanel(parent, wxID_ANY, wxPoint(0, 0), size), timer(this) {
+    this->device = device;
+    SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+    lastMapAddress = 0;
+    timer.start();
+    wxInitAllImageHandlers();
+    wxImage bootImage(wxString(wxT("boot.png")), wxBITMAP_TYPE_PNG);
+    bootImage.Rescale(device->w*device->pw*device->scale, device->h*device->ph*device->scale);
+    bootBitmap = wxBitmap(bootImage, -1);
+}
 void LEM1802DisplayPanel::render(wxDC& dc) {
-    int blink = 0;
+    wxLongLong time = wxGetLocalTimeMillis();
+    bool blink = (((time/16)/20) % 2) == 0;
     volatile unsigned short* ram = device->host->ram;
-    wxImage image(device->prescaleWidth, device->prescaleHeight, false);
     
+    if ((lastMapAddress == 0) && (device->mapAddress != lastMapAddress))
+        displayReadyAt = time + 1000;
+    lastMapAddress = device->mapAddress;
+     if ((device->mapAddress == 0) || (time < displayReadyAt)) {
+        dc.SetBackground(wxBrush(wxColour(0x00, 0x00, 0xAA)));
+        dc.Clear();
+        dc.DrawBitmap(bootBitmap, device->border*device->scale, device->border*device->scale, false);
+        return;
+    }
+    
+    wxImage image(device->prescaleWidth, device->prescaleHeight, false);
     unsigned char* display = image.GetData();
     
     uint32_t palette[4*16];
