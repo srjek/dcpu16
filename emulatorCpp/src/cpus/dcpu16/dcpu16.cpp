@@ -134,10 +134,12 @@ protected:
     volatile int cmdState;
     int lastCmdState;
     
+public:
     //volatile unsigned short ram[0x10000];
     //volatile unsigned short registers[13];
     int cycles; //This is our debt/credit counter
     volatile unsigned long long totalCycles; //This is how many cycles total we have done
+protected:
     device* hardware[0x10000];
     unsigned long hwLength;
     
@@ -462,7 +464,8 @@ protected:
                 break;
         }
     }
-    
+ 
+public:   
     void cycle(int count) {
         cycles -= count;
         while (cycles < 0) {
@@ -504,7 +507,6 @@ protected:
     }
     
     
-public:
     void interrupt(unsigned short msg) {
         intQueue[intQueueEnd] = msg;
         int tmp = intQueueStart;

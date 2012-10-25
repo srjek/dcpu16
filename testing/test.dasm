@@ -262,10 +262,10 @@ test_results:
     .dat 1, 1, 1, 1, 1
 test_results_end:
 test_names:
-    .dat "LEM Border:          ", 0
-.equ test_name_length $ - test_names
     .dat "LEM Default Font:    ", 0
+.equ test_name_length $ - test_names
     .dat "LEM Default Palette: ", 0
+    .dat "LEM Border:          ", 0
     .dat "LEM Font Map:        ", 0
     .dat "LEM Palette Map:     ", 0
 test_names_end:

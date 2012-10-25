@@ -25,7 +25,7 @@ public:
     volatile unsigned short* registers;
     //Returns hardware num
     virtual unsigned int addHardware(device* hw) =0;
-    void interrupt(unsigned short msg);
+    virtual void interrupt(unsigned short msg) =0;
 };
 
 class cpuConfig {

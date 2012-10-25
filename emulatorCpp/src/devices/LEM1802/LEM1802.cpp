@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 #include <cstdint>
 #include <wx/dcbuffer.h>
 #include "LEM1802.h"
@@ -38,11 +39,16 @@ public:
         render(dc);
     }
     void render(wxDC& dc_in);
+    void OnKeyDown(wxKeyEvent& event);
+    void OnKeyUp(wxKeyEvent& event);
     DECLARE_EVENT_TABLE()
 };
 BEGIN_EVENT_TABLE(LEM1802DisplayPanel, wxPanel)
+    EVT_KEY_DOWN(LEM1802DisplayPanel::OnKeyDown)
+    EVT_KEY_UP(LEM1802DisplayPanel::OnKeyUp)
     EVT_PAINT(LEM1802DisplayPanel::paintEvent)
 END_EVENT_TABLE()
+
 class LEM1802Display: public wxFrame {
 protected:
     LEM1802* device;
@@ -52,10 +58,14 @@ public:
         SetClientSize(size);
         new LEM1802DisplayPanel(this, size, device);
     }
+    void OnKeyDown(wxKeyEvent& event);
+    void OnKeyUp(wxKeyEvent& event);
     void OnClose(wxCloseEvent& event);
     DECLARE_EVENT_TABLE()
 };
 BEGIN_EVENT_TABLE(LEM1802Display, wxFrame)
+    EVT_KEY_DOWN(LEM1802Display::OnKeyDown)
+    EVT_KEY_UP(LEM1802Display::OnKeyUp)
     EVT_CLOSE(LEM1802Display::OnClose)
 END_EVENT_TABLE()
 
@@ -83,6 +93,9 @@ protected:
     static const int prescaleHeight = h*ph+border*2;
     static const int width = prescaleWidth*scale;
     static const int height = prescaleHeight*scale;
+    
+    std::vector<keyHandler*> keyHandlers;
+    
 public:
     LEM1802(cpu* host) {
         this->host = host;
@@ -162,11 +175,22 @@ public:
                     g += 5;
                     b += 5;
                 }
-                ram[address+i] = (r << 8 | g << 4 | b) & 0xFFFF;
+                ram[(address+i)&0xFFFF] = (r << 8 | g << 4 | b) & 0xFFFF;
             }
             return 16;
         }
         return 0;
+    }
+    void registerKeyHandler(keyHandler* handler) {
+        keyHandlers.push_back(handler);
+    }
+    void OnKeyDown(wxKeyEvent& event) {
+        for (int i = 0; i < keyHandlers.size(); i++)
+            keyHandlers[i]->OnKeyEvent(event.GetKeyCode(), true);
+    }
+    void OnKeyUp(wxKeyEvent& event) {
+        for (int i = 0; i < keyHandlers.size(); i++)
+            keyHandlers[i]->OnKeyEvent(event.GetKeyCode(), false);
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
@@ -176,7 +200,7 @@ public:
 };
 
 LEM1802DisplayPanel::LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, LEM1802* device):
-                wxPanel(parent, wxID_ANY, wxPoint(0, 0), size), timer(this) {
+                wxPanel(parent, wxID_ANY, wxPoint(0, 0), size, wxWANTS_CHARS), timer(this) {
     this->device = device;
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     lastMapAddress = 0;
@@ -194,7 +218,7 @@ void LEM1802DisplayPanel::render(wxDC& dc) {
     if ((lastMapAddress == 0) && (device->mapAddress != lastMapAddress))
         displayReadyAt = time + 1000;
     lastMapAddress = device->mapAddress;
-     if ((device->mapAddress == 0) || (time < displayReadyAt)) {
+    if ((device->mapAddress == 0) || (time < displayReadyAt)) {
         dc.SetBackground(wxBrush(wxColour(0x00, 0x00, 0xAA)));
         dc.Clear();
         dc.DrawBitmap(bootBitmap, device->border*device->scale, device->border*device->scale, false);
@@ -320,7 +344,20 @@ void LEM1802DisplayPanel::render(wxDC& dc) {
     wxBitmap bitmap(image, -1);
     dc.DrawBitmap(bitmap, 0, 0, false);
 }
-    
+ 
+void LEM1802DisplayPanel::OnKeyDown(wxKeyEvent& event) {
+    device->OnKeyDown(event);
+}
+void LEM1802DisplayPanel::OnKeyUp(wxKeyEvent& event) {
+    device->OnKeyUp(event);
+}
+void LEM1802Display::OnKeyDown(wxKeyEvent& event) {
+//    device->OnKeyDown(event);
+}
+void LEM1802Display::OnKeyUp(wxKeyEvent& event) {
+//    device->OnKeyUp(event);
+}
+
 void LEM1802Display::OnClose(wxCloseEvent& event) {
     device->display = 0;    //wxwidgets will just drop the window out of memory itself, thus causing a crash unless if there's some warning
     Destroy();

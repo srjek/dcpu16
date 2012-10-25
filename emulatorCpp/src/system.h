@@ -26,9 +26,16 @@ public:
             sysCpu->loadImage(imagePath);
         
         numDevices = deviceConfigs.size();
+        device* keyboardProvider = NULL;
         devices = new device*[numDevices];
-        for (int i = 0; i < numDevices; i++)
-            devices[i] = deviceConfigs[i]->createDevice(sysCpu);
+        for (int i = 0; i < numDevices; i++) {
+            if (deviceConfigs[i]->consumesKeyboard())
+                devices[i] = deviceConfigs[i]->createDevice(sysCpu, keyboardProvider);
+            else
+                devices[i] = deviceConfigs[i]->createDevice(sysCpu);
+            if (deviceConfigs[i]->providesKeyboard())
+                keyboardProvider = devices[i];
+        }
         
         sysCpu->createWindow();
         for (int i = 0; i < numDevices; i++)

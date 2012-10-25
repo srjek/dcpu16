@@ -10,11 +10,17 @@
 	
 class LEM1802Config: public deviceConfig {
 public:
+    bool providesKeyboard() { return true; }
+    bool consumesKeyboard() { return false; }
+
     LEM1802Config() { name = "LEM1802"; }
     LEM1802Config(int& argc, wxChar**& argv) {
         name = "LEM1802";
     }
     device* createDevice(cpu* host);
+    device* createDevice(cpu* host, device* keyboardProvider) {
+        return createDevice(host);
+    }
 };
 
 #endif

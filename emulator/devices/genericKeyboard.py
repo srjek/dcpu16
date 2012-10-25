@@ -47,7 +47,7 @@ class genericKeyboard(threading.Thread):
             except queue.Empty:
                 self.register[2] = 0
         elif A == 2:
-            self.register[2] = self.state[A & 0xFF]
+            self.register[2] = self.state[self.register[1] & 0xFF]
         elif A == 3:
             self.interruptMsg.value = self.register[1]
         return 0
