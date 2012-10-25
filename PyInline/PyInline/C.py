@@ -287,7 +287,9 @@ DLLEXPORT PyObject* PyInit_%s(void) {
                         library_dirs=self._options.get('library_dirs'),
                         libraries=self._options.get('libraries'),
                         define_macros=self._options.get('define_macros'),
-                        undef_macros=self._options.get('undef_macros'))
+                        undef_macros=self._options.get('undef_macros'),
+                        extra_objects=self._options.get('extra_objects'),
+                        extra_link_args=self._options.get('extra_link_args'))
         try:
             setup(name = self._moduleName,
                   version = self._moduleVersion,
