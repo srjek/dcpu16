@@ -135,12 +135,11 @@ protected:
     volatile int cmdState;
     int lastCmdState;
     
-public:
     //volatile unsigned short ram[0x10000];
     //volatile unsigned short registers[13];
     int cycles; //This is our debt/credit counter
     volatile unsigned long long totalCycles; //This is how many cycles total we have done
-protected:
+
     device* hardware[0x10000];
     unsigned long hwLength;
     
@@ -149,13 +148,14 @@ protected:
     volatile int intQueueEnd;
     
     wxMutex* callbackMutex;
-    ordered_forward_map<unsigned long long, bool> callbackSchedule;
+    ordered_forward_map<unsigned long long, cpuCallback*> callbackSchedule;
     unsigned long long nextCallback;
     
     volatile bool onFire;
+    bool debug;
     
 public:
-    dcpu16() {
+    dcpu16(bool debug): cpu(totalCycles) {
         ram = new unsigned short[0x10000];
         registers = new unsigned short[13];
         for (int i = 0; i < 0x10000; i++)
@@ -174,6 +174,7 @@ public:
         
         running = true;
         cmdState = 1;
+        this->debug = debug;
     }
     ~dcpu16() {
         if (ctrlWindow)
@@ -474,9 +475,9 @@ protected:
     }
  
     void handleCallbacks() {
-        while ((nextCallback != 0) && (nextCallback < totalCycles)) {
+        while ( (nextCallback != 0) && (nextCallback <= (totalCycles+1)) ) {
             callbackMutex->Lock();
-            bool callback_func = callbackSchedule.front().value;
+            cpuCallback* callback = callbackSchedule.front().value;
             //Because we release the lock, we got to pop before hand
             // (otherwise we would reacquire the lock and there will be no clean way to remove the callback)
             callbackSchedule.pop_front();
@@ -486,13 +487,20 @@ protected:
                 nextCallback = callbackSchedule.front().key;
             //Release before call, because call might attempt to schedule another another callback
             callbackMutex->Unlock();
-            //TODO: Call function
+            
+            if (debug)
+                std::cout << "dcpu16: Calling callback from " << time << ". Next callback queued is at " << nextCallback << std::endl;
+            callback->callback();
+            delete callback;
         }
     }
 public:   
     void cycle(int count) {
         cycles -= count;
         while (cycles < 0) {
+            int initialCycles = cycles;
+            handleCallbacks();
+            
             unsigned short instruction = nextWord();
             int op = instruction & 0x1F;
             int b_code = (instruction >> 5) & 0x1F;
@@ -507,7 +515,6 @@ public:
                 execExtOp(b_code, a);
             }
             
-            //TODO: check for callbacks?
             if ((intQueueStart != intQueueEnd) && (registers[DCPU16_REG_IAQ] == 0)) {
                 if (registers[DCPU16_REG_IA] != 0) {
                     //IAQ 1 -- should enable queuing
@@ -526,8 +533,9 @@ public:
                 else
                     intQueueStart++;
             }
+            
+            totalCycles += (cycles - initialCycles);
         }
-        totalCycles += count;
     }
     
     
@@ -537,6 +545,8 @@ public:
     }
     
     void interrupt(unsigned short msg) {
+        if (debug)
+            std::cout << "dcpu16: Interrupted with msg " << msg << std::endl;
         intQueue[intQueueEnd] = msg;
         int tmp = intQueueStart;
         if (intQueueEnd+1 >= 256)
@@ -548,13 +558,15 @@ public:
             onFire = true; //raise Exception("DCPU16 is on fire. Behavior undefined")
     }
     
-    void scheduleCallback(unsigned long long time, bool callback_func, int args) {
+    void scheduleCallback(unsigned long long time, cpuCallback* callback) {
         callbackMutex->Lock();
         if (time == 0)
             time++;
-        callbackSchedule.insert(time, callback_func);
-        if (time < nextCallback)
+        callbackSchedule.insert(time, callback);
+        if ((nextCallback == 0) || (time < nextCallback))
             nextCallback = time;
+        if (debug)
+            std::cout << "dcpu16: Callback scheduled for " << time << ". Next callback queued is at " << nextCallback << std::endl;
         callbackMutex->Unlock();
     }
     
@@ -786,5 +798,5 @@ dcpu16Config::dcpu16Config(int& argc, wxChar**& argv) {
     name = "dcpu16";
 }
 cpu* dcpu16Config::createCpu() {
-    return new dcpu16();
+    return new dcpu16(false);
 }

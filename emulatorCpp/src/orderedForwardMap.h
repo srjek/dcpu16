@@ -55,7 +55,7 @@ public:
     }
 };
 
-template < class Key, class T, class Compare = less<T> >
+template < class Key, class T, class Compare = less<Key> >
 class ordered_forward_map {
 //---------------Type Defs-------------------
 public:
