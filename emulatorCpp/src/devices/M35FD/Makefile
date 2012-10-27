@@ -1,15 +1,19 @@
 OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 
+CXX = $(shell wx-config --cxx)
+# wx-config --cxxflags
+WX_CXXFLAGS = $(shell wx-config --cxxflags)
+
 # implementation
 
 .SUFFIXES:      .o .cpp
 
 .cpp.o :
 	$(CXX) -c  -o $@ $<
-
-all:	$(PROGRAM)
+M35FD.o: M35FD.cpp M35FD.h ../../device.h ../../cpu.h
+	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
     
-.PHONY: clean all
+.PHONY: clean
 
 clean:
 	rm -f *.o

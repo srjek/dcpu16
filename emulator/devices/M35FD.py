@@ -288,7 +288,7 @@ class M35FD(threading.Thread):
             if cmd == M35FD.CMD_READ:
                 cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.read, (self, floppySector, ramOffset)) 
             elif cmd == M35FD.CMD_WRITE:
-                cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.read, (self, floppySector, ramOffset)) 
+                cpu.scheduleCallback(cpu.time[0]+int(100000/60), M35FD.write, (self, floppySector, ramOffset)) 
             self.changeState(M35FD.STATE_BUSY)
             result = 1
 

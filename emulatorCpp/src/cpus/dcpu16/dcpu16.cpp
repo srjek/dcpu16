@@ -179,6 +179,8 @@ public:
     ~dcpu16() {
         if (ctrlWindow)
             ctrlWindow->Close(true);
+        callbackMutex->Lock();
+        delete callbackMutex;
         delete[] ram;
         delete[] registers;
     }

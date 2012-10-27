@@ -1,3 +1,4 @@
+#include "wx/wx.h"
 #include "../../device.h"
 #include "../../cpu.h"
 
@@ -11,15 +12,12 @@ class M35FDConfig: public deviceConfig {
 public:
     bool providesKeyboard() { return false; }
     bool consumesKeyboard() { return false; }
-    
+
     M35FDConfig() { name = "M35FD"; }
     M35FDConfig(int& argc, wxChar**& argv) {
         name = "M35FD";
     }
-    device* createDevice(cpu* host) {
-        //TODO
-        return NULL;
-    }
+    device* createDevice(cpu* host);
     device* createDevice(cpu* host, device* keyboardProvider) {
         return createDevice(host);
     }

@@ -440,7 +440,7 @@ jsr GetKeyboard
 :VND1 dat VND1_Name, 0x1C6C, 0x8B36
 :VND2 dat VND2_Name, 0x2154, 0x4948
 :VND3 dat VND3_Name, 0x4855, 0x07A1 ; HU 1953
-:VND4 dat VND3_Name, 0x1EB3, 0x7E91
+:VND4 dat VND4_Name, 0x1EB3, 0x7E91
 
 :VND1_Name dat 14, "Nya Elektriska"
 :VND2_Name dat 23, "Harold Innovation Tech."
