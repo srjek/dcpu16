@@ -22,7 +22,8 @@ all:	$(PROGRAM)
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
 main.o: cpus/cpus.h devices/devices.h emulation.h system.h cpu.h device.h thread.h
-
+orderedForwardList.o: orderedForwardList.cpp
+	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
 
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
