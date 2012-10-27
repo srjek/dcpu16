@@ -2,54 +2,53 @@
 #include <memory>
 using namespace std;
 
+#ifndef ordered_forward_map_h
+#define ordered_forward_map_h
+
 template < class Key, class T >
 class ordered_forward_map_element {
-friend class ordered_forward_map;
-friend class ordered_forward_map_iterator;
-protected:
+public:
     typedef ordered_forward_map_element<Key, T> class_t;
     const Key key;
     T value;
     class_t* nextElement;
     
-    ordered_forward_map_element(T value = T(), class_t* nextElement = NULL):
-                                 value(value), nextElement(nextElement) { }
-    ordered_forward_map_element(const class_t& element):
-            value(element.value), nextElement(element.nextElement) { }
+    inline ordered_forward_map_element(Key key, T value = T(), class_t* nextElement = NULL):
+                    key(key), value(value), nextElement(nextElement) { }
+    inline ordered_forward_map_element(const class_t& element):
+                    key(element.key), value(element.value), nextElement(element.nextElement) { }
 };
 
 template < class Key, class T >
 class ordered_forward_map_iterator : public iterator<forward_iterator_tag, T> {
-friend class ordered_forward_map;
-protected:
+public:
     typedef ordered_forward_map_iterator<Key, T> class_t;
     typedef ordered_forward_map_element<Key, T> element_t;
     element_t* element;
     
-public:
-    ordered_forward_map_iterator(element_t* element = NULL):
+    inline ordered_forward_map_iterator(element_t* element = NULL):
                                  element(element) { }
-    ordered_forward_map_iterator(const class_t& iterator):
+    inline ordered_forward_map_iterator(const class_t& iterator):
                                 element(iterator.element) { }
     
-    class_t& operator = (class_t& b) {
+    inline class_t& operator = (class_t& b) {
         element = b.element;
         return this;
     }
-    bool operator == (class_t& b) {
+    inline bool operator == (class_t& b) {
         return (this->element == b.element);
     }
-    bool operator != (class_t& b) {
+    inline bool operator != (class_t& b) {
         return !(*this == b);
     }
-    T& operator * () {
-        return element->value;
+    inline element_t& operator * () {
+        return *element;
     }
-    class_t& operator ++ () {     //++class_t
+    inline class_t& operator ++ () {     //++class_t
         element = element->nextElement;
         return *this;
     }
-    class_t operator ++ (int) {  //class_t++
+    inline class_t operator ++ (int) {  //class_t++
         class_t tmp(*this);
         element = element->nextElement;
         return tmp;
@@ -72,14 +71,15 @@ public:
     
 //---------------Variables-------------------
 protected:
+    Compare cmp;
     element_t* firstElement;
 
 //-------------Constructors------------------
 public:
     //empty (default)
-    explicit ordered_forward_map (): firstElement(NULL) { }
+    explicit ordered_forward_map (const Compare& cmp = Compare()): cmp(cmp), firstElement(NULL) { }
     //copy
-    ordered_forward_map (const class_t& fwdmap): firstElement(NULL) {
+    ordered_forward_map (const class_t& fwdmap): cmp(fwdmap.cmp), firstElement(NULL) {
         *this = fwdmap;
     }
 
@@ -120,21 +120,21 @@ public:
     }
 
 //---------------Iterators-------------------
-    iterator begin() noexcept {
+    iterator begin() {
         return iterator(firstElement);
     }
-    const_iterator cbegin() const noexcept {
+    const_iterator cbegin() const {
         return const_iterator(firstElement);
     }
 
 //----------------Capacity-------------------
-    bool empty() const noexcept {
+    bool empty() const {
         return firstElement == NULL;
     }
 
 //------------Element access-----------------
-    reference front() {
-        return firstElement->value;
+    element_t& front() {
+        return *firstElement;
     }
 
 //---------------Modifiers-------------------
@@ -150,8 +150,8 @@ public:
         element_t* lastElement = NULL;
         element_t* curElement = firstElement;
         while (true) {
-            if ((curElement == NULL) || Compare(key, curElement->key)) {
-                element_t* newElement = element_t(key, val, curElement);
+            if ((curElement == NULL) || cmp(key, curElement->key)) {
+                element_t* newElement = new element_t(key, val, curElement);
                 if (lastElement == NULL)
                     firstElement = newElement;
                 else
@@ -212,7 +212,9 @@ public:
         firstElement = tmp;
     }
     
-    void clear() noexcept {
+    void clear() {
         destruct_internals();
     }
 };
+
+#endif

@@ -3,6 +3,7 @@
 #include <wx/wfstream.h>
 #include "dcpu16.h"
 #include "../../strHelper.h"
+#include "../../orderedForwardMap.h"
 #include "../../device.h"
 
 class dcpu16;
@@ -147,6 +148,10 @@ protected:
     volatile int intQueueStart;
     volatile int intQueueEnd;
     
+    wxMutex* callbackMutex;
+    ordered_forward_map<unsigned long long, bool> callbackSchedule;
+    unsigned long long nextCallback;
+    
     volatile bool onFire;
     
 public:
@@ -163,6 +168,9 @@ public:
         intQueueStart = 0;
         intQueueStart = 0;
         onFire = false;
+        
+        nextCallback = 0;
+        callbackMutex = new wxMutex();
         
         running = true;
         cmdState = 1;
@@ -465,6 +473,22 @@ protected:
         }
     }
  
+    void handleCallbacks() {
+        while ((nextCallback != 0) && (nextCallback < totalCycles)) {
+            callbackMutex->Lock();
+            bool callback_func = callbackSchedule.front().value;
+            //Because we release the lock, we got to pop before hand
+            // (otherwise we would reacquire the lock and there will be no clean way to remove the callback)
+            callbackSchedule.pop_front();
+            if (callbackSchedule.empty())
+                nextCallback = 0;
+            else
+                nextCallback = callbackSchedule.front().key;
+            //Release before call, because call might attempt to schedule another another callback
+            callbackMutex->Unlock();
+            //TODO: Call function
+        }
+    }
 public:   
     void cycle(int count) {
         cycles -= count;
@@ -507,6 +531,11 @@ public:
     }
     
     
+    unsigned int addHardware(device* hw) {
+        hardware[hwLength] = hw;
+        return hwLength++;
+    }
+    
     void interrupt(unsigned short msg) {
         intQueue[intQueueEnd] = msg;
         int tmp = intQueueStart;
@@ -519,9 +548,14 @@ public:
             onFire = true; //raise Exception("DCPU16 is on fire. Behavior undefined")
     }
     
-    unsigned int addHardware(device* hw) {
-        hardware[hwLength] = hw;
-        return hwLength++;
+    void scheduleCallback(unsigned long long time, bool callback_func, int args) {
+        callbackMutex->Lock();
+        if (time == 0)
+            time++;
+        callbackSchedule.insert(time, callback_func);
+        if (time < nextCallback)
+            nextCallback = time;
+        callbackMutex->Unlock();
     }
     
     void loadImage(const wxChar* imagePath) {
