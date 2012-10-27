@@ -1,4 +1,4 @@
-;Not mine(srjek), found it on 0x10co.de, with an anonymous
+;Not mine(srjek), found it on 0x10co.de, with an anonymous author
 
 SET J, 0
 HWN Z
@@ -58,6 +58,7 @@ DAT 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x00
     dat 0
 .end
 :not_found
+    SET A, 0
     SET B, tile_space
 	IFN J, 0
 		 SET PC, frame_loop	;srjek here, we actually did find a monitor, but went back to look for more
