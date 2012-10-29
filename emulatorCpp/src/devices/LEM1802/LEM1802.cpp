@@ -1,7 +1,11 @@
 #include <iostream>
 #include <vector>
 #include <cstdint>
+
+#include <wx/filename.h>
 #include <wx/dcbuffer.h>
+#include <wx/stdpaths.h>
+
 #include "LEM1802.h"
 
 class RenderTimer : public wxTimer {
@@ -107,8 +111,25 @@ public:
         borderColor = 0;
         
         //Load font rom
+        wxStandardPathsBase& stdpath = wxStandardPaths::Get();
+        wxFileName filename;
+        filename.Assign(stdpath.GetExecutablePath());
+        filename.Assign(_("font.png"));
+        if (!filename.FileExists()) {
+            std::cout << "ERROR: File \"";
+            std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
+            std::cout << "\" does not exist" << std::endl;
+            return;
+        }
+        if (!filename.IsFileReadable()) {
+            std::cout << "ERROR: File \"";
+            std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
+            std::cout << "\" is not readable" << std::endl;
+            return;
+        }
+        
         wxInitAllImageHandlers();
-        wxImage fontImg(wxString(wxT("font.png")), wxBITMAP_TYPE_PNG);   //TODO: load from install directory
+        wxImage fontImg(filename.GetFullPath(), wxBITMAP_TYPE_PNG);
         for (int y = 0; y < 4; y++) {
             for (int x = 0; x < 32; x++) {
                 int xOffset = x*4;
@@ -205,8 +226,27 @@ LEM1802DisplayPanel::LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, L
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     lastMapAddress = 0;
     timer.start();
+    
+    
+    wxStandardPathsBase& stdpath = wxStandardPaths::Get();
+    wxFileName filename;
+    filename.Assign(stdpath.GetExecutablePath());
+    filename.Assign(_("boot.png"));
+    if (!filename.FileExists()) {
+        std::cout << "ERROR: File \"";
+        std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
+        std::cout << "\" does not exist" << std::endl;
+        return;
+    }
+    if (!filename.IsFileReadable()) {
+        std::cout << "ERROR: File \"";
+        std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
+        std::cout << "\" is not readable" << std::endl;
+        return;
+    }
+    
     wxInitAllImageHandlers();
-    wxImage bootImage(wxString(wxT("boot.png")), wxBITMAP_TYPE_PNG);
+    wxImage bootImage(filename.GetFullPath(), wxBITMAP_TYPE_PNG);
     bootImage.Rescale(device->w*device->pw*device->scale, device->h*device->ph*device->scale);
     bootBitmap = wxBitmap(bootImage, -1);
 }
