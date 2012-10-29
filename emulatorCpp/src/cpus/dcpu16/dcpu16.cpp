@@ -800,7 +800,9 @@ dcpu16_rom::dcpu16_rom(dcpu16* host) {
     
     wxFileName filename;
     filename.Assign(stdpath.GetExecutablePath());
-    filename.Assign(_("firmware.bin"));
+    filename.AppendDir(_("cpus"));
+    filename.AppendDir(_("dcpu16"));
+    filename.SetFullName(_("firmware.bin"));
     if (!filename.FileExists()) {
         std::cout << "ERROR: File \"";
         std::cout << filename.GetFullPath().mb_str(wxConvUTF8);

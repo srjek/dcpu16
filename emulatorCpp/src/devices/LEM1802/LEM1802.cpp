@@ -114,7 +114,9 @@ public:
         wxStandardPathsBase& stdpath = wxStandardPaths::Get();
         wxFileName filename;
         filename.Assign(stdpath.GetExecutablePath());
-        filename.Assign(_("font.png"));
+        filename.AppendDir(_("devices"));
+        filename.AppendDir(_("LEM1802"));
+        filename.SetFullName(_("font.png"));
         if (!filename.FileExists()) {
             std::cout << "ERROR: File \"";
             std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
@@ -231,7 +233,9 @@ LEM1802DisplayPanel::LEM1802DisplayPanel(wxWindow* parent, const wxSize& size, L
     wxStandardPathsBase& stdpath = wxStandardPaths::Get();
     wxFileName filename;
     filename.Assign(stdpath.GetExecutablePath());
-    filename.Assign(_("boot.png"));
+    filename.AppendDir(_("devices"));
+    filename.AppendDir(_("LEM1802"));
+    filename.SetFullName(_("boot.png"));
     if (!filename.FileExists()) {
         std::cout << "ERROR: File \"";
         std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
