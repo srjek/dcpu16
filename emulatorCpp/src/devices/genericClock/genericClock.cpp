@@ -52,7 +52,8 @@ public:
             unsigned short B = host->registers[1];
             timing = 0;
             if (B > 0) {
-                timing = 100000*B;
+                timing = 100000;
+                timing *= B;
                 timing /= 60;
             }
             ticks = 0;
@@ -89,5 +90,5 @@ void genericClockCallback::callback() {
     clock->onTick(uid);
 }
 device* genericClockConfig::createDevice(cpu* host) {
-    return new genericClock(host, false);
+    return new genericClock(host, debug);
 }

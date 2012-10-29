@@ -547,6 +547,8 @@ protected:
                 break;
             case 0x12:      //HWI
                 num = a.value;
+                if (debug)
+                    std::cout << "dcpu16: Interrupt hardware #" << num << std::endl;
                 if (num < hwLength)
                     cycles += hardware[num]->interrupt();
                 break;
@@ -944,7 +946,14 @@ void dcpu16CtrlWindow::update() {
 dcpu16Config::dcpu16Config() { name = "dcpu16"; }
 dcpu16Config::dcpu16Config(int& argc, wxChar**& argv) {
     name = "dcpu16";
+    debug = false;
+    if (argc > 0) {
+        if (wxStrcmp(argv[0], _("--debug")) == 0) {
+            debug = true;
+            argv++; argc--;
+        }
+    }
 }
 cpu* dcpu16Config::createCpu() {
-    return new dcpu16(false);
+    return new dcpu16(debug);
 }

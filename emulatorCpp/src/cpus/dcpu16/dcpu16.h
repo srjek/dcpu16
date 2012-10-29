@@ -22,6 +22,7 @@
 	{ wxCMD_LINE_SWITCH, NULL, wxT("dcpu16"), wxT("CPUS!") },
 	
 class dcpu16Config: public cpuConfig {
+    bool debug;
 public:
     dcpu16Config();
     dcpu16Config(int& argc, wxChar**& argv);
