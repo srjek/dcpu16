@@ -2,6 +2,7 @@ _PyInline
 __pycache__
 *.out
 *.bin
+*.img
 mem.dmp
 *~
 bin/assembler.py
