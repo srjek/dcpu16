@@ -3,6 +3,7 @@
 
 #include <wx/filename.h>
 #include <wx/wfstream.h>
+#include <wx/stdpaths.h>
 
 #include "dcpu16.h"
 #include "../../strHelper.h"
@@ -788,20 +789,43 @@ dcpu16_rom::dcpu16_rom(dcpu16* host) {
     this->host = host;
     
     enabled = true;
-    FILE* romFile = fopen("firmware.bin", "rb");
-    if (romFile == NULL) {
+    for (int i = 0; i < 512; i++)
+        rom[i] = 0;
+    
+    host->addHardware(this);
+    //Callbacks are processed before any cycles are run!
+    host->scheduleCallback(0, new dcpu16_rom_callback(this));
+    
+    wxStandardPathsBase& stdpath = wxStandardPaths::Get();
+    
+    wxFileName filename;
+    filename.Assign(stdpath.GetExecutablePath());
+    filename.Assign(_("firmware.bin"));
+    if (!filename.FileExists()) {
+        std::cout << "ERROR: File \"";
+        std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
+        std::cout << "\" does not exist" << std::endl;
+        return;
+    }
+    if (!filename.IsFileReadable()) {
+        std::cout << "ERROR: File \"";
+        std::cout << filename.GetFullPath().mb_str(wxConvUTF8);
+        std::cout << "\" is not readable" << std::endl;
+        return;
+    }
+    
+    wxFFileInputStream romFile(filename.GetFullPath(), wxT("rb"));
+    if (romFile.GetLength() <= 0) {
         std::cout << "ERROR: Failed to open \"firmware.bin\"";
-        for (int i = 0; i < 512; i++)
-            rom[i] = 0;
     } else {
         int i;
         for (i = 0; i < 512; i++) {
             unsigned short word;
-            int c1 = fgetc(romFile);
-            if (c1 == EOF)
+            int c1 = romFile.GetC();
+            if (romFile.LastRead() == 0)
                 break;
-            int c2 = fgetc(romFile);
-            if (c2 == EOF) {
+            int c2 = romFile.GetC();
+            if (romFile.LastRead() == 0) {
                 word = c1 << 8;
                 rom[i++] = word;
                 break;
@@ -811,13 +835,8 @@ dcpu16_rom::dcpu16_rom(dcpu16* host) {
         }
         for (; i < 512; i++)
             rom[i] = 0;
-        fclose(romFile);
     }
     
-    host->addHardware(this);
-    
-    //Callbacks are processed before any cycles are run!
-    host->scheduleCallback(0, new dcpu16_rom_callback(this));
 }
 void dcpu16_rom::startup() {
     if (enabled)
