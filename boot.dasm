@@ -10,10 +10,10 @@
     HWN I
 :device_loop
     SUB I, 1
-    ; Query selected device and see if it's a hard disk or LEM-1802
+    ; Query selected device and see if it's a floppy drive or LEM-1802
     HWQ I
-    IFE A, 0x5678
-        IFE B, 0x1234
+    IFE A, 0x24c5
+        IFE B, 0x4fd5
             SET [io_m35fd], I
     IFE A, 0xF615
         IFE B, 0x7349

@@ -156,10 +156,7 @@ protected:
     static const int STATE_NO_MEDIA =   0x0000;
     static const int STATE_READY =      0x0001;
     static const int STATE_READY_WP =   0x0002;
-    // The spec did not actually specify a busy state,
-    // but we needed a state to represent anything that
-    // doesn't fit in the other states
-    static const int STATE_BUSY =       0xFFFF;
+    static const int STATE_BUSY =       0x0003;
 
     static const int ERROR_NONE =       0x0000;
     static const int ERROR_BUSY =       0x0001;
@@ -206,7 +203,7 @@ public:
         return 0x1eb37e91;  //Mackapar Media
     }
     unsigned long getId() {
-        return 0x12345678;  //A fake temporary id
+        return 0x4fd524c5;
     }
     unsigned long getVersion() {
         return 0x000b;  //???
