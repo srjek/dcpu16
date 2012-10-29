@@ -10,16 +10,13 @@
 
 class RenderTimer : public wxTimer {
     wxPanel* panel;
-    unsigned long long counter;
 public:
     RenderTimer(wxPanel* panel) : wxTimer() {
         this->panel = panel;
-        counter = 0;
     }
     void Notify() {
         panel->Refresh();
         panel->Update();
-        std::cout.flush();
     }
     void start() {
         wxTimer::Start(1000/60);

@@ -16,12 +16,25 @@ enum {
     ID_Run = 1,
     ID_Step,
     ID_Stop,
-    ID_ButtonDoesNotExist,
 };
 
+class dcpu16CtrlWindow;
+class CtrlWindowTimer : public wxTimer {
+    dcpu16CtrlWindow* panel;
+public:
+    CtrlWindowTimer(dcpu16CtrlWindow* panel) : wxTimer() {
+        this->panel = panel;
+    }
+    void Notify();
+    void start() {
+        wxTimer::Start(500);
+    }
+};
 class dcpu16CtrlWindow: public wxFrame {
+friend class CtrlWindowTimer;
 protected:
     dcpu16* cpu;
+    CtrlWindowTimer timer;
     
     wxStaticText* cycles;
     wxStaticText* PC;
@@ -42,7 +55,7 @@ protected:
     
     wxStaticText* curInstruction;
 public:
-    dcpu16CtrlWindow(const wxPoint& pos, dcpu16* cpu): wxFrame( getTopLevelWindow(), -1, _("dcpu16"), pos, wxSize(200,200) )  {
+    dcpu16CtrlWindow(const wxPoint& pos, dcpu16* cpu): wxFrame( getTopLevelWindow(), -1, _("dcpu16"), pos, wxSize(200,200) ), timer(this)  {
         wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
         sizer->AddSpacer(2);
         cycles = new wxStaticText(this, -1, _("Cycles: 0"));
@@ -94,6 +107,8 @@ public:
         
         this->cpu = cpu;
         update();
+        
+        timer.start();
     }
     void OnRun(wxCommandEvent& WXUNUSED(event));
     void OnStep(wxCommandEvent& WXUNUSED(event));
@@ -101,18 +116,20 @@ public:
     void OnClose(wxCloseEvent& event);
     
     void update();
-    void OnButtonDoesNotExist(wxCommandEvent& WXUNUSED(event)) {
+    void Notify() {
         update();
     }
     DECLARE_EVENT_TABLE()
 };
 
+void CtrlWindowTimer::Notify() {
+    panel->update();
+}
 BEGIN_EVENT_TABLE(dcpu16CtrlWindow, wxFrame)
     EVT_BUTTON(ID_Run, dcpu16CtrlWindow::OnRun)
     EVT_BUTTON(ID_Step, dcpu16CtrlWindow::OnStep)
     EVT_BUTTON(ID_Stop, dcpu16CtrlWindow::OnStop)
     EVT_CLOSE(dcpu16CtrlWindow::OnClose)
-    EVT_BUTTON(ID_ButtonDoesNotExist, dcpu16CtrlWindow::OnButtonDoesNotExist)
 END_EVENT_TABLE()
 
 
@@ -681,10 +698,6 @@ public:
             else if (cmdState == 1)
                 cycle(10000);
             lastCmdState = cmdState;
-            if (ctrlWindow) {
-                wxCommandEvent tmp = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED, ID_ButtonDoesNotExist);
-                ctrlWindow->AddPendingEvent(tmp);
-            }
         }
     }
     void Stop() {
