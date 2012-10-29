@@ -44,18 +44,20 @@ def tokenize(string, ops):
     params = None
     literal = ""
     mode = "none"
-
+    nextCharEscaped = False
+    
     for i in range(1, len(string)+1):
         c = string[i-1]
-        if c in ('"',"'"):
-            if inString == None:
-                inString = c
-            elif c == inString:
-                inString = None
-        elif c in ("(",) and inString == None:
-            grouping_level += 1
-        elif c in (")",) and inString == None:
-            grouping_level -= 1
+        if not nextCharEscaped:
+            if c in ('"',"'"):
+                if inString == None:
+                    inString = c
+                elif c == inString:
+                    inString = None
+            elif c in ("(",) and inString == None:
+                grouping_level += 1
+            elif c in (")",) and inString == None:
+                grouping_level -= 1
 
         if mode == "op" and (c.isalnum() or c.isspace() or c in ("_", "(", ")", '"', "'", ".")):
             if literal != "":
@@ -70,7 +72,7 @@ def tokenize(string, ops):
                 mode = "expectOp"
             continue
         
-        if c in ("(", ")") or grouping_level != 0:
+        if (c in ("(", ")") or grouping_level != 0) and inString == None:
             if mode in ("literal"):
                 if "func" not in ops:
                     raise Exception("Unexpected \""+c+"\" at char " + repr(i) + "    (Functions are not supported)")
@@ -108,6 +110,11 @@ def tokenize(string, ops):
                 raise Exception("Unexpected string at char " + repr(i))
             mode="str"
             literal += c
+            if (c != "\\" and not nextCharEscaped) or nextCharEscaped:
+                nextCharEscaped = False
+            else:
+                nextCharEscaped = True
+                
             if not inString:
                 tokens.append(( "literal", literal) )
                 literal = ""

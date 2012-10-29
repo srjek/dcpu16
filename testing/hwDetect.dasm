@@ -436,7 +436,7 @@ jsr GetKeyboard
 :HW6_Model dat 7, "SPC2000"
 :HW7_Name dat 63, "Suspended Particle Exciter                              Display"
 :HW7_Model dat 6, "SPED-3"
-:HW8_Name dat 26, "Mackapar 3.5",'"'," Floppy Drive"
+:HW8_Name dat 26, "Mackapar 3.5\" Floppy Drive"
 :HW8_Model dat 5, "M35FD"
 
 :Vendors dat 4, VND1, VND2, VND3, VND4

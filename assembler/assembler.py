@@ -1098,6 +1098,7 @@ class reader:
         self.charNum = 0
         self.inStr = None
         self.grouping_level = 0
+        self.nextCharEscaped = False
         
         self.tokenQueue = []
         self.inCodeblock = False
@@ -1178,11 +1179,12 @@ class reader:
             return
         if self.mode in ("error", "macroError", "comment"):
             return  #Ignore the rest of the line
-        if char in ('"', "'"):
+        if char in ('"', "'") and not self.nextCharEscaped:
             if self.inStr == None:
                 self.inStr = char
             elif self.inStr == char:
                 self.inStr = None
+        self.nextCharEscaped = (self.inStr != None and char == "\\")
         if char in ("(",) and self.inStr == None:
             self.grouping_level += 1
         elif char in (")",) and self.inStr == None:
