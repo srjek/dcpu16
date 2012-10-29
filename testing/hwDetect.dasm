@@ -436,7 +436,7 @@ jsr GetKeyboard
 :HW7_Name dat 63, "Suspended Particle Exciter                              Display"
 :HW7_Model dat 6, "SPED-3"
 
-:Vendors dat 3, VND1, VND2, VND3, VND4
+:Vendors dat 4, VND1, VND2, VND3, VND4
 :VND1 dat VND1_Name, 0x1C6C, 0x8B36
 :VND2 dat VND2_Name, 0x2154, 0x4948
 :VND3 dat VND3_Name, 0x4855, 0x07A1 ; HU 1953

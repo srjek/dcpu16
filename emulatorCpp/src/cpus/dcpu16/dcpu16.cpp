@@ -1,6 +1,9 @@
 #include <iostream>
+#include <cstdio>
+
 #include <wx/filename.h>
 #include <wx/wfstream.h>
+
 #include "dcpu16.h"
 #include "../../strHelper.h"
 #include "../../orderedForwardMap.h"
@@ -112,7 +115,59 @@ BEGIN_EVENT_TABLE(dcpu16CtrlWindow, wxFrame)
 END_EVENT_TABLE()
 
 
+class dcpu16_rom;
+class dcpu16_rom_callback: public cpuCallback {
+protected:
+    dcpu16_rom* device;
+public:
+    dcpu16_rom_callback(dcpu16_rom* device):
+                        device(device) { }
+    void callback();
+};
+
+class dcpu16_rom: public device {
+protected:
+    dcpu16* host;
+    volatile bool enabled;
+    unsigned short rom[512];
+public:
+    dcpu16_rom(dcpu16* host);
+    ~dcpu16_rom() { }
+    void createWindow() { }
+    unsigned long getManufacturer() {
+        return 0;  //????
+    }
+    unsigned long getId() {
+        return 0;  //????
+    }
+    unsigned long getVersion() {
+        return 0;  //????
+    }
+    
+    void enable() {
+        enabled = true;
+    }
+    void disable() {
+        enabled = false;
+    }
+    void startup();
+    int interrupt();
+    
+    void registerKeyHandler(keyHandler* handler) { };
+    
+    wxThreadError Create() { return wxTHREAD_NO_ERROR; }
+    wxThreadError Run() { return wxTHREAD_NO_ERROR; }
+    void Stop() { }
+    wxThread::ExitCode Wait() { return 0; }
+};
+
+void dcpu16_rom_callback::callback() {
+    device->startup();
+}
+
+
 class dcpu16: public cpu {
+    friend class dcpu16_rom;
     friend class dcpu16CtrlWindow;
 protected:
     static const int extOpcodeCycles[];
@@ -142,6 +197,7 @@ protected:
 
     device* hardware[0x10000];
     unsigned long hwLength;
+    dcpu16_rom* romDevice;
     
     volatile unsigned short intQueue[256];
     volatile int intQueueStart;
@@ -175,10 +231,13 @@ public:
         running = true;
         cmdState = 1;
         this->debug = debug;
+        
+        romDevice = new dcpu16_rom(this);
     }
     ~dcpu16() {
         if (ctrlWindow)
             ctrlWindow->Close(true);
+        delete romDevice;
         callbackMutex->Lock();
         delete callbackMutex;
         delete[] ram;
@@ -609,6 +668,8 @@ public:
             }
             ram[i] = (c1 << 8) | c2;
         }
+        romDevice->disable();
+        
         //ram[0] = 0x01 | (0x1C << 5) | (0x1F << 10); //0x7F81
         //ram[1] = 0x031d;
     }
@@ -723,6 +784,55 @@ const int dcpu16::opcodeCycles[] = {
                 0, 0, 2, 2, 0, 0, 1, 1 };
 
 
+dcpu16_rom::dcpu16_rom(dcpu16* host) {
+    this->host = host;
+    
+    enabled = true;
+    FILE* romFile = fopen("firmware.bin", "rb");
+    if (romFile == NULL) {
+        std::cout << "ERROR: Failed to open \"firmware.bin\"";
+        for (int i = 0; i < 512; i++)
+            rom[i] = 0;
+    } else {
+        int i;
+        for (i = 0; i < 512; i++) {
+            unsigned short word;
+            int c1 = fgetc(romFile);
+            if (c1 == EOF)
+                break;
+            int c2 = fgetc(romFile);
+            if (c2 == EOF) {
+                word = c1 << 8;
+                rom[i++] = word;
+                break;
+            }
+            word = (c1 << 8) | c2;
+            rom[i] = word;
+        }
+        for (; i < 512; i++)
+            rom[i] = 0;
+        fclose(romFile);
+    }
+    
+    host->addHardware(this);
+    
+    //Callbacks are processed before any cycles are run!
+    host->scheduleCallback(0, new dcpu16_rom_callback(this));
+}
+void dcpu16_rom::startup() {
+    if (enabled)
+        host->cycles += interrupt(); //We have to manage the interrupt ourselves...
+}
+int dcpu16_rom::interrupt() {
+    unsigned short A = host->registers[0];  //Specs don't say anything about using this, so ignore
+    
+    int offset = host->registers[1]; //Start copying into memory at position B
+    for (int i = 0; i < 512; i++) {
+        host->ram[(offset + i)&0xFFFF] = rom[i];
+    }
+    return 512; //Specs don't say anything about this either, so I gave it 512 cycles, as the rom has 512 words
+}
+    
 void dcpu16CtrlWindow::OnRun(wxCommandEvent& WXUNUSED(event)) {
     cpu->cmdState = 1;
 }
