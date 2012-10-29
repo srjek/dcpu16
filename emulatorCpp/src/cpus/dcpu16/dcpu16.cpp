@@ -693,10 +693,12 @@ public:
     }
     void Run() {
         if (running) {
-            if (((cmdState == 2) || (cmdState == 3)) && cmdState != lastCmdState)
-                cycle(1);
-            else if (cmdState == 1)
-                cycle(10000);
+            if (((cmdState == 2) || (cmdState == 3)) && cmdState != lastCmdState) {
+                cycle(1);       //step
+                cycle(cycles);
+            } else if (cmdState == 1)
+                cycle(10000);   //run
+            //stop
             lastCmdState = cmdState;
         }
     }
