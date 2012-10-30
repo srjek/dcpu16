@@ -943,7 +943,10 @@ void dcpu16CtrlWindow::update() {
     curInstruction->SetLabel(curInstruction_TXT);
 }
 
-dcpu16Config::dcpu16Config() { name = "dcpu16"; }
+dcpu16Config::dcpu16Config() { 
+    debug = false;
+    name = "dcpu16";
+}
 dcpu16Config::dcpu16Config(int& argc, wxChar**& argv) {
     name = "dcpu16";
     debug = false;

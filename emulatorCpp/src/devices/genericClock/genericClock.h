@@ -14,7 +14,10 @@ public:
     bool providesKeyboard() { return false; }
     bool consumesKeyboard() { return false; }
 
-    genericClockConfig() { name = "Generic Clock"; }
+    genericClockConfig() { 
+        debug = false;
+        name = "Generic Clock"; 
+    }
     genericClockConfig(int& argc, wxChar**& argv) {
         name = "Generic Clock";
         debug = false;
