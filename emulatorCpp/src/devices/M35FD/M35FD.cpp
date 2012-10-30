@@ -173,19 +173,40 @@ protected:
     
     wxMutex* stateMutex;
     
+    
+    void guiUpdatePath() {
+        if (display) {
+            wxCommandEvent tmp = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED, ID_ButtonDoesNotExist);
+            display->AddPendingEvent(tmp);
+        }
+    }
 public:
+    void reset() {
+        stateMutex->Lock();
+        
+        if (state != STATE_NO_MEDIA) {
+            //callbacks would have been cancelled by the cpu, so we can/must reset
+            if (writeProtected)
+                changeState(STATE_READY_WP);
+            else
+                changeState(STATE_READY);
+        }
+        error = ERROR_NONE;
+        interruptMsg = 0;
+        
+        stateMutex->Unlock();
+        guiUpdatePath();
+    }
     M35FD(cpu* host) {
         this->host = host;
         host->addHardware(this);
         
+        state = STATE_NO_MEDIA;
         imagePath = 0;
         writeProtected = true;
         
-        state = STATE_NO_MEDIA;
-        error = ERROR_NONE;
-        interruptMsg = 0;
-        
         stateMutex = new wxMutex();
+        reset();
     }
     ~M35FD() {
         if (display)
@@ -210,12 +231,6 @@ public:
     }
     
 protected:
-    void guiUpdatePath() {
-        if (display) {
-            wxCommandEvent tmp = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED, ID_ButtonDoesNotExist);
-            display->AddPendingEvent(tmp);
-        }
-    }
     void loadFile(wxString filepath, bool readonly = false, bool ramdisk = true) {
         stateMutex->Lock();
         if (state != STATE_NO_MEDIA) {

@@ -19,6 +19,7 @@ public:
     virtual unsigned long getVersion() =0;
     virtual unsigned long getManufacturer() =0;
     
+    virtual void reset() =0;
     virtual int interrupt() =0;
     virtual void registerKeyHandler(keyHandler* handler) =0;
 //    virtual int attachKeyboard() =0;

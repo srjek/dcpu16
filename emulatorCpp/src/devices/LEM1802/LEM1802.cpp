@@ -98,14 +98,17 @@ protected:
     std::vector<keyHandler*> keyHandlers;
     
 public:
-    LEM1802(cpu* host) {
-        this->host = host;
-        host->addHardware(this);
-        
+    void reset() {
         mapAddress = 0;
         tileAddress = 0;
         paletteAddress = 0;
         borderColor = 0;
+    }
+    LEM1802(cpu* host) {
+        this->host = host;
+        host->addHardware(this);
+        
+        reset();
         
         //Load font rom
         wxStandardPathsBase& stdpath = wxStandardPaths::Get();

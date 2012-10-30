@@ -25,14 +25,17 @@ protected:
     unsigned short unit;
     
 public:
+    void reset() {
+        skip = 0;
+        unit = 0;
+    }
     SPC2000(cpu* host, bool debug) {
         this->host = host;
         this->debug = debug;
         
-        skip = 0;
-        unit = 0;
-        
         host->addHardware(this);
+        
+        reset();
     }
     ~SPC2000() { }
     void createWindow() { }

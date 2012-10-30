@@ -16,6 +16,7 @@ enum {
     ID_Run = 1,
     ID_Step,
     ID_Stop,
+    ID_Reset,
 };
 
 class dcpu16CtrlWindow;
@@ -58,8 +59,12 @@ public:
     dcpu16CtrlWindow(const wxPoint& pos, dcpu16* cpu): wxFrame( getTopLevelWindow(), -1, _("dcpu16"), pos, wxSize(200,200) ), timer(this)  {
         wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
         sizer->AddSpacer(2);
+        wxFlexGridSizer* innerSizer0 = new wxFlexGridSizer(5, 2, 1, 0);
         cycles = new wxStaticText(this, -1, _("Cycles: 0"));
-        sizer->Add(cycles, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+        innerSizer0->Add(cycles, 0, wxALIGN_LEFT | wxALIGN_CENTRE, 0);
+        innerSizer0->Add(new wxButton(this, ID_Reset, _("Reset")), 0, wxALIGN_RIGHT, 0);
+        innerSizer0->AddGrowableCol(0);
+        sizer->Add(innerSizer0, 0, wxEXPAND, 0);
         sizer->AddSpacer(4);
         
         wxFlexGridSizer* innerSizer = new wxFlexGridSizer(5, 3, 4, 0);
@@ -113,6 +118,7 @@ public:
     void OnRun(wxCommandEvent& WXUNUSED(event));
     void OnStep(wxCommandEvent& WXUNUSED(event));
     void OnStop(wxCommandEvent& WXUNUSED(event));
+    void OnReset(wxCommandEvent& WXUNUSED(event));
     void OnClose(wxCloseEvent& event);
     
     void update();
@@ -129,6 +135,7 @@ BEGIN_EVENT_TABLE(dcpu16CtrlWindow, wxFrame)
     EVT_BUTTON(ID_Run, dcpu16CtrlWindow::OnRun)
     EVT_BUTTON(ID_Step, dcpu16CtrlWindow::OnStep)
     EVT_BUTTON(ID_Stop, dcpu16CtrlWindow::OnStop)
+    EVT_BUTTON(ID_Reset, dcpu16CtrlWindow::OnReset)
     EVT_CLOSE(dcpu16CtrlWindow::OnClose)
 END_EVENT_TABLE()
 
@@ -149,6 +156,7 @@ protected:
     volatile bool enabled;
     unsigned short rom[512];
 public:
+    void reset();
     dcpu16_rom(dcpu16* host);
     ~dcpu16_rom() { }
     void createWindow() { }
@@ -227,34 +235,83 @@ protected:
     
     volatile bool onFire;
     bool debug;
+    wxString* wxImagePath;
     
+    void LoadImage() {
+        if (wxImagePath == 0)
+            return;
+        wxFileName filename;
+        filename.AssignCwd();
+        filename.Assign(*wxImagePath);
+        if (!filename.FileExists()) {
+            std::cout << "ERROR: File \"";
+            std::cout << wxImagePath->mb_str(wxConvUTF8);
+            std::cout << "\" does not exist" << std::endl;
+            return;
+        }
+        if (!filename.IsFileReadable()) {
+            std::cout << "ERROR: File \"";
+            std::cout << wxImagePath->mb_str(wxConvUTF8);
+            std::cout << "\" is not readable" << std::endl;
+            return;
+        }
+        
+        wxFFileInputStream stream(filename.GetFullPath(), wxT("rb"));
+        for (int i = 0; i < 0x10000; i++) {
+            unsigned short c1 = stream.GetC();
+            if (stream.LastRead() == 0)
+                break;
+            unsigned short c2 = stream.GetC();
+            if (stream.LastRead() == 0) {
+                ram[i] = (c1 << 8) || 0;
+                break;
+            }
+            ram[i] = (c1 << 8) | c2;
+        }
+        romDevice->disable();
+        //ram[0] = 0x01 | (0x1C << 5) | (0x1F << 10); //0x7F81
+        //ram[1] = 0x031d;
+    }
 public:
-    dcpu16(bool debug): cpu(totalCycles) {
-        ram = new unsigned short[0x10000];
-        registers = new unsigned short[13];
+    void reset() {
         for (int i = 0; i < 0x10000; i++)
             ram[i] = 0;
         for (int i = 0; i < 13; i++)
             registers[i] = 0;
-            
         totalCycles = 0;
-        hwLength = 0;
         intQueueStart = 0;
-        intQueueStart = 0;
+        intQueueEnd = 0;
         onFire = false;
         
+        callbackMutex->Lock();
         nextCallback = 0;
+        callbackSchedule.clear();
+        callbackMutex->Unlock();
+        
+        for (int i = 0; i < hwLength; i++)
+            hardware[i]->reset();
+        if (wxImagePath != 0)
+            LoadImage();
+    }
+    dcpu16(bool debug): cpu(totalCycles) {
+        ram = new unsigned short[0x10000];
+        registers = new unsigned short[13];
+        hwLength = 0;
         callbackMutex = new wxMutex();
+        wxImagePath = 0;
         
         running = true;
         cmdState = 1;
         this->debug = debug;
         
+        reset();
         romDevice = new dcpu16_rom(this);
     }
     ~dcpu16() {
         if (ctrlWindow)
             ctrlWindow->Close(true);
+        if (this->wxImagePath != 0)
+            delete wxImagePath;
         delete romDevice;
         callbackMutex->Lock();
         delete callbackMutex;
@@ -575,7 +632,7 @@ protected:
             delete callback;
         }
     }
-public:   
+public:
     void cycle(int count) {
         cycles -= count;
         while (cycles < 0) {
@@ -651,47 +708,14 @@ public:
         callbackMutex->Unlock();
     }
     
+    void loadImage(wxString wxImagePath) {
+        if (this->wxImagePath != 0)
+            delete wxImagePath;
+        this->wxImagePath = new wxString(wxImagePath);
+        LoadImage();
+    }
     void loadImage(const wxChar* imagePath) {
-        /*for (int i = 0; i < 13; i++)
-            registers[i] = 0xFFFF - i;
-        //ram[registers[DCPU16_REG_PC]] = 0x01 | (0x00 << 5) | (0x1F << 10);
-        //ram[(registers[DCPU16_REG_PC]+1)&0xFFFF] = 0x8000;
-        //ram[(registers[DCPU16_REG_PC]+2)&0xFFFF] = 0x8000;
-        ram[registers[DCPU16_REG_PC]] = 0x02 | (0x00 << 5) | (0x22 << 10); */
-        
-        wxString wxImagePath(imagePath);
-        wxFileName filename;
-        filename.AssignCwd();
-        filename.Assign(wxImagePath);
-        if (!filename.FileExists()) {
-            std::cout << "ERROR: File \"";
-            std::cout << wxImagePath.mb_str(wxConvUTF8);
-            std::cout << "\" does not exist" << std::endl;
-            return;
-        }
-        if (!filename.IsFileReadable()) {
-            std::cout << "ERROR: File \"";
-            std::cout << wxImagePath.mb_str(wxConvUTF8);
-            std::cout << "\" is not readable" << std::endl;
-            return;
-        }
-        
-        wxFFileInputStream stream(filename.GetFullPath(), wxT("rb"));
-        for (int i = 0; i < 0x10000; i++) {
-            unsigned short c1 = stream.GetC();
-            if (stream.LastRead() == 0)
-                break;
-            unsigned short c2 = stream.GetC();
-            if (stream.LastRead() == 0) {
-                ram[i] = (c1 << 8) || 0;
-                break;
-            }
-            ram[i] = (c1 << 8) | c2;
-        }
-        romDevice->disable();
-        
-        //ram[0] = 0x01 | (0x1C << 5) | (0x1F << 10); //0x7F81
-        //ram[1] = 0x031d;
+        loadImage(wxString(imagePath));
     }
     void Run() {
         if (running) {
@@ -700,6 +724,13 @@ public:
                 cycle(cycles);
             } else if (cmdState == 1)
                 cycle(10000);   //run
+            else if (cmdState >= 4) {   //reset
+                if (cmdState == 5)
+                    cmdState = 1;
+                else
+                    cmdState = 0;
+                reset();
+            }
             //stop
             lastCmdState = cmdState;
         }
@@ -802,16 +833,18 @@ const int dcpu16::opcodeCycles[] = {
                 0, 0, 2, 2, 0, 0, 1, 1 };
 
 
-dcpu16_rom::dcpu16_rom(dcpu16* host) {
-    this->host = host;
-    
+void dcpu16_rom::reset() {
     enabled = true;
-    for (int i = 0; i < 512; i++)
-        rom[i] = 0;
-    
-    host->addHardware(this);
     //Callbacks are processed before any cycles are run!
     host->scheduleCallback(0, new dcpu16_rom_callback(this));
+}
+dcpu16_rom::dcpu16_rom(dcpu16* host) {
+    this->host = host;
+    host->addHardware(this);
+    
+    for (int i = 0; i < 512; i++)
+        rom[i] = 0;
+    reset();
     
     wxStandardPathsBase& stdpath = wxStandardPaths::Get();
     
@@ -855,7 +888,6 @@ dcpu16_rom::dcpu16_rom(dcpu16* host) {
         for (; i < 512; i++)
             rom[i] = 0;
     }
-    
 }
 void dcpu16_rom::startup() {
     if (enabled)
@@ -882,6 +914,13 @@ void dcpu16CtrlWindow::OnStep(wxCommandEvent& WXUNUSED(event)) {
 }
 void dcpu16CtrlWindow::OnStop(wxCommandEvent& WXUNUSED(event)) {
     cpu->cmdState = 0;
+}
+void dcpu16CtrlWindow::OnReset(wxCommandEvent& WXUNUSED(event)) {
+    if (cpu->cmdState == 1)
+        cpu->cmdState = 5;
+    else
+        cpu->cmdState = 4;
+    while (cpu->cmdState >= 4);
 }
 void dcpu16CtrlWindow::OnClose(wxCloseEvent& WXUNUSED(event)) {
     cpu->ctrlWindow = 0;    //wxwidgets will just drop the window out of memory itself, thus causing a crash unless if there's some warning

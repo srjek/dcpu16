@@ -12,18 +12,20 @@ protected:
     volatile int bufferStart;
     volatile int bufferEnd;
 public:
-    genericKeyboard(cpu* host, device* keyboardProvider=NULL) {
-        this->host = host;
-        this->keyboardProvider = keyboardProvider;
-        host->addHardware(this);
-        
+    void reset() {
         for (int i = 0; i < 256; i++)
             state[i] = false;
         interruptMsg = 0;
         
         bufferStart = 0;
         bufferEnd = 0;
+    }
+    genericKeyboard(cpu* host, device* keyboardProvider=NULL) {
+        this->host = host;
+        this->keyboardProvider = keyboardProvider;
+        host->addHardware(this);
         
+        reset();
         if (keyboardProvider == NULL)
             std::cout << "Warning: Keyboard has no display to attach to. Keyboard will still connect to dcpu16, but will be disabled." << std::endl;
         else

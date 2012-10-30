@@ -23,15 +23,17 @@ protected:
     bool debug;
     
 public:
-    genericClock(cpu* host, bool debug) {
-        this->host = host;
+    void reset() {
         interruptMsg = 0;
         uid = 0;
         timing = 0;
         ticks = 0;
-        
+    }
+    genericClock(cpu* host, bool debug) {
+        this->host = host;
         this->debug = debug;
         host->addHardware(this);
+        reset();
     }
     ~genericClock() { }
     void createWindow() { }
