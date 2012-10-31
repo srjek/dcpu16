@@ -227,6 +227,8 @@ class value:
             return False
         if len(self.labels) == 0:
             return False
+        if self.extra == None:
+            return False
         #if len(self.labels) > 0 and list(self.labels)[0] != "NotReally":    #Turns off short labels (Unless if program designed to use internal magic values)
         #    return False
         labelCache = {}
@@ -316,7 +318,7 @@ class value:
         return result
     def extraWords(self, labels):
         tmp = self._extraWords(labels)
-        if self.value == 0x1F:
+        if self.value == 0x1F and self.extra != None:
             if tmp[0] != None:
                 if (tmp[0] <= 0x1E or tmp[0] == 0xFFFF) and self.shortLiteral:
                     return ()
