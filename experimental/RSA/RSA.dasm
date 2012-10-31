@@ -1,17 +1,84 @@
-;SET A, ALPHA
-;SET B, BETA
-;SET C, RESULT
-;JSR multiply
-;:end
-;    SET PC, end
-;
-;:ALPHA
-;    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
-;:BETA
-;    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
-;:RESULT
-;    DAT 0, 0, 0, 0
-;    DAT 0, 0, 0
+init:
+    HWN I
+.loop:
+    SUB I, 1
+    HWQ I
+    IFE A, 0xF615
+        IFE B, 0x7349
+            SET [LEM1802], I
+    IFN I, 0
+        SET PC, .loop
+    SET A, 0
+    SET B, 0x8000
+    HWI [LEM1802]
+    JSR multiply_test
+    JMP end
+
+LEM1802:
+    DAT 0xFFFF
+
+;Inputs
+;   [A] - number to print, stored in ram as <num of words>, <number in little endian>
+;    B  - Location to store result in
+;Ouputs
+;    A  - same
+;   [B] - ASCII string representing number [A] in hex
+printHex:
+    SET PUSH, B
+    SET C, A
+    ADD C, [C]
+.loop:
+    SET X, [C]
+    JSR .printWord
+    SUB C, 1
+    IFN A, C
+        JMP .loop
+    SET B, POP
+    SET PC, POP
+.printWord:
+    SET Z, 0
+    ADD B, 3
+.wordLoop:
+    SET Y, X
+    SHR Y, Z
+    AND Y, 0xF
+    IFG Y, 0x9
+        ADD Y, 'A'-'0'-10
+    ADD Y, '0'
+    BOR Y, 0xF000
+    SET [B], Y
+    SUB B, 1
+    ADD Z, 4
+    IFN Z, 4*4
+        JMP .wordLoop
+    ADD B, 5
+    SET PC, POP
+    
+multiply_test:
+    SET A, .ALPHA
+    SET B, 0x8000
+    JSR printHex
+    SET A, .BETA
+    SET B, 0x8020
+    JSR printHex
+    
+    SET A, .ALPHA
+    SET B, .BETA
+    SET C, .RESULT
+    JSR multiply
+    
+    SET A, .RESULT
+    SET B, 0x8040
+    JSR printHex
+    SET PC, POP
+
+.ALPHA:
+    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
+.BETA:
+    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
+.RESULT:
+    DAT 0, 0, 0, 0
+    DAT 0, 0, 0
 
 ;Inputs
 ;   [A] - first number, stored in ram as <num of words>, <number in little endian>
@@ -24,55 +91,53 @@
 ;Notes
 ;   A should be the shorter number, as this will mimimize exiting out of the tighter loop
 multiply:
-    SET PUSH, A
-    SET PUSH, B
-;    SET PUSH, C
 ;    for (int i = 0; i < len(A); i++) {
 ;        //multiply B by A and add to C[i:]
 ;    }
-    SET X, A; ADD X, 1
+    SET X, A
+    ADD A, [A]
+    SET PUSH, A
+    SET PUSH, B
+    SET PUSH, X ;Actually original A (input)
     ADD B, [B]
-    ADD B, 1
+    
     .outerloop:
-        SET Y, [SP] ;[SP+1]
-        ADD Y, 1
-        SET Z, C ;[SP]
-        ADD Z, X
-        SUB Z, [SP+1] ;[SP+2]
-        SET J, 0
-        .innerloop:
-            SET A, J
-            SET I, [X]
-            MUL I, [Y]
-            SET J, EX
-            ADD I, A
-            ADD J, EX
-            ADD [Z], I
-            ADD J, EX
-            
-            ADD Y, 1
-            ADD Z, 1
-            IFN Y, B
-                JMP .innerloop
-        SET [Z], J
+        SET I, [SP+1]
+        SET J, C
+        ADD J, X
+        SUB J, [SP]
         ADD X, 1
+        SET Z, 0
+        .innerloop:
+            STI A, Z
+            SET Y, [X]
+            MUL Y, [I]
+            SET Z, EX
+            ADD Y, A
+            ADD Z, EX
+            ADD [J], Y
+            ADD Z, EX
+            
+            IFN I, B
+                JMP .innerloop
         
-        SET A, [SP+1] ;[SP+2]
-        ADD A, [A]
-        ADD A, 1
-        IFN X, A
+        SET [J+1], Z
+        IFN X, [SP+2]
             JMP .outerloop
-;    SET C, POP
-    SUB Z, C
-    SET [C], Z
-    SET B, POP
+    SUB J, C
+    ADD J, 1
+    SET [C], J
     SET A, POP
+    SET A, POP
+    SET B, POP
     SET PC, POP
 
 end:
     JMP end
 
 modulus:
+    DAT (.end-.start)
+.start:
     DAT 0xba6e, 0x7ac4, 0x573b, 0x9e10, 0x51b5, 0xb3a2, 0x2764, 0x37c4
     DAT 0xec16, 0x16ea, 0x111c, 0x05f2, 0xfd70, 0x4e08, 0x0f8f, 0x38ae
     DAT 0x09de, 0xc4df, 0x37bd, 0x5de3, 0x0059, 0xaffa, 0x2039, 0xdf3f
@@ -105,11 +170,15 @@ modulus:
     DAT 0x4ab5, 0x5ac7, 0x98f1, 0xba79, 0x9d26, 0xf956, 0xdf02, 0xad74
     DAT 0x2c3a, 0xaf7d, 0x2095, 0x220a, 0x79a9, 0x96f5, 0x5408, 0x68dd
     DAT 0xd27c, 0x399a, 0x56d5, 0xc05e, 0xe5da, 0x27b1, 0x7414, 0x7b37
+.end:
 
 public:
+    DAT 2
     DAT 0x1, 0x0001     ;65537
 
 private:
+    DAT (.end-.start)
+.start:
     DAT 0x220e, 0x7496, 0xd168, 0xaea3, 0x4489, 0xf0da, 0xba5f, 0x7060
     DAT 0xa4d0, 0x1437, 0x8610, 0x9c75, 0x9b1e, 0x9ce2, 0x9415, 0x11c1
     DAT 0x9943, 0xfcaa, 0xda3f, 0xd99a, 0xd241, 0x9008, 0x1d42, 0xf529
@@ -142,3 +211,4 @@ private:
     DAT 0x8e57, 0x4fbf, 0x1b36, 0xc2e3, 0x57f1, 0xd238, 0x7ebd, 0x94ad
     DAT 0xe1d5, 0x3b7f, 0xa478, 0xfab7, 0x3066, 0x3dfb, 0x4097, 0x9ae1
     DAT 0x8e7a, 0xf4d4, 0x9646, 0xaab1, 0x3cbc, 0x1fba, 0x2793, 0xc881
+.end:
