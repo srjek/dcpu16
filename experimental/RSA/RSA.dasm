@@ -1,69 +1,73 @@
-    JMP end
-    
+;SET A, ALPHA
+;SET B, BETA
+;SET C, RESULT
+;JSR multiply
+;:end
+;    SET PC, end
+;
+;:ALPHA
+;    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
+;:BETA
+;    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
+;:RESULT
+;    DAT 0, 0, 0, 0
+;    DAT 0, 0, 0
+
 ;Inputs
 ;   [A] - first number, stored in ram as <num of words>, <number in little endian>
 ;   [B] - second number, stored same as A
-;    C  - Location to store result in, at least large enough to hold A*B (I think this is len(A)+len(B)? (plus a word to hold the size))
+;    C  - Location to store result in, at least len(A)+len(B)+1 words large (extra word is to hold the size)
 ;Outputs
-;    A  - Garbage
-;    B  - Garbage
+;    A  - same
+;    B  - same
 ;   [C] - resulting number, stored same as A
+;Notes
+;   A should be the shorter number, as this will mimimize exiting out of the tighter loop
 multiply:
     SET PUSH, A
     SET PUSH, B
-    SET PUSH, C
-    SET I, A
-    ADD I, 1    ;I - pointer to start of A
-    SET J, C
-    ADD J, 1    ;J - pointer to start of C
-    SET Z, I
-    ADD Z, A    ;Z - pointer to end of A
-    
-.loop:
-    STI [I], [J]
-    IFN I, Z
-        JMP .loop
-    
+;    SET PUSH, C
 ;    for (int i = 0; i < len(A); i++) {
 ;        //multiply B by A and add to C[i:]
 ;    }
-    SET [maxZ], 0
     SET X, A; ADD X, 1
-.outerloop:
-    SET Y, [SP+1]
-    SET B, [Y]
-    ADD Y, 1
-    ADD B, Y
-    SET Z, [SP]; ADD Z, 1
-    ADD J, 1
-    ADD B, J
-    SET J, 0
-    .innerloop:
-        SET A, J
-        SET I, [X]
-        MUL I, [Y]
-        SET J, EX
-        ADD I, A
-        ADD J, EX
-        ADD [Z], I
-        ADD J, EX
-        
+    ADD B, [B]
+    ADD B, 1
+    .outerloop:
+        SET Y, [SP] ;[SP+1]
         ADD Y, 1
-        ADD Z, 1
-        IFN Y, B
-            JMP .innerloop
-    .innerloop2:
-        ADD [Z], J
-        SET J, EX
-        ADD Z, 1
-        IFN EX, 0
-            JMP .innerloop2
-    IFG Z, [maxZ]
-        set [maxZ], Z
-    ADD X, 1
-    
-.maxZ:
-    DAT 0
+        SET Z, C ;[SP]
+        ADD Z, X
+        SUB Z, [SP+1] ;[SP+2]
+        SET J, 0
+        .innerloop:
+            SET A, J
+            SET I, [X]
+            MUL I, [Y]
+            SET J, EX
+            ADD I, A
+            ADD J, EX
+            ADD [Z], I
+            ADD J, EX
+            
+            ADD Y, 1
+            ADD Z, 1
+            IFN Y, B
+                JMP .innerloop
+        SET [Z], J
+        ADD X, 1
+        
+        SET A, [SP+1] ;[SP+2]
+        ADD A, [A]
+        ADD A, 1
+        IFN X, A
+            JMP .outerloop
+;    SET C, POP
+    SUB Z, C
+    SET [C], Z
+    SET B, POP
+    SET A, POP
+    SET PC, POP
 
 end:
     JMP end
