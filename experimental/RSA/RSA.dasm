@@ -11,12 +11,20 @@ init:
     SET A, 0
     SET B, 0x8000
     HWI [LEM1802]
+    
     JSR multiply_test
+    
+    SET A, dataStart
+    SET B, private
+    JSR RSA
     JMP end
 
 LEM1802:
     DAT 0xFFFF
 
+dataStart:
+    DAT 4, 0x4242, 0x4242, 0x4242, 0x4242
+    
 ;Inputs
 ;   [A] - number to print, stored in ram as <num of words>, <number in little endian>
 ;    B  - Location to store result in
@@ -101,6 +109,14 @@ multiply:
     SET PUSH, X ;Actually original A (input)
     ADD B, [B]
     
+    SET J, C
+    SET I, [SP+1]
+    .initLoop:
+        STI [J], 0
+        IFN B, I
+           JMP .initLoop
+    SET [J], 0 
+                
     .outerloop:
         SET I, [SP+1]
         SET J, C
@@ -128,10 +144,46 @@ multiply:
     ADD J, 1
     SET [C], J
     SET A, POP
-    SET A, POP
     SET B, POP
+    SET EX, POP
     SET PC, POP
 
+;Inputs
+;   [A] - number, stored in ram as <num of words>, <number in little endian>
+;   [B] - key (not modulus)
+;Outputs
+;    A  - same
+;    B  - same
+;   [C] - resulting number, stored same as A
+RSA:
+    SET PUSH, A
+    SET PUSH, B
+    SET PUSH, 0xFFFF
+    
+    SET B, A
+.loop:
+    ADD [SP], 1
+    SET C, data1
+    JSR multiply
+    
+    IFE [SP], [SP+1]
+        JMP .exitloop
+    
+    ADD [SP], 1
+    SET B, data1
+    SET C, data2
+    JSR multiply
+    
+    SET B, data2
+    IFN [SP], [SP+1]
+        JMP .loop
+    
+.exitloop:
+    SET B, POP
+    SET B, POP
+    SET A, POP
+    SET PC, POP
+    
 end:
     JMP end
 
@@ -212,3 +264,11 @@ private:
     DAT 0xe1d5, 0x3b7f, 0xa478, 0xfab7, 0x3066, 0x3dfb, 0x4097, 0x9ae1
     DAT 0x8e7a, 0xf4d4, 0x9646, 0xaab1, 0x3cbc, 0x1fba, 0x2793, 0xc881
 .end:
+data1:
+.reserve 1024
+data2:
+.reserve 1024
+data3:
+.reserve 1024
+data4:
+.reserve 1024
