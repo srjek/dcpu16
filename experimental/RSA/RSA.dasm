@@ -149,6 +149,42 @@ multiply:
     SET PC, POP
 
 ;Inputs
+;   [A] - first number, stored in ram as <num of words>, <number in little endian>
+;   [B] - second number, stored same as A
+;   [C] - third number, stored same as A
+;    X  - Location to store result in, large enough to hold result
+;Outputs
+;    A  - same
+;    B  - same
+;    C  - same
+;   [X] - resulting number ((A**B) mod C), stored same as A
+powmod:
+    SET PUSH, A
+    SET PUSH, B
+    SET PUSH, C
+    
+    
+    SET B, A
+.loop:
+    ADD [SP], 1
+    SET C, data1
+    JSR multiply
+    
+    IFE [SP], [SP+1]
+        JMP .exitloop
+    
+    ADD [SP], 1
+    SET B, data1
+    SET C, data2
+    JSR multiply
+    
+    
+    SET C, POP
+    SET B, POP
+    SET A, POP
+    SET PC, POP
+
+;Inputs
 ;   [A] - number, stored in ram as <num of words>, <number in little endian>
 ;   [B] - key (not modulus)
 ;Outputs
@@ -265,10 +301,6 @@ private:
     DAT 0x8e7a, 0xf4d4, 0x9646, 0xaab1, 0x3cbc, 0x1fba, 0x2793, 0xc881
 .end:
 data1:
-.reserve 1024
+.reserve 4096
 data2:
-.reserve 1024
-data3:
-.reserve 1024
-data4:
-.reserve 1024
+.reserve 4096
