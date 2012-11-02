@@ -12,11 +12,12 @@ init:
     SET B, 0x8000
     HWI [LEM1802]
     
+    JSR add_test
     JSR multiply_test
     
     SET A, dataStart
     SET B, private
-    JSR RSA
+    ;JSR RSA
     JMP end
 
 LEM1802:
@@ -87,6 +88,108 @@ multiply_test:
 .RESULT:
     DAT 0, 0, 0, 0
     DAT 0, 0, 0
+
+
+add_test:
+    SET A, .ALPHA
+    SET B, 0x8060
+    JSR printHex
+    SET A, .BETA
+    SET B, 0x8080
+    JSR printHex
+    
+    SET A, .ALPHA
+    SET B, .BETA
+    JSR add
+    
+    SET A, .ALPHA
+    SET B, 0x80A0
+    JSR printHex
+    
+    SET A, .ALPHA
+    SET B, .BETA
+    JSR subtract
+    
+    SET A, .ALPHA
+    SET B, 0x80C0
+    JSR printHex
+    SET PC, POP
+    
+.ALPHA:
+    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0
+.BETA:
+    DAT 3, 0xFFFF, 0xFFFF, 0xFFFF
+
+;Inputs
+;   [A] - first number, stored in ram as <num of words>, <number in little endian>
+;   [B] - second number, stored same as A
+;    A  - Location to store result in, at least large enough to hold result
+;Outputs
+;    A  - same
+;    B  - same
+;   [A] - resulting number (A+B) or (A-B), stored same as A
+add:
+    SET I, A
+    ADD I, [I]
+    SET X, A
+    ADD X, [B]
+    
+    ADD I, 1
+.initloop:
+    STI [I], 0
+    IFG X, I
+        JMP .initloop
+    
+    SET Z, B
+    ADD Z, [Z]
+    SET I, A
+    SET J, B
+.loop:
+    STI Z, Z
+    ADX [I], [J]
+    IFN J, Z
+        SET PC, .loop
+.finishloop:
+    STI Z, Z
+    ADD [I], EX
+    IFN EX, 0
+        SET PC, .finishloop
+    SUB I, A
+    SET [A], I
+    
+    SET PC, POP
+    
+subtract:
+    SET I, A
+    ADD I, [I]
+    SET X, A
+    ADD X, [B]
+    
+    ADD I, 1
+.initloop:
+    STI [I], 0
+    IFG X, I
+        JMP .initloop
+    
+    SET Z, B
+    ADD Z, [Z]
+    SET I, A
+    SET J, B
+.loop:
+    STI Z, Z
+    SBX [I], [J]
+    IFN J, Z
+        SET PC, .loop
+.finishloop:
+    STI Z, Z
+    SBX [I], 0
+    IFN EX, 0
+        SET PC, .finishloop
+    SUB I, A
+    IFG I, [A]
+        SET [A], I
+    
+    SET PC, POP
 
 ;Inputs
 ;   [A] - first number, stored in ram as <num of words>, <number in little endian>
@@ -178,7 +281,11 @@ powmod:
     SET C, data2
     JSR multiply
     
-    
+    SET B, data2
+    IFN [SP], [SP+1]
+        JMP .loop
+        
+.exitloop:
     SET C, POP
     SET B, POP
     SET A, POP
