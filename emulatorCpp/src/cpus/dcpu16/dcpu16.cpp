@@ -524,7 +524,7 @@ protected:
                 break;
             case 0x1B:      //SBX
                 if (registers[DCPU16_REG_EX] != 0)
-                    write_val(b, underflow((((unsigned long) b.value) - a.value) + ((unsigned long) registers[DCPU16_REG_EX]) - 0x10000));
+                    write_val(b, underflow( (((unsigned long) b.value) - a.value) - (0x10000 - ((unsigned long) registers[DCPU16_REG_EX])) ));
                 else
                     write_val(b, underflow(((unsigned long) b.value) - a.value));
                 break;
