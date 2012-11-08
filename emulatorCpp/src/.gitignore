@@ -1,3 +1,5 @@
 emulator
 cpus/cpus.h
 devices/devices.h
+makedepend
+makedepend.bak

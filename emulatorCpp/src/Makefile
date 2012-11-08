@@ -17,11 +17,15 @@ endif
 
 all:	$(PROGRAM)
 
+makedepend: $(SOURCES)
+	touch makedepend
+	makedepend -f makedepend -- $(CFLAGS) -- $(SOURCES) 2>/dev/null
+
 .SUFFIXES:      .o .cpp
 
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
-main.o: cpus/cpus.h devices/devices.h emulation.h system.h cpu.h device.h thread.h
+main.o: cpus/cpus.h devices/devices.h
 orderedForwardMap.o: orderedForwardMap.cpp
 	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
 
@@ -29,6 +33,8 @@ orderedForwardMap.o: orderedForwardMap.cpp
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
 $(PROGRAM):$(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
 	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(STATIC)
+
+include makedepend
 
 #Do nothing
 $(CPU_OBJS): cpus FORCE
@@ -51,6 +57,8 @@ run: all
 	./$(PROGRAM)
 
 clean:
+	rm -f makedepend
+	rm -f makedepend.bak
 	rm -f *.o
 	rm -f $(PROGRAM) $(PROGRAM).exe
 	@cd cpus && $(MAKE) clean
