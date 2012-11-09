@@ -19,8 +19,7 @@ endif
 all:	$(PROGRAM)
 
 makedepend: $(SOURCES) $(GENERATED_SOURCES)
-	touch makedepend
-	makedepend -f makedepend -- $(CFLAGS) -- $(SOURCES) 2>/dev/null
+	@SOURCES="$(SOURCES)" CFLAGS="$(CFLAGS)" ./gen-makedepend.bash
 
 .SUFFIXES:      .o .cpp
 
