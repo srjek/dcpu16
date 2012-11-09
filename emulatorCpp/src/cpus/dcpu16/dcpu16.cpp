@@ -785,7 +785,10 @@ public:
                 PC = (PC+1)&0xFFFF;
             }
             if (op != 0) {
-                length += wxStrcpy(buffer+length, values[b_code], bufferSize-length);
+                wxChar* bStr = values[b_code];
+                if (b_code == 0x18)
+                    bStr = wxT("PUSH");
+                length += wxStrcpy(buffer+length, bStr, bufferSize-length);
                 if (buffer[length-1] == wxT('@')) {
                     buffer[length-1] = wxT('0');
                     buffer[length++] = wxT('x');
