@@ -18,9 +18,14 @@ endif
 
 all:	$(PROGRAM)
 
-makedepend: $(SOURCES) $(GENERATED_SOURCES)
+ifneq (,$(findstring depend,$(MAKECMDGOALS)))
+MAKEDEPEND := $(SOURCES)
+endif
+makedepend: $(MAKEDEPEND) $(GENERATED_SOURCES)
 	@SOURCES="$(SOURCES)" CFLAGS="$(CFLAGS)" ./gen-makedepend.bash
 
+depend: makedepend
+    
 .SUFFIXES:      .o .cpp
 
 .cpp.o :
@@ -30,7 +35,7 @@ orderedForwardMap.o: orderedForwardMap.cpp
 
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
-$(PROGRAM):$(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
+$(PROGRAM): $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
 	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(STATIC)
 
 include makedepend
@@ -51,7 +56,7 @@ devices/devices.h: FORCE
 	@cd devices && $(MAKE) devices.h
 
 FORCE: ;
-.PHONY: clean all run
+.PHONY: clean all run depend
 run: all
 	./$(PROGRAM)
 
