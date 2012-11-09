@@ -18,12 +18,12 @@ find * -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
 echo ""
 
 #Helper methods to find a device from it's coresponding cmdline arg
-echo "bool findDevice(wxChar* arg) {"
+echo "inline bool findDevice(wxChar* arg) {"
 find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
 echo "    return false;"
 echo "}"
 
-echo "deviceConfig* createDeviceConfig(int& argc, wxChar**& argv) {"
+echo "inline deviceConfig* createDeviceConfig(int& argc, wxChar**& argv) {"
 echo "    wxChar* arg = argv[0];"
 echo "    argc--; argv++;"
 find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"

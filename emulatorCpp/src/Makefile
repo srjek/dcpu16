@@ -26,6 +26,7 @@ makedepend: $(SOURCES)
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
 main.o: cpus/cpus.h devices/devices.h
+emulation.o: cpus/cpus.h devices/devices.h
 orderedForwardMap.o: orderedForwardMap.cpp
 	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
 

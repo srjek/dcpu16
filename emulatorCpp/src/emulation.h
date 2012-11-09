@@ -1,82 +1,35 @@
-#include <iostream>
 #include <vector>
-using namespace std;
-
 #include "wx/wx.h"
-
-#include "device.h"
-#include "system.h"
-
 
 #ifndef emulator_emulation_h
 #define emulator_emulation_h
+
+#ifndef emulator_system_h
+class compSystem;
+class sysConfig;
+#endif
 
 class emulation {
     compSystem** systems;
     int nSystems;
 public:
-    emulation(vector<sysConfig*> systemConfigs) {
-        nSystems = systemConfigs.size();
-        systems = new compSystem*[nSystems];
-        for (int i = 0; i < nSystems; i++)
-            systems[i] = systemConfigs[i]->createSystem();
-    }
-    ~emulation() {
-        for (int i = 0; i < nSystems; i++)
-                delete systems[i];
-        delete[] systems;
-    }
+    emulation(std::vector<sysConfig*> systemConfigs);
+    ~emulation();
     
-    void Run() {
-        for (int i = 0; i < nSystems; i++) {
-            systems[i]->Create();
-            systems[i]->Run();
-        }
-    }
-    void Stop() {
-        for (int i = 0; i < nSystems; i++)
-            systems[i]->Stop();
-    }
-    void Wait() {
-        for (int i = 0; i < nSystems; i++)
-            systems[i]->Wait();
-    }
+    void Run();
+    void Stop();
+    void Wait();
 };
 
 class emulationConfig {
+    std::vector<sysConfig*> systemConfigs;
+    
 public:
-    vector<sysConfig*> systemConfigs;
+    emulationConfig(int argc, wxChar** argv);
+    ~emulationConfig();
+    emulation* createEmulation();
     
-    emulationConfig(int argc, wxChar** argv) {
-        if (argc == 0)
-            systemConfigs.push_back(new sysConfig(argc, argv));
-        while (argc > 0) {
-            systemConfigs.push_back(new sysConfig(argc, argv));
-        }
-    }
-    ~emulationConfig() {
-        for (int i = 0; i < systemConfigs.size(); i++) {
-            sysConfig* tmp = systemConfigs[i];
-            delete tmp;
-        }
-        while (systemConfigs.size() > 0)
-            systemConfigs.pop_back();
-    }
-    emulation* createEmulation() {
-        return new emulation(systemConfigs);
-    }
-    
-    void print() {
-        for (int i = 0; i < systemConfigs.size(); i++) {
-            sysConfig* system = systemConfigs[i];
-            std::cout << "System " << i << ":" << std::endl;
-            std::cout << "\tCPU: " << system->cpu->name << std::endl;
-            for (int j = 0; j < system->devices.size(); j++) {
-                deviceConfig* device = system->devices[j];
-                std::cout << "\tDevice " << j << ": " << device->name << std::endl;
-            }
-        }
-    }
+    void print();
 };
 
 #endif
