@@ -10,15 +10,15 @@
 	
 class genericKeyboardConfig: public deviceConfig {
 public:
-    bool providesKeyboard() { return false; }
-    bool consumesKeyboard() { return true; }
+    inline bool providesKeyboard() { return false; }
+    inline bool consumesKeyboard() { return true; }
 
-    genericKeyboardConfig() { name = "Generic Keyboard"; }
-    genericKeyboardConfig(int& argc, wxChar**& argv) {
+    inline genericKeyboardConfig() { name = "Generic Keyboard"; }
+    inline genericKeyboardConfig(int& argc, wxChar**& argv) {
         name = "Generic Keyboard";
     }
     device* createDevice(cpu* host, device* keyboardProvider);
-    device* createDevice(cpu* host) {
+    inline device* createDevice(cpu* host) {
         return createDevice(host, NULL);
     }
 };

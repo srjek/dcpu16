@@ -11,14 +11,14 @@
 class genericClockConfig: public deviceConfig {
     bool debug;
 public:
-    bool providesKeyboard() { return false; }
-    bool consumesKeyboard() { return false; }
+    inline bool providesKeyboard() { return false; }
+    inline bool consumesKeyboard() { return false; }
 
-    genericClockConfig() { 
+    inline genericClockConfig() { 
         debug = false;
         name = "Generic Clock"; 
     }
-    genericClockConfig(int& argc, wxChar**& argv) {
+    inline genericClockConfig(int& argc, wxChar**& argv) {
         name = "Generic Clock";
         debug = false;
         if (argc > 0) {
@@ -29,7 +29,7 @@ public:
         }
     }
     device* createDevice(cpu* host);
-    device* createDevice(cpu* host, device* keyboardProvider) {
+    inline device* createDevice(cpu* host, device* keyboardProvider) {
         return createDevice(host);
     }
 };
