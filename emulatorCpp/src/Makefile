@@ -6,6 +6,7 @@ WX_LIBS = $(shell wx-config --libs)
 WX_CXXFLAGS = $(shell wx-config --cxxflags)
 
 SOURCES := $(wildcard *.cpp)
+GENERATED_SOURCES := cpus/cpus.h devices/devices.h
 OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 CPU_OBJS := $(shell cd cpus; make print_cpu_objs | tr " " "\n" | sed "s:.*:cpus/&:" | tr "\n" " ")
 DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s:.*:devices/&:" | tr "\n" " ")
@@ -17,7 +18,7 @@ endif
 
 all:	$(PROGRAM)
 
-makedepend: $(SOURCES)
+makedepend: $(SOURCES) $(GENERATED_SOURCES)
 	touch makedepend
 	makedepend -f makedepend -- $(CFLAGS) -- $(SOURCES) 2>/dev/null
 
@@ -25,8 +26,6 @@ makedepend: $(SOURCES)
 
 .cpp.o :
 	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
-main.o: cpus/cpus.h devices/devices.h
-emulation.o: cpus/cpus.h devices/devices.h
 orderedForwardMap.o: orderedForwardMap.cpp
 	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
 
