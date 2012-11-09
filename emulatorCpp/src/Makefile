@@ -2,6 +2,7 @@ CXX = $(shell wx-config --cxx)
 PROGRAM = emulator
 # wx-config --libs
 WX_LIBS = $(shell wx-config --libs)
+LIBS = -lboost_system
 # wx-config --cxxflags
 WX_CXXFLAGS = $(shell wx-config --cxxflags)
 
@@ -36,7 +37,7 @@ orderedForwardMap.o: orderedForwardMap.cpp
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
 $(PROGRAM): $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
-	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(STATIC)
+	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(LIBS) $(STATIC)
 
 include makedepend
 
