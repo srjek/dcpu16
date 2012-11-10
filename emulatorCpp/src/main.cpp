@@ -13,6 +13,7 @@ static const wxCmdLineEntryDesc g_cmdLineDesc [] =
           wxCMD_LINE_VAL_NONE, wxCMD_LINE_OPTION_HELP },
      { wxCMD_LINE_SWITCH, NULL, wxT("image"), wxT("Disables a cpu's boot sequence, instead loading the specified image into ram directly.")},
      { wxCMD_LINE_SWITCH, NULL, wxT("debug"), wxT("May enable debug options on the last specified cpu or device")},
+     { wxCMD_LINE_SWITCH, NULL, wxT("gdb"), wxT("Last cpu will host a gdb remote server.")},
      CPUS_CMDLINE_HELP
      DEVICES_CMDLINE_HELP
      { wxCMD_LINE_PARAM, NULL, NULL, NULL, wxCMD_LINE_VAL_NONE, wxCMD_LINE_PARAM_OPTIONAL | wxCMD_LINE_PARAM_MULTIPLE },
@@ -39,7 +40,6 @@ BEGIN_EVENT_TABLE(masterWindow, wxFrame)
     EVT_CLOSE(masterWindow::OnClose)
 END_EVENT_TABLE()
 
-#define emulatorAppImplmented
 IMPLEMENT_APP(emulatorApp)
 
  
@@ -81,11 +81,11 @@ bool emulatorApp::OnInit() {
     environment = config->createEmulation();
     
     return true;
-} 
+}
 int emulatorApp::OnRun() {
     environment->Run();
     return wxApp::OnRun();
-} 
+}
 int emulatorApp::OnExit() {
     if (environment) {
         environment->Stop();
@@ -94,7 +94,7 @@ int emulatorApp::OnExit() {
     }
     delete config;
     return wxApp::OnExit();
-} 
+}
 
 masterWindow::masterWindow(emulatorApp* app, const wxPoint& pos)
 : wxFrame( NULL, -1, _("0x10c emulator"), pos, wxSize(200,200) )

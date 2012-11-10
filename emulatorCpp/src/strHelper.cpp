@@ -11,6 +11,48 @@ int wxStrcpy(wxChar * destination, const wxChar * source, size_t num) {
     }
     return i;
 }
+long long wxFromDecimal(wxChar * source) {
+    long long result = 0;
+    while (*source != 0) {
+        result *= 10;
+        switch (*source) {
+            case wxT('0'):
+                result += 0;
+                break;
+            case wxT('1'):
+                result += 1;
+                break;
+            case wxT('2'):
+                result += 2;
+                break;
+            case wxT('3'):
+                result += 3;
+                break;
+            case wxT('4'):
+                result += 4;
+                break;
+            case wxT('5'):
+                result += 5;
+                break;
+            case wxT('6'):
+                result += 6;
+                break;
+            case wxT('7'):
+                result += 7;
+                break;
+            case wxT('8'):
+                result += 8;
+                break;
+            case wxT('9'):
+                result += 9;
+                break;
+            default:
+                return 0;
+        }
+        source++;
+    }
+    return result;
+}
 int printDecimal(wxChar* buffer, int bufferSize, long long number) {
     if (bufferSize == 0)
         return 0;

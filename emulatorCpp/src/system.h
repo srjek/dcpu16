@@ -4,6 +4,7 @@
 #include "thread.h"
 #include "cpu.h"
 #include "device.h"
+#include "gdb.h"
 
 #ifndef emulator_system_h
 #define emulator_system_h
@@ -13,8 +14,9 @@ protected:
     cpu *sysCpu;
     device** devices;
     int numDevices;
+    gdb_remote* debugger;
 public:
-    compSystem(cpuConfig* cpuConfig, const wxChar* imagePath, std::vector<deviceConfig*> deviceConfigs);
+    compSystem(cpuConfig* cpuConfig, const wxChar* imagePath, unsigned int gdb_port, std::vector<deviceConfig*> deviceConfigs);
     ~compSystem();
     
     wxThreadError Create();
@@ -29,6 +31,7 @@ public:
     cpuConfig* cpu;
     const wxChar* imagePath;
     std::vector<deviceConfig*> devices;
+    unsigned int gdb_port;
     
     sysConfig(int& argc, wxChar**& argv);
     ~sysConfig();

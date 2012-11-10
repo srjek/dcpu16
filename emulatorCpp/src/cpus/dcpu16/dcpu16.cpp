@@ -55,6 +55,12 @@ protected:
     wxStaticText* EX;
     
     wxStaticText* curInstruction;
+    
+    wxButton* runButton;
+    wxButton* stepButton;
+    wxButton* stopButton;
+    wxButton* resetButton;
+    
 public:
     dcpu16CtrlWindow(const wxPoint& pos, dcpu16* cpu): wxFrame( getTopLevelWindow(), -1, _("dcpu16"), pos, wxSize(200,200) ), timer(this)  {
         wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
@@ -62,15 +68,15 @@ public:
         wxFlexGridSizer* innerSizer0 = new wxFlexGridSizer(5, 2, 1, 0);
         cycles = new wxStaticText(this, -1, _("Cycles: 0"));
         innerSizer0->Add(cycles, 0, wxALIGN_LEFT | wxALIGN_CENTRE, 0);
-        innerSizer0->Add(new wxButton(this, ID_Reset, _("Reset")), 0, wxALIGN_RIGHT, 0);
+        innerSizer0->Add(resetButton = new wxButton(this, ID_Reset, _("Reset")), 0, wxALIGN_RIGHT, 0);
         innerSizer0->AddGrowableCol(0);
         sizer->Add(innerSizer0, 0, wxEXPAND, 0);
         sizer->AddSpacer(4);
         
         wxFlexGridSizer* innerSizer = new wxFlexGridSizer(5, 3, 4, 0);
-        innerSizer->Add(new wxButton(this, ID_Run, _("Run")), 0, 0, 0);
-        innerSizer->Add(new wxButton(this, ID_Step, _("Step")), 0, 0, 0);
-        innerSizer->Add(new wxButton(this, ID_Stop, _("Stop")), 0, 0, 0);
+        innerSizer->Add(runButton = new wxButton(this, ID_Run, _("Run")), 0, 0, 0);
+        innerSizer->Add(stepButton = new wxButton(this, ID_Step, _("Step")), 0, 0, 0);
+        innerSizer->Add(stopButton = new wxButton(this, ID_Stop, _("Stop")), 0, 0, 0);
         
         PC = new wxStaticText(this, -1, _("PC: 0000"));
         SP = new wxStaticText(this, -1, _("SP: 0000"));
@@ -120,6 +126,19 @@ public:
     void OnStop(wxCommandEvent& WXUNUSED(event));
     void OnReset(wxCommandEvent& WXUNUSED(event));
     void OnClose(wxCloseEvent& event);
+    
+    void disableButtons() {
+        runButton->Disable();
+        stepButton->Disable();
+        stopButton->Disable();
+        resetButton->Disable();
+    }
+    void enableButtons() {
+        runButton->Enable();
+        stepButton->Enable();
+        stopButton->Enable();
+        resetButton->Enable();
+    }
     
     void update();
     void Notify() {
@@ -216,8 +235,12 @@ protected:
     volatile int cmdState;
     int lastCmdState;
     
+    wxMutex* stateMutex;
     //volatile unsigned short ram[0x10000];
-    //volatile unsigned short registers[13];
+    //volatile unsigned short registers[DCPU16_NUM_REGS];
+    volatile unsigned char* ram_debug;
+    bool debugger_attached;
+    
     int cycles; //This is our debt/credit counter
     volatile unsigned long long totalCycles; //This is how many cycles total we have done
 
@@ -274,10 +297,13 @@ protected:
     }
 public:
     void reset() {
+        stateMutex->Lock();
+        
         for (int i = 0; i < 0x10000; i++)
             ram[i] = 0;
-        for (int i = 0; i < 13; i++)
+        for (int i = 0; i < DCPU16_NUM_REGS; i++)
             registers[i] = 0;
+        
         totalCycles = 0;
         intQueueStart = 0;
         intQueueEnd = 0;
@@ -292,10 +318,16 @@ public:
             hardware[i]->reset();
         if (wxImagePath != 0)
             LoadImage();
+            
+        stateMutex->Unlock();
     }
     dcpu16(bool debug): cpu(totalCycles) {
         ram = new unsigned short[0x10000];
-        registers = new unsigned short[13];
+        registers = new unsigned short[DCPU16_NUM_REGS];
+        
+        ram_debug = NULL;
+        debugger_attached = false;
+        
         hwLength = 0;
         callbackMutex = new wxMutex();
         wxImagePath = 0;
@@ -303,6 +335,8 @@ public:
         running = true;
         cmdState = 1;
         this->debug = debug;
+        
+        stateMutex = new wxMutex();
         
         reset();
         romDevice = new dcpu16_rom(this);
@@ -315,13 +349,26 @@ public:
         delete romDevice;
         callbackMutex->Lock();
         delete callbackMutex;
+        stateMutex->Lock();
+        delete stateMutex;
         delete[] ram;
         delete[] registers;
+        if (ram_debug != NULL)
+            delete[] ram_debug;
+    }
+    void initDebug() {
+        ram_debug = new unsigned char[0x10000];
+        for (int i = 0; i < 0x1000; i++)
+            ram_debug[i] = 0;
+        debugger_attached = true;
+        cmdState = 0;
     }
     void createWindow() {
-        ctrlWindow = new dcpu16CtrlWindow(wxPoint(50, 50), this);
-        ctrlWindow->Show(true);
-        cmdState = 0;
+        if (!ctrlWindow) {
+            ctrlWindow = new dcpu16CtrlWindow(wxPoint(50, 50), this);
+            ctrlWindow->Show(true);
+            cmdState = 0;
+        }
     }
     wxWindow* getWindow() {
         if (ctrlWindow)
@@ -634,6 +681,8 @@ protected:
     }
 public:
     void cycle(int count) {
+        stateMutex->Lock();
+        
         cycles -= count;
         while (cycles < 0) {
             int initialCycles = cycles;
@@ -674,6 +723,76 @@ public:
             
             totalCycles += (cycles - initialCycles);
         }
+        
+        stateMutex->Unlock();
+    }
+    
+    
+    inline void setRegister_unsafe(int id, unsigned long long value) {
+        if (id < DCPU16_NUM_REGS)
+            registers[id] = value;
+    }
+    inline void setRam_unsafe(unsigned long long offset, unsigned long long value) {
+        ram[offset&0xFFFF] = value;
+    }
+    inline void setRam_unsafe(unsigned long long offset, unsigned long long len, unsigned long long* values) {
+        for (unsigned long long i = 0; i < len; i++) {
+            ram[(offset+i)&0xFFFF] = values[i];
+        }
+    }
+    
+    int getNumRegisters() {
+        return DCPU16_NUM_REGS;
+    }
+    unsigned int getRegisterSize() {
+        return 2;
+    }
+    unsigned long long getRegister(int id) {
+        if (id < DCPU16_NUM_REGS)
+            return registers[id];
+        return 0;
+    }
+    void setRegister(int id, unsigned long long value) {
+        if (id < DCPU16_NUM_REGS) {
+            stateMutex->Lock();
+            registers[id] = value;
+            stateMutex->Unlock();
+        }
+    }
+    unsigned long long getRamSize() {
+        return 0x10000;
+    }
+    unsigned int getRamValueSize() {
+        return 2;
+    }
+    unsigned long long getRam(unsigned long long offset) {
+        return ram[offset&0xFFFF];
+    }
+    void setRam(unsigned long long offset, unsigned long long value) {
+        stateMutex->Lock();
+        setRam_unsafe(offset, value);
+        stateMutex->Unlock();
+    }
+    void setRam(unsigned long long offset, unsigned long long len, unsigned long long* values) {
+        stateMutex->Lock();
+        setRam_unsafe(offset, len, values);
+        stateMutex->Unlock();
+    }
+    
+    void debug_run() {
+        cmdState = 1;
+    }
+    void debug_step() {
+        if (cmdState == 3)
+            cmdState = 2;
+        else
+            cmdState = 3;
+    }
+    void debug_stop() {
+        cmdState = 0;
+    }
+    void debug_reset() {
+        reset();
     }
     
     
@@ -907,23 +1026,16 @@ int dcpu16_rom::interrupt() {
 }
     
 void dcpu16CtrlWindow::OnRun(wxCommandEvent& WXUNUSED(event)) {
-    cpu->cmdState = 1;
+    cpu->debug_run();
 }
 void dcpu16CtrlWindow::OnStep(wxCommandEvent& WXUNUSED(event)) {
-    if (cpu->cmdState == 3)
-        cpu->cmdState = 2;
-    else
-        cpu->cmdState = 3;
+    cpu->debug_step();
 }
 void dcpu16CtrlWindow::OnStop(wxCommandEvent& WXUNUSED(event)) {
-    cpu->cmdState = 0;
+    cpu->debug_stop();
 }
 void dcpu16CtrlWindow::OnReset(wxCommandEvent& WXUNUSED(event)) {
-    if (cpu->cmdState == 1)
-        cpu->cmdState = 5;
-    else
-        cpu->cmdState = 4;
-    while (cpu->cmdState >= 4);
+    cpu->debug_reset();
 }
 void dcpu16CtrlWindow::OnClose(wxCloseEvent& WXUNUSED(event)) {
     cpu->ctrlWindow = 0;    //wxwidgets will just drop the window out of memory itself, thus causing a crash unless if there's some warning
@@ -932,6 +1044,11 @@ void dcpu16CtrlWindow::OnClose(wxCloseEvent& WXUNUSED(event)) {
 void dcpu16CtrlWindow::update() {
     if (!cpu)
         return;
+    
+    if (cpu->debugger_attached)
+        disableButtons();
+    else
+        enableButtons();
         
     wxChar CYCLES_TXT[110] = wxT("Cycles: ");
     int nCharsPrinted = printDecimal(CYCLES_TXT+8, 100, cpu->totalCycles);

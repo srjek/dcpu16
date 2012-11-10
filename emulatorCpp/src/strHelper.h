@@ -5,3 +5,4 @@
 int wxStrcpy(wxChar * destination, const wxChar * source, size_t num);
 int printDecimal(wxChar* buffer, int bufferSize, long long number);
 void printHex(wxChar* buffer, int bufferSize, long long number);
+long long wxFromDecimal(wxChar * source);
