@@ -20,8 +20,8 @@ protected:
     //input buffer
     static const int BUFFER_SIZE = 1024*16;
     unsigned char buf[BUFFER_SIZE];
-    unsigned int buf_pos = 0;
-    unsigned int buf_size = 0;
+    unsigned int buf_pos;
+    unsigned int buf_size;
     
     //messages waiting for confirmation
     queue<pair<char*, int>*> sendQueue;
@@ -245,7 +245,8 @@ protected:
     }
     
 public:
-    gdb_remote(io_service& io): /*wxThread(wxTHREAD_JOINABLE), */io(io), isRunning(false), connected(false), socket(NULL), NoAckMode(false) {
+    gdb_remote(io_service& io): /*wxThread(wxTHREAD_JOINABLE), */io(io), isRunning(false),
+        connected(false), socket(NULL), NoAckMode(false), buf_pos(0), buf_size(0) {
     }
     wxThread::ExitCode Entry() {
         tcp::acceptor acceptor(io, tcp::endpoint(address_v4::loopback(), 6498));
