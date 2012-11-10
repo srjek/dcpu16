@@ -1,0 +1,4 @@
+makedepend
+makedepend.bak
+gdb-test
+gdb-remote-test
