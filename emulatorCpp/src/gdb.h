@@ -3,6 +3,13 @@
 #include <wx/wx.h>
 
 #include "thread.h"
+
+#ifndef emulator_gdb_h
+#define emulator_gdb_h
+
+#define DEBUG_GDB_PROTOCOL
+
+class gdb_remote;
 #include "cpu.h"
 
 class gdb_remote: public thread, public wxThread {
@@ -24,6 +31,9 @@ protected:
     
     bool NoAckMode;
     
+    unsigned int breakpoint_hit;
+    wxMutex* breakpointMutex;
+    
     int peekChar();
     int readChar();
     void putChar(char c);
@@ -41,7 +51,10 @@ protected:
     
 public:
     gdb_remote(cpu* target, unsigned int port);
+    ~gdb_remote();
     wxThread::ExitCode Entry();
+
+    void breakpointHit();
 
     inline wxThreadError Create() {
         return wxThread::Create(10*1024*1024); //10 MB
@@ -61,3 +74,5 @@ public:
         return 0;
     }
 };
+
+#endif

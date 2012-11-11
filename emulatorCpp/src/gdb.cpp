@@ -177,6 +177,9 @@ int gdb_remote::getPacket(char* packet, int packetSize) {
             if (checksum == readHex(2)) {
                 putChar('+');
             } else {
+                #ifdef DEBUG_GDB_PROTOCOL
+                cerr << "gdb-remote: Bad checksum received, requesting resend" << endl;
+                #endif
                 putChar('-');   //Packet failed to transmit, request resend
                 continue;   //Try to read the next packet
             }
@@ -191,7 +194,18 @@ int gdb_remote::getPacket(char* packet, int packetSize) {
     }
 }
 inline void gdb_remote::sendEmptyPacket() {
+    #ifdef DEBUG_GDB_PROTOCOL
+    cerr << "gdb-remote: Sent empty packet" << endl;
+    #endif
     putData("$#00", 4);
+    if (!NoAckMode) {
+        char* packet = new char[4];
+        packet[0] = '$';
+        packet[1] = '#';
+        packet[2] = '0';
+        packet[3] = '0';
+        sendQueue.push(new pair<char*, int>(packet, 4));
+    }
 }
 void gdb_remote::sendPacket(char* data, int size, unsigned int packet_size) {
     char* packet = new char[packet_size];
@@ -217,6 +231,14 @@ void gdb_remote::sendPacket(char* data, int size, unsigned int packet_size) {
     buf_pos += 2;
     putData(packet, buf_pos);
     
+    #ifdef DEBUG_GDB_PROTOCOL
+    char* tmp = new char[size+10];
+    memcpy(tmp, data, size);
+    tmp[size] = 0;
+    cerr << "gdb-remote: Sent packet \"" << tmp << "\"" << endl;
+    delete[] tmp;
+    #endif
+    
     if (!NoAckMode) {
         //put on queue to wait for confirmation
         sendQueue.push(new pair<char*, int>(packet, buf_pos));
@@ -225,8 +247,14 @@ void gdb_remote::sendPacket(char* data, int size, unsigned int packet_size) {
 }
 
 gdb_remote::gdb_remote(cpu* target, unsigned int port): wxThread(wxTHREAD_JOINABLE), isRunning(false),
-    socket(NULL), NoAckMode(false), buf_pos(0), buf_size(0), target(target), port(port) {
-    target->initDebug();
+    socket(NULL), NoAckMode(false), buf_pos(0), buf_size(0), target(target), port(port), breakpoint_hit(0) {
+    
+    breakpointMutex = new wxMutex();
+    target->attachDebugger(this);
+}
+gdb_remote::~gdb_remote() {
+    breakpointMutex->Lock();
+    delete breakpointMutex;
 }
 wxThread::ExitCode gdb_remote::Entry() {
     io_service io;
@@ -236,8 +264,18 @@ wxThread::ExitCode gdb_remote::Entry() {
     acceptor.accept(*socket);    //wait for connection from gdb
     
     while (isRunning) {
+        breakpointMutex->Lock();
+        while (breakpoint_hit > 0) {
+            sendPacket("S05", 3);
+            breakpoint_hit--;
+        }
+        breakpointMutex->Unlock();
+        
         int c = peekChar();
         if (c == '-') {
+            #ifdef DEBUG_GDB_PROTOCOL
+            cerr << "gdb-remote: Resending bad packet" << endl;
+            #endif
             if (!sendQueue.empty()) {
                 pair<char*, int>* item = sendQueue.front();
                 putData(item->first, item->second);
@@ -248,6 +286,9 @@ wxThread::ExitCode gdb_remote::Entry() {
             continue;
         } else if (c == '+') {
             if (!sendQueue.empty()) {
+                #ifdef DEBUG_GDB_PROTOCOL
+                cerr << "gdb-remote: Packet successfully sent" << endl;
+                #endif
                 pair<char*, int>* item = sendQueue.front();
                 delete[] item->first;
                 delete item;
@@ -266,21 +307,56 @@ wxThread::ExitCode gdb_remote::Entry() {
             }
             
             packet[packetSize] = 0;
-            if (strcmp(packet, "QStartNoAckMode") == 0) {
+            #ifdef DEBUG_GDB_PROTOCOL
+            std::cout << "gdb-remote: Packet \"" << packet << "\" received" << endl;
+            #endif
+            if (strncmp(packet, "qSupported", 10) == 0) {
+                //TODO: parse gdb reported features as needed
+                char* response = "qSupported:PacketSize=00000400;qXfer:features:read+";
+                //char* tmp = strchr(response, 'F');
+                //if (BUFFER_SIZE <= 0xFFFFFFFF)
+                //    writeHex(tmp, BUFFER_SIZE, 8);
+                sendPacket(response, strlen(response));
+            } else if (strcmp(packet, "QStartNoAckMode") == 0) {
                 sendPacket("OK", 2);
                 NoAckMode = true;
                 
-            } else if (strcmp(packet, "?") == 0) {
-                sendPacket("S05", 2);   //report reason execution stopped
-                
-            } else if (strncmp(packet, "c", 1) == 0) {
-                if (packetSize > 1) {
-                    unsigned long long address = readHex(packet+1, 10000);
-                    //TODO: continue from address
+            } else if (strncmp(packet, "qXfer:features:read", 19) == 0) {
+                char* nextOpt = strchr(packet+18, ':');
+                char* nextOpt2 = strchr(nextOpt+1, ':');
+                if (strncmp(nextOpt+1, "target.xml", nextOpt2-(nextOpt+1)) == 0) {
+                    nextOpt = nextOpt2;
+                    nextOpt2 = strchr(nextOpt+1, ',');
+                    unsigned long long offset = readHex(nextOpt+1, nextOpt2-(nextOpt+1));
+                    unsigned long long length = readHex(nextOpt2+1, 100000);
+                    
+                    char buffer[2049] = {'m'};
+                    FILE* targetxml = fopen("dcpu16.gdb.xml", "r");
+                    if (targetxml == NULL) {
+                        buffer[0] = 'E';
+                        writeHex(buffer+1, errno, 2);
+                        sendPacket(buffer, 2);
+                        continue;
+                    }
+                    for (int i = 0; i < offset; i++)
+                        fgetc(targetxml);
+                    //fseek(targetxml, offset, SEEK_SET);
+                    int i;
+                    for (i = 0; (i < 1024) && (i < length); i++) {
+                        int c = fgetc(targetxml);
+                        if (c == EOF) {
+                            buffer[0] = 'l';
+                            break;
+                        }
+                        //writeHex(buffer+1+i*2, c, 2);
+                        if (c == '\t' || c == '\n' || c == '\r')
+                            c = ' ';
+                        buffer[1+i] = c;
+                    }
+                    fclose(targetxml);
+                    sendPacket(buffer, 1+i*2);
+                } else
                     sendEmptyPacket();
-                } else {
-                    target->debug_run();
-                }
                 
             } else if (strncmp(packet, "g", 1) == 0) {
                 int count = target->getNumRegisters();
@@ -302,7 +378,7 @@ wxThread::ExitCode gdb_remote::Entry() {
                     }
                     sendPacket("OK", 2);
                 } else 
-                    sendPacket("E 00", 4);
+                    sendPacket("E00", 3);
                 
             } else if (strncmp(packet, "m", 1) == 0) {
                 unsigned long long rsize = target->getRamSize();
@@ -311,12 +387,12 @@ wxThread::ExitCode gdb_remote::Entry() {
                 char* nextOpt = strchr(packet+1, ',');
                 unsigned long long offset = readHex(packet+1, nextOpt-(packet+1));
                 if (nextOpt == NULL) {
-                    sendEmptyPacket();
+                    sendPacket("E00", 3);
                     continue;
                 }
                 unsigned long long len = readHex(nextOpt+1, 10000) / (vsize/2); //TODO: handle cases with odd number of bytes?
                 if (offset > rsize-1) {
-                    sendEmptyPacket();
+                    sendPacket("E00", 3);
                     continue;
                 }
                 if (offset+len > rsize-1) {
@@ -339,20 +415,20 @@ wxThread::ExitCode gdb_remote::Entry() {
                 char* nextOpt = strchr(packet+1, ',');
                 unsigned long long offset = readHex(packet+1, nextOpt-(packet+1));
                 if (nextOpt == NULL) {
-                    sendPacket("E 00", 4);
+                    sendPacket("E00", 3);
                     continue;
                 }
                 unsigned long long len = readHex(nextOpt+1, 10000) / (vsize/2); //TODO: handle cases with odd number of bytes?
                 
                 nextOpt = strchr(nextOpt+1, ':');
                 if (nextOpt == NULL) {
-                    sendPacket("E 00", 4);
+                    sendPacket("E00", 3);
                     continue;
                 }
                 nextOpt += 1;
                 
                 if (offset > rsize-1) {
-                    sendPacket("E 00", 4);
+                    sendPacket("E00", 3);
                     continue;
                 }
                 if (offset+len > rsize-1) {
@@ -367,9 +443,37 @@ wxThread::ExitCode gdb_remote::Entry() {
                 }
                 sendPacket("OK", 2);
                 
+            } else if (strcmp(packet, "?") == 0) {
+                sendPacket("S05", 3);   //report reason execution stopped
+                
+            } else if (strncmp(packet, "c", 1) == 0) {
+                if (packetSize > 1) {
+                    unsigned long long address = readHex(packet+1, 10000);
+                    //TODO: continue from address
+                    sendEmptyPacket();
+                } else {
+                    target->debug_run();
+                }
+                
             } else if (strncmp(packet, "s", 1) == 0) {
                 target->debug_step();
                 sendPacket("S05", 3);
+                
+            } else if (strncmp(packet, "Z1", 2) == 0) {
+                char* nextOpt = strchr(packet+1, ',');
+                unsigned long long address = readHex(nextOpt+1, 10000);
+                nextOpt = strchr(nextOpt+1, ',');
+                unsigned long long kind = readHex(nextOpt+1, 10000);
+                target->debug_setBreakpoint(address);
+                sendPacket("OK", 2);
+                
+            } else if (strncmp(packet, "z1", 2) == 0) {
+                char* nextOpt = strchr(packet+1, ',');
+                unsigned long long address = readHex(nextOpt+1, 10000);
+                nextOpt = strchr(nextOpt+1, ',');
+                unsigned long long kind = readHex(nextOpt+1, 10000);
+                target->debug_clearBreakpoint(address);
+                sendPacket("OK", 2);
                 
             } else
                 sendEmptyPacket();  //Unsupported cmd
@@ -384,4 +488,9 @@ wxThread::ExitCode gdb_remote::Entry() {
     buf_pos = 0;
     buf_size = 0;
     return 0;
+}
+void gdb_remote::breakpointHit() {
+    breakpointMutex->Lock();
+    breakpoint_hit++;
+    breakpointMutex->Unlock();
 }

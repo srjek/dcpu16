@@ -240,6 +240,8 @@ protected:
     //volatile unsigned short registers[DCPU16_NUM_REGS];
     volatile unsigned char* ram_debug;
     bool debugger_attached;
+    gdb_remote* debugger;
+    #define DCPU16_BREAKPOINT_HW 1
     
     int cycles; //This is our debt/credit counter
     volatile unsigned long long totalCycles; //This is how many cycles total we have done
@@ -356,11 +358,12 @@ public:
         if (ram_debug != NULL)
             delete[] ram_debug;
     }
-    void initDebug() {
+    void attachDebugger(gdb_remote* debugger) {
         ram_debug = new unsigned char[0x10000];
         for (int i = 0; i < 0x1000; i++)
             ram_debug[i] = 0;
         debugger_attached = true;
+        this->debugger = debugger;
         cmdState = 0;
     }
     void createWindow() {
@@ -684,46 +687,92 @@ public:
         stateMutex->Lock();
         
         cycles -= count;
-        while (cycles < 0) {
-            int initialCycles = cycles;
-            handleCallbacks();
-            
-            unsigned short instruction = nextWord();
-            int op = instruction & 0x1F;
-            int b_code = (instruction >> 5) & 0x1F;
-            int a_code = (instruction >> 10) & 0x3F;
-            val a = read_val(a_code, false);
-            if (op != 0) {
-                val b = read_val(b_code, true);
-                cycles += opcodeCycles[op];
-                execOp(op, b, a);
-            } else {
-                cycles += extOpcodeCycles[b_code];
-                execExtOp(b_code, a);
-            }
-            
-            if ((intQueueStart != intQueueEnd) && (registers[DCPU16_REG_IAQ] == 0)) {
-                if (registers[DCPU16_REG_IA] != 0) {
-                    //IAQ 1 -- should enable queuing
-                    registers[DCPU16_REG_IAQ] = 1;
-                    //SET PUSH, PC
-                    execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_PC));
-                    //SET PUSH, A
-                    execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_A));
-                    //SET PC, IA
-                    registers[DCPU16_REG_PC] = registers[DCPU16_REG_IA];
-                    //SET A, <msg>
-                    registers[DCPU16_REG_A] = intQueue[intQueueStart];
+        int initialCycles = cycles;
+        if (debugger_attached) {
+            while (cycles < 0) {
+                handleCallbacks();
+                
+                if ((ram_debug[registers[DCPU16_REG_PC]] & DCPU16_BREAKPOINT_HW) != 0) {
+                    debug_stop();
+                    debugger->breakpointHit();
+                    break;
                 }
-                if (intQueueStart >= 256)
-                    intQueueStart = 0;
-                else
-                    intQueueStart++;
+                
+                unsigned short instruction = nextWord();
+                int op = instruction & 0x1F;
+                int b_code = (instruction >> 5) & 0x1F;
+                int a_code = (instruction >> 10) & 0x3F;
+                val a = read_val(a_code, false);
+                if (op != 0) {
+                    val b = read_val(b_code, true);
+                    cycles += opcodeCycles[op];
+                    execOp(op, b, a);
+                } else {
+                    cycles += extOpcodeCycles[b_code];
+                    execExtOp(b_code, a);
+                }
+                
+                if ((intQueueStart != intQueueEnd) && (registers[DCPU16_REG_IAQ] == 0)) {
+                    if (registers[DCPU16_REG_IA] != 0) {
+                        //IAQ 1 -- should enable queuing
+                        registers[DCPU16_REG_IAQ] = 1;
+                        //SET PUSH, PC
+                        execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_PC));
+                        //SET PUSH, A
+                        execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_A));
+                        //SET PC, IA
+                        registers[DCPU16_REG_PC] = registers[DCPU16_REG_IA];
+                        //SET A, <msg>
+                        registers[DCPU16_REG_A] = intQueue[intQueueStart];
+                    }
+                    if (intQueueStart >= 256)
+                        intQueueStart = 0;
+                    else
+                        intQueueStart++;
+                }
+                
             }
-            
-            totalCycles += (cycles - initialCycles);
+        } else {
+            while (cycles < 0) {
+                handleCallbacks();
+                
+                unsigned short instruction = nextWord();
+                int op = instruction & 0x1F;
+                int b_code = (instruction >> 5) & 0x1F;
+                int a_code = (instruction >> 10) & 0x3F;
+                val a = read_val(a_code, false);
+                if (op != 0) {
+                    val b = read_val(b_code, true);
+                    cycles += opcodeCycles[op];
+                    execOp(op, b, a);
+                } else {
+                    cycles += extOpcodeCycles[b_code];
+                    execExtOp(b_code, a);
+                }
+                
+                if ((intQueueStart != intQueueEnd) && (registers[DCPU16_REG_IAQ] == 0)) {
+                    if (registers[DCPU16_REG_IA] != 0) {
+                        //IAQ 1 -- should enable queuing
+                        registers[DCPU16_REG_IAQ] = 1;
+                        //SET PUSH, PC
+                        execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_PC));
+                        //SET PUSH, A
+                        execOp(1, read_val(0x18, 1), val(registers + DCPU16_REG_A));
+                        //SET PC, IA
+                        registers[DCPU16_REG_PC] = registers[DCPU16_REG_IA];
+                        //SET A, <msg>
+                        registers[DCPU16_REG_A] = intQueue[intQueueStart];
+                    }
+                    if (intQueueStart >= 256)
+                        intQueueStart = 0;
+                    else
+                        intQueueStart++;
+                }
+                
+            }
         }
         
+        totalCycles += (cycles - initialCycles);
         stateMutex->Unlock();
     }
     
@@ -793,6 +842,14 @@ public:
     }
     void debug_reset() {
         reset();
+    }
+    void debug_setBreakpoint(unsigned long long pos) {
+        if (debugger_attached && pos <= 0xFFFF)
+            ram_debug[pos] |= DCPU16_BREAKPOINT_HW;
+    }
+    void debug_clearBreakpoint(unsigned long long pos) {
+        if (debugger_attached && pos <= 0xFFFF)
+            ram_debug[pos] &= ~DCPU16_BREAKPOINT_HW;
     }
     
     

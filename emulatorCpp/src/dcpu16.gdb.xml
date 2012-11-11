@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!DOCTYPE target SYSTEM "gdb-target.dtd">
+<target version="1.0">
+    <architecture>dcpu16</architecture>
+    <osabi>none</osabi>
+    <feature name="org.srjek.dcpu16.core">
+        <reg name="A" bitsize="16" regnum="0" type="uint16" group="general"/>
+        <reg name="B" bitsize="16" regnum="1" type="uint16" group="general"/>
+        <reg name="C" bitsize="16" regnum="2" type="uint16" group="general"/>
+        <reg name="X" bitsize="16" regnum="3" type="uint16" group="general"/>
+        <reg name="Y" bitsize="16" regnum="4" type="uint16" group="general"/>
+        <reg name="Z" bitsize="16" regnum="5" type="uint16" group="general"/>
+        <reg name="I" bitsize="16" regnum="6" type="uint16" group="general"/>
+        <reg name="J" bitsize="16" regnum="7" type="uint16" group="general"/>
+        <reg name="PC" bitsize="16" regnum="8" type="uint16" group="general"/>
+        <reg name="SP" bitsize="16" regnum="9" type="uint16" group="general"/>
+        <reg name="EX" bitsize="16" regnum="10" type="uint16" group="general"/>
+        <reg name="IA" bitsize="16" regnum="11" type="uint16"/>
+        <reg name="IAQ" bitsize="16" regnum="12" type="uint16"/>
+    </feature>
+</target>

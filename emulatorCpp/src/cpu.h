@@ -1,6 +1,7 @@
 #include "wx/wx.h"
 
 #include "thread.h"
+#include "gdb.h"
 
 #ifndef emulator_cpu_h
 #define emulator_cpu_h
@@ -28,7 +29,7 @@ class cpu;
 class cpu {
 public:
     volatile bool running;
-    virtual void initDebug() =0;
+    virtual void attachDebugger(gdb_remote* debugger) =0;
     virtual void createWindow() =0;
     virtual wxWindow* getWindow() =0;
     
@@ -76,6 +77,9 @@ public:
     virtual void debug_step() =0;
     virtual void debug_stop() =0;
     virtual void debug_reset() =0;
+    
+    virtual void debug_setBreakpoint(unsigned long long pos) =0;
+    virtual void debug_clearBreakpoint(unsigned long long pos) =0;
     
     //Returns hardware num
     virtual unsigned int addHardware(device* hw) =0;
