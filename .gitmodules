@@ -1,0 +1,3 @@
+[submodule "emulatorCpp/binutils"]
+	path = emulatorCpp/binutils
+	url = git://github.com/frot/binutils-dcpu16.git
