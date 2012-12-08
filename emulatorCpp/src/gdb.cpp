@@ -332,7 +332,7 @@ void gdb_remote::handleBuffer() {
         #endif
         if (strncmp(packet, "qSupported", 10) == 0) {
             //TODO: parse gdb reported features as needed
-            char* response = "qSupported:PacketSize=00000400;qXfer:features:read+";
+            char* response = "QStartNoAckMode+;qSupported:PacketSize=00000400;qXfer:features:read+";
             //char* tmp = strchr(response, 'F');
             //if (BUFFER_SIZE <= 0xFFFFFFFF)
             //    writeHex(tmp, BUFFER_SIZE, 8);
@@ -405,7 +405,7 @@ void gdb_remote::handleBuffer() {
             unsigned int vsize = target->getRamValueSize()*2;
             
             char* nextOpt = strchr(packet+1, ',');
-            unsigned long long offset = readHex(packet+1, nextOpt-(packet+1));
+            unsigned long long offset = readHex(packet+1, nextOpt-(packet+1)) / (vsize/2);
             if (nextOpt == NULL) {
                 sendPacket("E00", 3);
                 return;
