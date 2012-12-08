@@ -1,0 +1,3 @@
+[submodule "emulatorCpp/gdb"]
+	path = emulatorCpp/gdb
+	url = https://github.com/srjek/gdb-dcpu16.git
