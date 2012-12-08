@@ -694,7 +694,7 @@ public:
                 
                 if ((ram_debug[registers[DCPU16_REG_PC]] & DCPU16_BREAKPOINT_HW) != 0) {
                     debug_stop();
-                    debugger->breakpointHit();
+                    debugger->onCpuStop();
                     break;
                 }
                 
@@ -839,6 +839,8 @@ public:
     }
     void debug_stop() {
         cmdState = 0;
+        if (debugger != NULL)
+            debugger->onCpuStop();
     }
     void debug_reset() {
         reset();
@@ -898,6 +900,8 @@ public:
             if (((cmdState == 2) || (cmdState == 3)) && cmdState != lastCmdState) {
                 cycle(1);       //step
                 cycle(cycles);
+                if (debugger != NULL and cmdState != 0) //If we haven't hit a breakpoint, inform the debugger we stopped
+                    debugger->onCpuStop();
             } else if (cmdState == 1)
                 cycle(10000);   //run
             else if (cmdState >= 4) {   //reset
