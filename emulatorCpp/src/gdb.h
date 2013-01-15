@@ -13,6 +13,7 @@ class gdb_remote;
 #include "cpu.h"
 
 class gdb_remote: public thread, public wxThread {
+    friend struct async_fillBufferCallback;
 public:
     volatile bool isRunning;
 protected:
@@ -23,21 +24,25 @@ protected:
     //input buffer
     static const int BUFFER_SIZE = 1024*16;
     unsigned char buf[BUFFER_SIZE];
-    unsigned int buf_pos;
-    unsigned int buf_size;
+    volatile unsigned int buf_pos;
+    volatile unsigned int buf_size;
+    wxMutex* bufferMutex;
     
     //messages waiting for confirmation
     std::queue<std::pair<char*, int>*> sendQueue;
     
     bool NoAckMode;
     
-    unsigned int breakpoint_hit;
+    volatile unsigned int breakpoint_hit;
     wxMutex* breakpointMutex;
     
     int peekChar();
     int readChar();
     void putChar(char c);
     void putData(char* c, int size);
+    
+    void async_fillBufferFinished(const boost::system::error_code& error, size_t bytes_transferred);
+    void async_fillBuffer();
     
     unsigned long long readHex(int numDigits);
     unsigned long long readHex(char* buffer, int numDigits);
@@ -52,9 +57,12 @@ protected:
 public:
     gdb_remote(cpu* target, unsigned int port);
     ~gdb_remote();
+    
+    void handleBuffer();
     wxThread::ExitCode Entry();
 
-    void breakpointHit();
+    //Called by the cpu whenever it stops, even when it was told to (debug_stop() will trigger a callback)
+    void onCpuStop();
 
     inline wxThreadError Create() {
         return wxThread::Create(10*1024*1024); //10 MB
