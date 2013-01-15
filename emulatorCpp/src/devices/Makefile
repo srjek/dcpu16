@@ -6,7 +6,7 @@ EXTRADEVICES := $(EXTRADEVICES:%=extra-%)
 	
 devices: $(DEVICES)
 
-devices.h: $(MISSINGDEVICES) $(EXTRADEVICES)
+devices.h: $(MISSINGDEVICES) $(EXTRADEVICES) build-devices_h
 	@echo -n $(DEVICES) > .lastDevices
 	./build-devices_h > devices.h
 

@@ -1,9 +1,13 @@
+#Implemented based of some reports from people at the uni of buffalo from the 1970s
+
+#4 ops?
 def ME(ternary):
     result = [0, 0]
     result[0] = ternary[0] & (~ternary[1])
     result[1] = ternary[1] & (~ternary[0])
     return tuple(result)
 
+#6 ops?
 def minor(ternary):
     result = [0, 0]
     result[0] = (ternary[1] ^ ternary[0]) | ternary[0]
@@ -13,6 +17,7 @@ def minor(ternary):
 def negate(ternary):
     return (ternary[1], ternary[0])
 
+#6+ME ops? (10)
 def partialAdd(a, b):   #Assumes that (b[1] == 0) is true (hence partial)
     x = a[0] + b[0]
     y = a[0] & (~x)
@@ -20,6 +25,7 @@ def partialAdd(a, b):   #Assumes that (b[1] == 0) is true (hence partial)
     r1 = x & (~b[0])
     return ME((r1, r2))
 
+#2*(ME+minor+partialAdd) ops? (40)
 def add(a, b):
     a = list(a)
     b = list(b)
@@ -30,10 +36,13 @@ def add(a, b):
     (c[1], b[1]) = minor((c[1], b[1]))
     return negate( partialAdd( negate(c), negate(b) ))
 
+#4 ops?
 def trit(a, pos):
     return (a[0] & (1 << pos)) - (a[1] & (1 << pos))
+#2 ops?
 def shiftL(a, i):
     return (a[0] << i, a[1] << i)
+#12*(2+trit+shiftL+add) ops? (12*48=576)
 def multiply(a, b):
     result = (0, 0)
     for i in range(12):

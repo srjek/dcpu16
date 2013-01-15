@@ -4,7 +4,7 @@ words are 2 trytes (12 trits)
 
 ram is addressable from [-ceiling((3^6)/2), floor((3^6)/2)]
 
-for purposes of bitwise ops, + is true, - is negative, 0 is treated as unknown,
+for purposes of bitwise ops, + is true, - is false, 0 is treated as unknown,
 and causes the corresponding trit in answer to be 0 if the answer can not be
 detrimined otherwise
 

@@ -6,7 +6,7 @@ EXTRACPUS := $(EXTRACPUS:%=extra-%)
 
 cpus: $(CPUS)
 
-cpus.h: $(MISSINGCPUS) $(EXTRACPUS)
+cpus.h: $(MISSINGCPUS) $(EXTRACPUS) build-cpus_h
 	@echo -n $(CPUS) > .lastCpus
 	./build-cpus_h > cpus.h
 
