@@ -355,7 +355,7 @@ void gdb_remote::handleBuffer() {
                 if (targetxml == NULL) {
                     buffer[0] = 'E';
                     writeHex(buffer+1, errno, 2);
-                    sendPacket(buffer, 2);
+                    sendPacket(buffer, 3);
                     return;
                 }
                 for (int i = 0; i < offset; i++)

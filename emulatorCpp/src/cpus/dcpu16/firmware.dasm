@@ -4,7 +4,7 @@
     SET J, 0x200
 :move
     IFE I, 0x200
-        SET PC, load
+        SET PC, I   ;I is 0x200, load should also be 0x200, so save a word by using I instead of a literal/label
     STI [J], [I]
     SET PC, move
 
