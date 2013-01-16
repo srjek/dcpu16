@@ -384,13 +384,13 @@ void gdb_remote::handleBuffer() {
             char* packetI = packet;
             for (int i = 0; i < count; i++) {
                 unsigned long long tmp = target->getRegister(i);
-                if (i == cpu::REG_PC || i == cpu::REG_SP) {
-                    writeHex(packetI, tmp << 0, 4*2);   //gdb protocol currently takes a byte-based address that uses 32 bits
+                /* if (i == cpu::REG_PC || i == cpu::REG_SP) {
+                    writeHex(packetI, tmp << 1, 4*2);   //gdb protocol currently takes a byte-based address that uses 32 bits
                     packetI += 4*2;
-                } else {
+                } else { */
                     writeHex(packetI, tmp, vsize);
                     packetI += vsize;
-                }
+                //}
             }
             sendPacket(packet, packetI-packet);
             
