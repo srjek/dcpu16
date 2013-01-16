@@ -385,7 +385,7 @@ void gdb_remote::handleBuffer() {
             for (int i = 0; i < count; i++) {
                 unsigned long long tmp = target->getRegister(i);
                 if (i == cpu::REG_PC || i == cpu::REG_SP) {
-                    writeHex(packetI, tmp << 1, 4*2);   //gdb protocol currently takes a byte-based address that uses 32 bits
+                    writeHex(packetI, tmp << 0, 4*2);   //gdb protocol currently takes a byte-based address that uses 32 bits
                     packetI += 4*2;
                 } else {
                     writeHex(packetI, tmp, vsize);
@@ -402,7 +402,7 @@ void gdb_remote::handleBuffer() {
                 for (int i = 0; i < count; i++) {
                     unsigned long long tmp;
                     if (i == cpu::REG_PC || i == cpu::REG_SP) {
-                        tmp = (readHex(packetI, 4*2) >> 1) & 0xFFFF;
+                        tmp = (readHex(packetI, 4*2) >> 0) & 0xFFFF;
                         packetI += 4*2;
                     } else {
                         tmp = readHex(packetI, vsize);
@@ -420,7 +420,7 @@ void gdb_remote::handleBuffer() {
             unsigned int vsize = target->getRamValueSize()*2;
             
             char* nextOpt = strchr(packet+1, ',');
-            unsigned long long offset = readHex(packet+1, nextOpt-(packet+1)) / (vsize/2);
+            unsigned long long offset = readHex(packet+1, nextOpt-(packet+1));// / (vsize/2);
             if (nextOpt == NULL) {
                 sendPacket("E00", 3);
                 return;
@@ -448,7 +448,7 @@ void gdb_remote::handleBuffer() {
             unsigned int vsize = target->getRamValueSize()*2;
             
             char* nextOpt = strchr(packet+1, ',');
-            unsigned long long offset = readHex(packet+1, nextOpt-(packet+1));
+            unsigned long long offset = readHex(packet+1, nextOpt-(packet+1));// / (vsize/2);
             if (nextOpt == NULL) {
                 sendPacket("E00", 3);
                 return;
