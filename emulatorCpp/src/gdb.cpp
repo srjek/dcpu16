@@ -374,7 +374,7 @@ void gdb_remote::handleBuffer() {
                     buffer[1+i] = c;
                 }
                 fclose(targetxml);
-                sendPacket(buffer, 1+i*2);
+                sendPacket(buffer, 1+i);
             } else
                 sendEmptyPacket();
             
