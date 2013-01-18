@@ -1,4 +1,5 @@
 #include "wx/wx.h"
+#include "wx/glcanvas.h"
 
 #include "thread.h"
 #include "gdb.h"

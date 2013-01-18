@@ -6,7 +6,6 @@
 #include "cpus/cpus.h"
 #include "devices/devices.h"
 
-
 static const wxCmdLineEntryDesc g_cmdLineDesc [] =
 {
      { wxCMD_LINE_SWITCH, wxT("h"), wxT("help"), wxT("displays help on the command line parameters"),
