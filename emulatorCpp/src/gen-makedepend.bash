@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if command -v makedepend2 2>&1 >/dev/null; then
+if command -v makedepend 2>&1 >/dev/null; then
     touch makedepend
     echo "makedepend -f makedepend -- $CFLAGS -- $SOURCES 2>/dev/null"
     makedepend -f makedepend -- $CFLAGS -- $SOURCES 2>/dev/null
