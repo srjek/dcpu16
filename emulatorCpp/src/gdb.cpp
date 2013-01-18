@@ -425,7 +425,7 @@ void gdb_remote::handleBuffer() {
                 sendPacket("E00", 3);
                 return;
             }
-            unsigned long long len = readHex(nextOpt+1, 10000) / (vsize/2); //TODO: handle cases with odd number of bytes?
+            unsigned long long len = readHex(nextOpt+1, 10000);// / (vsize/2); //TODO: handle cases with odd number of bytes?
             if (offset > rsize-1) {
                 sendPacket("E00", 3);
                 return;
@@ -453,7 +453,7 @@ void gdb_remote::handleBuffer() {
                 sendPacket("E00", 3);
                 return;
             }
-            unsigned long long len = readHex(nextOpt+1, 10000) / (vsize/2); //TODO: handle cases with odd number of bytes?
+            unsigned long long len = readHex(nextOpt+1, 10000);// / (vsize/2); //TODO: handle cases with odd number of bytes?
             
             nextOpt = strchr(nextOpt+1, ':');
             if (nextOpt == NULL) {

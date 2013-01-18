@@ -98,9 +98,13 @@
     SET C, 0
     SET X, 0
     SET Y, 0
+    SET Z, 0
     SET I, 0
     SET J, 0
     SET SP, 0
+    SET EX, 0
+    IAQ 0       ;even the not exactly general purpose registers, if they even are registers, get cleared
+    IAS 0
     SET PC, 0
 
 :msg_nodrive

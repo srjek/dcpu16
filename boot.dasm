@@ -86,9 +86,13 @@
     SET C, 0
     SET X, 0
     SET Y, 0
+    SET Z, 0
     SET I, 0
     SET J, 0
+    SET EX, 0
     SET SP, 0
+    IAQ 0       ;even the not exactly general purpose registers, if they even are registers, get cleared
+    IAS 0
     SET PC, 0   ;Jump back to the start, where a waiting instruction will hold(keep PC=0) until the drive writes the sector to ram
 
 :waiting_instruction
