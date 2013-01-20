@@ -21,6 +21,8 @@ First you will need to install any missing prerequisites:
  * [wxWidgets](http://www.wxwidgets.org/), for gui
  * [Boost](http://www.boost.org/), for networking (You will need to build boost, as the networking portion of boost depends on boost.System)
  * [Python 3](http://www.python.org/), needed to assemble the default boot rom
+ * [freeglut](http://freeglut.sourceforge.net/), needed for opengl
+ * [glew](http://glew.sourceforge.net/), needed for opengl
  * Optionally, makedepend, if you want to develop in the src directory (Makefiles in subdirs do not use makedepend)
 
 Then, starting in the root of the source directory:
