@@ -10,7 +10,7 @@ WX_CXXFLAGS = $(shell wx-config --cxxflags)
 
 .cpp.o :
 	$(CXX) -c  -o $@ $<
-SPED3.o: SPED3.cpp SPED3.h SPED3_shaders.h ../../device.h ../../cpu.h
+SPED3.o: SPED3.cpp SPED3.h SPED3_shaders.h ../../freeglut.h ../../device.h ../../cpu.h
 	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
     
 .PHONY: clean

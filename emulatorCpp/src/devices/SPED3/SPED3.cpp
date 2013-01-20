@@ -1,11 +1,6 @@
 #include <GL/glew.h>
-#ifdef __WXMAC__
-#include "OpenGL/glu.h"
-#include "OpenGL/gl.h"
-#else
-#include <GL/glu.h>
-#include <GL/gl.h>
-#endif
+
+#include "../../freeglut.h"
 
 #include <iostream>
 #include <vector>
@@ -14,49 +9,21 @@
 #include "SPED3.h"
 #include "SPED3_shaders.h"
 
-class RenderTimer : public wxTimer {
-    wxGLCanvas* panel;
-public:
-    RenderTimer(wxGLCanvas* panel) : wxTimer() {
-        this->panel = panel;
-    }
-    void Notify() {
-        panel->Refresh();
-        panel->Update();
-    }
-    void start() {
-        wxTimer::Start(1000/60);
-    }
-    void stop() {
-        wxTimer::Stop();
-    }
-};
- 
 class SPED3;
 
-class SPED3DisplayPanel: public wxGLCanvas {
-    friend class RenderTimer;
+class SPED3_freeglutWindow: public freeglutWindow {
 protected:
-    int args[5] = {WX_GL_RGBA, WX_GL_DOUBLEBUFFER, WX_GL_DEPTH_SIZE, 16, 0};
-    
     SPED3* device;
-    RenderTimer timer;
-    wxGLContext* gl_context;
     bool firstTime = true;
     
     GLuint shaderProgram;
     float* vertexData;
     GLuint vertexBufferObject;
+    GLuint vao;
 public:
-    SPED3DisplayPanel(wxFrame* parent, const wxSize& size, SPED3* device);
-    ~SPED3DisplayPanel();
-    void paintEvent(wxPaintEvent& evt) {
-        render();
-    }
-    void resized(wxSizeEvent& evt) {
-        //wxGLCanvas::OnSize(evt);
-        Refresh();
-    }
+    SPED3_freeglutWindow(SPED3* device);
+    ~SPED3_freeglutWindow();
+    
     void loadShaders() {
 	    std::vector<GLuint> shaderList;
 
@@ -68,62 +35,25 @@ public:
 	    std::for_each(shaderList.begin(), shaderList.end(), glDeleteShader);
 	}
     void initializeGL();
-    void render();
-    void OnShow() {
-        initializeGL();
-        Refresh();
-        Update();
+    
+    void OnDisplay();
+    void OnKeyboard(unsigned char key, int x, int y) {}
+    void OnMouse(int button, int state, int x, int y) {}
+    void OnMotion(int x, int y) {}
+    void OnPassiveMotion(int x, int y) {}
+    void OnVisibility(int state) {}
+    void OnEntry(int state) {}
+    void OnSpecial(int key, int x, int y) {}
+    void OnRender() {
+        OnDisplay();
     }
-    void OnKeyDown(wxKeyEvent& event);
-    void OnKeyUp(wxKeyEvent& event);
-    DECLARE_EVENT_TABLE()
 };
-BEGIN_EVENT_TABLE(SPED3DisplayPanel, wxGLCanvas)
-    EVT_KEY_DOWN(SPED3DisplayPanel::OnKeyDown)
-    EVT_KEY_UP(SPED3DisplayPanel::OnKeyUp)
-    EVT_PAINT(SPED3DisplayPanel::paintEvent)
-    EVT_SIZE(SPED3DisplayPanel::resized)
-END_EVENT_TABLE()
-
-class SPED3Display: public wxFrame {
-protected:
-    SPED3* device;
-    SPED3DisplayPanel* panel;
-public:
-    SPED3Display(wxWindow* parent, const wxPoint& pos, const wxSize& size, SPED3* device): wxFrame(parent, -1, _("SPED-3"), pos, wxSize(-1, -1)) {
-        this->device = device;
-        SetClientSize(size);
-        panel = new SPED3DisplayPanel(this, size, device);
-        
-        //wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-        //sizer->Add(panel, 1, wxEXPAND);
-        //SetSizer(sizer);
-        //SetAutoLayout(true);
-    }
-    bool Show(bool show = true) {
-        wxFrame::Show(show);
-        panel->OnShow();
-        Refresh();
-        Update();
-    }
-    void OnKeyDown(wxKeyEvent& event);
-    void OnKeyUp(wxKeyEvent& event);
-    void OnClose(wxCloseEvent& event);
-    DECLARE_EVENT_TABLE()
-};
-BEGIN_EVENT_TABLE(SPED3Display, wxFrame)
-    EVT_KEY_DOWN(SPED3Display::OnKeyDown)
-    EVT_KEY_UP(SPED3Display::OnKeyUp)
-    EVT_CLOSE(SPED3Display::OnClose)
-END_EVENT_TABLE()
 
 
 class SPED3: public device {
-    friend class SPED3Display;
-    friend class SPED3DisplayPanel;
+    friend class SPED3_freeglutWindow;
 protected:
     cpu* host;
-    SPED3Display* display;
     
     static const int MAX_VERTICES = 128;
     volatile unsigned short vertexAddress;
@@ -159,13 +89,9 @@ public:
         
         reset();
     }
-    ~SPED3() {
-        if (display)
-            display->Close(true);
-    }
+    ~SPED3() { }
     void createWindow() {
-        display = new SPED3Display(host->getWindow(), wxPoint(50, 50), wxSize(width, height), this);
-        display->Show(true);
+        new SPED3_freeglutWindow(this);
     }
     unsigned long getManufacturer() {
         return 0x1eb37e91;  //Mackapar Media
@@ -184,11 +110,11 @@ public:
             host->registers[cpu::REG_C] = ERROR_NONE;  //Emulators can't fail!
         } else if (A == 1) {    //MAP
             vertexAddress = host->registers[cpu::REG_X];
-            unsigned short B = host->registers[cpu::REG_Y];
-            if (B > MAX_VERTICES)
+            unsigned short Y = host->registers[cpu::REG_Y];
+            if (Y > MAX_VERTICES)
                 vertexCount = MAX_VERTICES;
             else
-                vertexCount = B;
+                vertexCount = Y;
         } else if (A == 2)      //ROTATE
             targetRotation = host->registers[cpu::REG_X]%360;
         return 0;
@@ -211,39 +137,34 @@ public:
     wxThread::ExitCode Wait() { return 0; }
 };
 
-SPED3DisplayPanel::SPED3DisplayPanel(wxFrame* parent, const wxSize& size, SPED3* device):
-                wxGLCanvas(parent, wxID_ANY, /*args,*/ wxPoint(0, 0), size, wxFULL_REPAINT_ON_RESIZE), timer(this) {
+SPED3_freeglutWindow::SPED3_freeglutWindow(SPED3* device): freeglutWindow("SPED-3") {
     this->device = device;
-    
-	//gl_context = new wxGLContext(this);
-    //SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-}
-SPED3DisplayPanel::~SPED3DisplayPanel() {
-    delete[] vertexData;
-    timer.stop();
-}
-void SPED3DisplayPanel::initializeGL() {
-    firstTime = false;
-    
-    SetCurrent();
-    wxPaintDC(this);
-    initGlew();
-    
-    loadShaders();
     vertexData = new float[SPED3::MAX_VERTICES*4*2];
-    glGenBuffers(1, &vertexBufferObject);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
-    timer.start();
 }
-void SPED3DisplayPanel::render() {
+SPED3_freeglutWindow::~SPED3_freeglutWindow() {
+    delete[] vertexData;
+}
+void SPED3_freeglutWindow::initializeGL() {
+    if (firstTime) {
+        firstTime = false;
+        
+        loadShaders();
+        
+	    glGenVertexArrays(1, &vao);
+	    glBindVertexArray(vao);
+	    
+        glGenBuffers(1, &vertexBufferObject);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        
+        glBindVertexArray(0);
+    }
+}
+void SPED3_freeglutWindow::OnDisplay() {
     if (firstTime) {
         initializeGL();
     }
-    SetCurrent();
-    wxPaintDC(this);
     
     //wxLongLong time = wxGetLocalTimeMillis();
     //bool blink = (((time/16)/20) % 2) == 0;
@@ -253,31 +174,44 @@ void SPED3DisplayPanel::render() {
     
     static const int color_offset = SPED3::MAX_VERTICES*4;
     static int lastCount = 0;
+    static unsigned short lastAddress = 0;
+    static unsigned short lastValue = 0;
     
-    if (lastCount != vertexCount) {
-        std::cout << "vertexCount is now " << vertexCount << std::endl;
+    if (lastCount != vertexCount || lastAddress != vertexAddress || lastValue != ram[vertexAddress]) {
+        std::cout << vertexAddress << ", " << vertexCount << " [" << ram[vertexAddress] << "]" << std::endl;
+        //std::cout << "vertexCount is now " << vertexCount << std::endl;
         lastCount = vertexCount;
+        lastAddress = vertexAddress;
+        lastValue = ram[vertexAddress];
+        
+        float x = lastValue & 0xFF;
+        std::cout << x << std::endl;
+        x /= 255.0f;
+        std::cout << x << std::endl;
+        x = (x * 2.0f) - 1.0f;
+        std::cout << x << std::endl;
     }
     
     for (int i = 0; i < vertexCount; i++) {
         unsigned short firstWord = ram[vertexAddress+i*2];
+        //std::cout << firstWord << std::endl;
         float x = firstWord & 0xFF;
         x /= 255;
-        x = (x * 2) - 1;
+        x = (x * 2.0f) - 1.0f;
         float y = (firstWord >> 8) & 0xFF;
-        y /= 255;
-        y = (y * 2) - 1;
+        y /= 255.0f;
+        y = (y * 2.0f) - 1.0f;
         
-        unsigned short secondWord = ram[vertexAddress+i*2];
+        unsigned short secondWord = ram[vertexAddress+i*2+1];
         float z = secondWord & 0xFF;
-        z /= 255;
-        z = (z * 2) - 1;
+        z /= 255.0f;
+        z = (z * 2.0f) - 1.0f;
         
         int color = (secondWord >> 8) & 0x07;
         
         vertexData[i*4+0] = x;
-        vertexData[i*4+1] = y;
-        vertexData[i*4+2] = z;
+        vertexData[i*4+1] = z;
+        vertexData[i*4+2] = y;
         vertexData[i*4+3] = 1.0f;
         
         if (color & 0x3) {
@@ -295,67 +229,29 @@ void SPED3DisplayPanel::render() {
             vertexData[color_offset+i*4+3] = 1.0f;
     }
     
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertexData), vertexData);
-	
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+    glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData);
+	//glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData, GL_STATIC_DRAW);
 	
 	glUseProgram(shaderProgram);
 	
-	/*
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)(color_offset));
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	
-	glDrawArrays(GL_LINE_STRIP, 0, vertexCount); */
-	
-	float vertexData2[] = {
-	     0.0f,    0.5f, 0.0f, 1.0f,
-	     0.5f, -0.366f, 0.0f, 1.0f,
-	    -0.5f, -0.366f, 0.0f, 1.0f,
-	     1.0f,    0.0f, 0.0f, 1.0f,
-	     0.0f,    1.0f, 0.0f, 1.0f,
-	     0.0f,    0.0f, 1.0f, 1.0f,
-    };
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData2), vertexData2, GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)48);
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)(color_offset*sizeof(float)));
 	glDrawArrays(GL_LINE_STRIP, 0, vertexCount);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 	glUseProgram(0);
 	
-    glFlush();
-    SwapBuffers();
-}
- 
-void SPED3DisplayPanel::OnKeyDown(wxKeyEvent& event) {
-//    device->OnKeyDown(event);
-}
-void SPED3DisplayPanel::OnKeyUp(wxKeyEvent& event) {
-//    device->OnKeyUp(event);
-}
-void SPED3Display::OnKeyDown(wxKeyEvent& event) {
-//    device->OnKeyDown(event);
-}
-void SPED3Display::OnKeyUp(wxKeyEvent& event) {
-//    device->OnKeyUp(event);
-}
-
-void SPED3Display::OnClose(wxCloseEvent& event) {
-    device->display = 0;    //wxwidgets will just drop the window out of memory itself, thus causing a crash unless if there's some warning
-    Destroy();
+	glutSwapBuffers();
 }
 
 device* SPED3Config::createDevice(cpu* host) {

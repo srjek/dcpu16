@@ -1,6 +1,7 @@
 #include <iostream>
 using namespace std;
 
+#include "glew.h"
 #include "system.h"
 #include "strHelper.h"
 

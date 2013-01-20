@@ -1,8 +1,8 @@
 CXX = $(shell wx-config --cxx)
 PROGRAM = emulator
 # wx-config --libs
-WX_LIBS = $(shell wx-config --libs --gl-libs)
-LIBS = -lboost_system -lGL -lGLEW
+WX_LIBS = $(shell wx-config --libs)
+LIBS = -lboost_system -lGL -lGLU -lGLEW -lglut
 # wx-config --cxxflags
 WX_CXXFLAGS = $(shell wx-config --cxxflags)
 

@@ -1,6 +1,7 @@
 #include <wx/cmdline.h>
 #include "wx/wx.h"
 
+#include "freeglut.h"
 #include "main.h"
 #include "emulation.h"
 #include "cpus/cpus.h"
@@ -69,6 +70,19 @@ bool emulatorApp::OnInit() {
     if (!wxApp::OnInit())
         return false;
     
+    int orig_argc = argc;
+    char** new_argv = (char**) malloc(argc*sizeof(char*));
+    for (int i = 0; i < argc; i++) {
+        wxString tmp(argv[i]);
+        const char* tmp_c = tmp.mb_str(wxConvLibc);
+        new_argv[i] = (char*) malloc((strlen(tmp_c)+2)*sizeof(char));
+        strcpy(new_argv[i], tmp_c);
+    }
+    glutInit(&argc, new_argv);  //Supposed to be the unaltered int* argc/char** argv, but wxwidgets insists on wxChar everywhere
+    for (int i = 0; i < orig_argc; i++)
+        free(new_argv[i]);
+    free(new_argv);
+    
     config = new emulationConfig(argc-1, argv+1);
     config->print();
     
@@ -77,15 +91,20 @@ bool emulatorApp::OnInit() {
     SetTopWindow(master);
     SetExitOnFrameDelete(true);
     
+    setFreeglutManager(new freeglut());
+    getFreeglutManager()->Run();
     environment = config->createEmulation();
     
     return true;
 }
 int emulatorApp::OnRun() {
+    initGlew();
+        
     environment->Run();
     return wxApp::OnRun();
 }
 int emulatorApp::OnExit() {
+    getFreeglutManager()->Stop();
     if (environment) {
         environment->Stop();
         environment->Wait();

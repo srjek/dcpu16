@@ -1,11 +1,5 @@
 #include <GL/glew.h>
-#ifdef __WXMAC__
-#include "OpenGL/glu.h"
-#include "OpenGL/gl.h"
-#else
-#include <GL/glu.h>
-#include <GL/gl.h>
-#endif
+#include "../../freeglut.h"
 
 #include <string>
 #include <vector>
@@ -17,20 +11,21 @@ const std::string SPED3_VertexShader(
 	"#version 330\n"
 	"layout(location = 0) in vec4 position;\n"
     "layout(location = 1) in vec4 inputColor;\n"
-    "flat out vec4 outputColor;\n"
+    "flat out vec4 theColor;\n"
 	"void main()\n"
 	"{\n"
 	"   gl_Position = position;\n"
-	"   outputColor = inputColor;\n"
+	"   theColor = inputColor;\n"
 	"}\n"
 );
 const std::string SPED3_FragmentShader(
 	"#version 330\n"
-    "flat in vec4 inputColor;"
+    "flat in vec4 theColor;"
 	"out vec4 outputColor;\n"
 	"void main()\n"
 	"{\n"
-	"   outputColor = inputColor;\n"
+	"   outputColor = theColor;\n"
+	//"   outputColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
 	"}\n"
 );
 
