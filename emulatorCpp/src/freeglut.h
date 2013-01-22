@@ -1,8 +1,8 @@
 #include <vector>
 #include <queue>
 #include <map>
+#include <iostream>
 #include <GL/freeglut.h>
-#include "wx/wx.h"
 #include "glew.h"
 #include "thread.h"
 

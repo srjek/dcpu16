@@ -15,6 +15,7 @@ DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s
 STATIC :=
 ifeq ($(shell uname), MINGW32_NT-6.1)
 STATIC := --static
+WX_CXXFLAGS := $(WX_CXXFLAGS) -I/usr/local/include -I/usr/include
 endif
 
 all:	$(PROGRAM)

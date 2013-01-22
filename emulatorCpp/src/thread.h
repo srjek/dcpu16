@@ -1,4 +1,4 @@
-#include "wx/wx.h"
+#include "wx/thread.h"
 
 #ifndef emulator_thread_h
 #define emulator_thread_h
