@@ -8,6 +8,10 @@ PYTHON := python
 ifneq ($(shell python --version 2>&1 | sed "s:Python \([0-9]\).*:\1:"), 3)
 PYTHON := python3
 endif
+ifeq ($(shell uname), MINGW32_NT-6.1)
+CXX = $(shell wx-config --cxx --unicode=yes)
+WX_CXXFLAGS = $(shell wx-config --cxxflags --unicode=yes) -I/usr/include/boost-1_52
+endif
 
 # implementation
 

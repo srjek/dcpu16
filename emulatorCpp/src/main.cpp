@@ -2,18 +2,21 @@
 #include "wx/wx.h"
 
 #include "freeglut.h"
-#include "main.h"
 #include "emulation.h"
 #include "cpus/cpus.h"
 #include "devices/devices.h"
 
+#include <wx/cmdline.h>
+#include "wx/wx.h"
+#include "main.h"
+
 static const wxCmdLineEntryDesc g_cmdLineDesc [] =
 {
-     { wxCMD_LINE_SWITCH, wxT("h"), wxT("help"), wxT("displays help on the command line parameters"),
+     { wxCMD_LINE_SWITCH, wxT_2("h"), wxT_2("help"), wxT_2("displays help on the command line parameters"),
           wxCMD_LINE_VAL_NONE, wxCMD_LINE_OPTION_HELP },
-     { wxCMD_LINE_SWITCH, NULL, wxT("image"), wxT("Disables a cpu's boot sequence, instead loading the specified image into ram directly.")},
-     { wxCMD_LINE_SWITCH, NULL, wxT("debug"), wxT("May enable debug options on the last specified cpu or device")},
-     { wxCMD_LINE_SWITCH, NULL, wxT("gdb"), wxT("Last cpu will host a gdb remote server.")},
+     { wxCMD_LINE_SWITCH, NULL, wxT_2("image"), wxT_2("Disables a cpu's boot sequence, instead loading the specified image into ram directly.")},
+     { wxCMD_LINE_SWITCH, NULL, wxT_2("debug"), wxT_2("May enable debug options on the last specified cpu or device")},
+     { wxCMD_LINE_SWITCH, NULL, wxT_2("gdb"), wxT_2("Last cpu will host a gdb remote server.")},
      CPUS_CMDLINE_HELP
      DEVICES_CMDLINE_HELP
      { wxCMD_LINE_PARAM, NULL, NULL, NULL, wxCMD_LINE_VAL_NONE, wxCMD_LINE_PARAM_OPTIONAL | wxCMD_LINE_PARAM_MULTIPLE },
@@ -83,7 +86,7 @@ bool emulatorApp::OnInit() {
         free(new_argv[i]);
     free(new_argv);
     
-    config = new emulationConfig(argc-1, argv+1);
+    config = new emulationConfig(argc-1, ((wxChar**)argv+1));   //in a specific MinGW/library configuration, argv+1 is ambigous. argv should be wxChar**, who knew?
     config->print();
     
     masterWindow *master = new masterWindow(this, wxPoint(50, 50));

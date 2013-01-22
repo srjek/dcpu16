@@ -177,7 +177,11 @@ protected:
     void guiUpdatePath() {
         if (display) {
             wxCommandEvent tmp = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED, ID_ButtonDoesNotExist);
+            #if wxCHECK_VERSION(2, 9, 0)
+            display->GetEventHandler()->AddPendingEvent(tmp);
+            #else
             display->AddPendingEvent(tmp);
+            #endif
         }
     }
 public:

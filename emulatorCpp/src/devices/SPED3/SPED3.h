@@ -1,13 +1,12 @@
 #include "wx/wx.h"
 #include "../../device.h"
 #include "../../cpu.h"
-#include "../../glew.h"
 
 #ifndef emulator_SPED3_h
 #define emulator_SPED3_h
 
 #define SPED3_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("SPED3"), wxT("DEVICES!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("SPED3"), wxT_2("DEVICES!") },
 	
 class SPED3Config: public deviceConfig {
 public:

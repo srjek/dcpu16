@@ -80,7 +80,7 @@ wxThread::ExitCode compSystem::Wait() {
 
 
 sysConfig::sysConfig(int& argc, wxChar**& argv) {
-    imagePath = _("");
+    imagePath = wxS("");
     gdb_port = 0;
     if (argc == 0) {
         cpu = new dcpu16Config();

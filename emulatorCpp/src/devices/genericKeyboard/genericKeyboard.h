@@ -6,7 +6,7 @@
 #define emulator_genericKeyboard_h
 
 #define genericKeyboard_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("genericKeyboard"), wxT("DEVICES!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("genericKeyboard"), wxT_2("DEVICES!") },
 	
 class genericKeyboardConfig: public deviceConfig {
 public:

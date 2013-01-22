@@ -6,7 +6,7 @@
 #define emulator_LEM1802_h
 
 #define LEM1802_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("LEM1802"), wxT("DEVICES!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("LEM1802"), wxT_2("DEVICES!") },
 	
 class LEM1802Config: public deviceConfig {
 public:

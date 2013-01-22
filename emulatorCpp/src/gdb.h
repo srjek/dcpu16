@@ -1,6 +1,6 @@
 #include <queue>
-#include <boost/asio.hpp>
 #include <wx/wx.h>
+#include <boost/asio.hpp>
 
 #include "thread.h"
 

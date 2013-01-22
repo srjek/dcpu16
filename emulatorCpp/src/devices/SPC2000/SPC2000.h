@@ -6,7 +6,7 @@
 #define emulator_SPC2000_h
 
 #define SPC2000_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("SPC2000"), wxT("DEVICES!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("SPC2000"), wxT_2("DEVICES!") },
 	
 class SPC2000Config: public deviceConfig {
 public:

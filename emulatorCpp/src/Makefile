@@ -14,8 +14,11 @@ DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s
 
 STATIC :=
 ifeq ($(shell uname), MINGW32_NT-6.1)
+CXX = $(shell wx-config --static=yes --cxx --unicode=yes)
 STATIC := --static
-WX_CXXFLAGS := $(WX_CXXFLAGS) -I/usr/local/include -I/usr/include
+WX_CXXFLAGS = $(shell wx-config --static=yes --cxxflags --unicode=yes) -I/usr/local/include -I/usr/include -I/usr/include/boost-1_52 -DFREEGLUT_STATIC -DGLEW_STATIC
+WX_LIBS = $(shell wx-config --libs --static=yes --unicode=yes)
+LIBS = -L/usr/lib -lboost_system-mgw47-mt-1_52 -lfreeglut32_static -lopengl32 -lglu32 -lws2_32 -lglew32 -lwinmm
 endif
 
 all:	$(PROGRAM)

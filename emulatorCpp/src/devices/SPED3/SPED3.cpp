@@ -1,13 +1,12 @@
-#include <GL/glew.h>
-
-#include "../../freeglut.h"
-
 #include <iostream>
 #include <vector>
 #include <cstdint>
 
+#include <GL/glew.h>
 #include "SPED3.h"
 #include "SPED3_shaders.h"
+#include "../../glew.h"
+#include "../../freeglut.h"
 
 class SPED3;
 

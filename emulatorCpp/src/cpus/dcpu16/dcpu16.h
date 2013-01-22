@@ -22,7 +22,7 @@ enum {
 };
 
 #define dcpu16_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("dcpu16"), wxT("CPUS!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("dcpu16"), wxT_2("CPUS!") },
 	
 class dcpu16Config: public cpuConfig {
     bool debug;

@@ -6,7 +6,7 @@
 #define emulator_M35FD_h
 
 #define M35FD_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("M35FD"), wxT("DEVICES!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("M35FD"), wxT_2("DEVICES!") },
 	
 class M35FDConfig: public deviceConfig {
 public:

@@ -3,6 +3,9 @@ OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 CXX = $(shell wx-config --cxx)
 # wx-config --cxxflags
 WX_CXXFLAGS = $(shell wx-config --cxxflags)
+ifeq ($(shell uname), MINGW32_NT-6.1)
+WX_CXXFLAGS := $(WX_CXXFLAGS) -I/usr/include/boost-1_52
+endif
 
 # implementation
 

@@ -6,7 +6,7 @@
 #define emulator_genericClock_h
 
 #define genericClock_CMDLINE_HELP \
-	{ wxCMD_LINE_SWITCH, NULL, wxT("genericClock"), wxT("DEVICES!") },
+	{ wxCMD_LINE_SWITCH, NULL, wxT_2("genericClock"), wxT_2("DEVICES!") },
 	
 class genericClockConfig: public deviceConfig {
     bool debug;

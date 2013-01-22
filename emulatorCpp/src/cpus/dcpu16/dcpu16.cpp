@@ -889,7 +889,7 @@ public:
     
     void loadImage(wxString wxImagePath) {
         if (this->wxImagePath != 0)
-            delete wxImagePath;
+            delete this->wxImagePath;
         this->wxImagePath = new wxString(wxImagePath);
         LoadImage();
     }

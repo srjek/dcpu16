@@ -1,10 +1,12 @@
+#include "thread.h"
 #include <vector>
 #include <queue>
 #include <map>
 #include <iostream>
 #include <GL/freeglut.h>
 #include "glew.h"
-#include "thread.h"
+#undef CreateWindow
+#undef CreateWindowW
 
 #ifndef emulator_freeglut_h
 #define emulator_freeglut_h
