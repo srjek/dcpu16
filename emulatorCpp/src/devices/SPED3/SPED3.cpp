@@ -194,17 +194,17 @@ void SPED3_freeglutWindow::OnDisplay() {
     for (int i = 0; i < vertexCount; i++) {
         unsigned short firstWord = ram[vertexAddress+i*2];
         //std::cout << firstWord << std::endl;
-        float x = firstWord & 0xFF;
+        float x = (firstWord >> 8) & 0xFF;
         x /= 255;
-        x = (x * 2.0f) - 1.0f;
-        float y = (firstWord >> 8) & 0xFF;
+        x = (x * 1.8f) - 0.9f;
+        float y = firstWord & 0xFF;
         y /= 255.0f;
-        y = (y * 2.0f) - 1.0f;
+        y = (y * 1.8f) - 0.9f;
         
         unsigned short secondWord = ram[vertexAddress+i*2+1];
         float z = secondWord & 0xFF;
         z /= 255.0f;
-        z = (z * 2.0f) - 1.0f;
+        z = (z * 1.8f) - 0.9f;
         
         int color = (secondWord >> 8) & 0x07;
         
