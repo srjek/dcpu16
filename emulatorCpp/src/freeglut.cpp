@@ -111,7 +111,7 @@ void freeglutManager_glutSpecialFunc(int key, int x, int y) {
 }
 void freeglutManager_RenderTimer(int value) {
     freeglutManager->windows[value]->OnRender();
-    glutTimerFunc(35, freeglutManager_RenderTimer, value);
+    glutTimerFunc(15, freeglutManager_RenderTimer, value);
 }
                                    
 class createWindowCallback: public freeglutCallback {

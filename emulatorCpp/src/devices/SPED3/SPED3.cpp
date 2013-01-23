@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
 #include <GL/glew.h>
 #include "SPED3.h"
@@ -8,12 +9,16 @@
 #include "../../glew.h"
 #include "../../freeglut.h"
 
+#define PI 3.14159265359
+#define TAU 2*PI
+
 class SPED3;
 
 class SPED3_freeglutWindow: public freeglutWindow {
 protected:
     SPED3* device;
     bool firstTime = true;
+    wxLongLong lastTime = 0;
     
     GLuint shaderProgram;
     float* vertexData;
@@ -57,8 +62,8 @@ protected:
     static const int MAX_VERTICES = 128;
     volatile unsigned short vertexAddress;
     volatile unsigned short vertexCount;
-    volatile unsigned short targetRotation;
-    volatile unsigned short currentRotation;
+    volatile float targetRotation;
+    volatile float currentRotation;
     
     static const int w = 128;
     static const int h = 96;
@@ -114,8 +119,10 @@ public:
                 vertexCount = MAX_VERTICES;
             else
                 vertexCount = Y;
-        } else if (A == 2)      //ROTATE
-            targetRotation = host->registers[cpu::REG_X]%360;
+        } else if (A == 2) {    //ROTATE
+            float rotation = host->registers[cpu::REG_X]%360;
+            targetRotation = (rotation * TAU) / 360;
+        }
         return 0;
     }
     void registerKeyHandler(keyHandler* handler) {
@@ -165,11 +172,28 @@ void SPED3_freeglutWindow::OnDisplay() {
         initializeGL();
     }
     
-    //wxLongLong time = wxGetLocalTimeMillis();
-    //bool blink = (((time/16)/20) % 2) == 0;
+    wxLongLong time = wxGetLocalTimeMillis();
     volatile unsigned short* ram = device->host->ram;
     unsigned short vertexAddress = device->vertexAddress;
     unsigned short vertexCount = device->vertexCount;
+    
+    float targetRotation = device->targetRotation;
+    float currentRotation = device->currentRotation;
+    
+    float diffRotation = targetRotation - currentRotation;
+    while (diffRotation > PI)
+        diffRotation -= TAU;
+    while (diffRotation < -PI)
+        diffRotation += TAU;
+    float maxChange = (time-lastTime).ToDouble();
+    maxChange *= (50.0f*TAU/360.0f)/1000;
+    if (diffRotation > maxChange)
+        diffRotation = maxChange;
+    else if (diffRotation < -maxChange)
+        diffRotation = -maxChange;
+    currentRotation += diffRotation;
+    device->currentRotation = currentRotation;
+    lastTime = time;
     
     static const int color_offset = SPED3::MAX_VERTICES*4;
     static int lastCount = 0;
@@ -194,10 +218,10 @@ void SPED3_freeglutWindow::OnDisplay() {
     for (int i = 0; i < vertexCount; i++) {
         unsigned short firstWord = ram[vertexAddress+i*2];
         //std::cout << firstWord << std::endl;
-        float x = (firstWord >> 8) & 0xFF;
+        float x = firstWord & 0xFF;
         x /= 255;
         x = (x * 1.8f) - 0.9f;
-        float y = firstWord & 0xFF;
+        float y = (firstWord >> 8) & 0xFF;
         y /= 255.0f;
         y = (y * 1.8f) - 0.9f;
         
@@ -208,24 +232,36 @@ void SPED3_freeglutWindow::OnDisplay() {
         
         int color = (secondWord >> 8) & 0x07;
         
-        vertexData[i*4+0] = x;
+        float cosScale = cos(currentRotation);
+        float sinScale = sin(currentRotation);
+        
+        vertexData[i*4+0] = x*cosScale + y*sinScale; //final X coord
         vertexData[i*4+1] = z;
-        vertexData[i*4+2] = y;
+        vertexData[i*4+2] = x*sinScale + y*cosScale; //final Y coord
         vertexData[i*4+3] = 1.0f;
         
         if (color & 0x3) {
-            vertexData[color_offset+i*4+0] = ( (color&0x3) == 1 );
-            vertexData[color_offset+i*4+1] = ( (color&0x3) == 2 );
-            vertexData[color_offset+i*4+2] = ( (color&0x3) == 3 );
+            if ((color&0x3) == 1)
+                vertexData[color_offset+i*4+0] = 1.0f;
+            else
+                vertexData[color_offset+i*4+0] = 0.0f;
+            if ((color&0x3) == 2)
+                vertexData[color_offset+i*4+1] = 1.0f;
+            else
+                vertexData[color_offset+i*4+1] = 0.0f;
+            if ((color&0x3) == 3)
+                vertexData[color_offset+i*4+2] = 1.0f;
+            else
+                vertexData[color_offset+i*4+2] = 0.0f;
         } else {
             vertexData[color_offset+i*4+0] = 0.2f;
             vertexData[color_offset+i*4+1] = 0.2f;
             vertexData[color_offset+i*4+2] = 0.2f;
         }
         if (color & 0x4)
-            vertexData[color_offset+i*4+3] = 1.0f;
+            vertexData[color_offset+i*4+3] = 0.8f;
         else
-            vertexData[color_offset+i*4+3] = 1.0f;
+            vertexData[color_offset+i*4+3] = 0.4f;
     }
     
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -237,6 +273,8 @@ void SPED3_freeglutWindow::OnDisplay() {
 	//glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData, GL_STATIC_DRAW);
 	
 	glUseProgram(shaderProgram);
+	glEnable (GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
@@ -248,6 +286,7 @@ void SPED3_freeglutWindow::OnDisplay() {
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+	glDisable(GL_BLEND);
 	glUseProgram(0);
 	
 	glutSwapBuffers();
