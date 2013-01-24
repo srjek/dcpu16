@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstdint>
 #include <cmath>
+#include <cstring>
 
 #include <GL/glew.h>
 #include "SPED3.h"
@@ -20,6 +21,10 @@ protected:
     bool firstTime = true;
     wxLongLong lastTime = 0;
     
+    GLuint projMatrixLoc, viewMatrixLoc;
+    float projMatrix[16];
+    float viewMatrix[16];
+    
     GLuint shaderProgram;
     float* vertexData;
     GLuint vertexBufferObject;
@@ -37,10 +42,124 @@ public:
 	    shaderProgram = CreateProgram(shaderList);
 
 	    std::for_each(shaderList.begin(), shaderList.end(), glDeleteShader);
+        projMatrixLoc = glGetUniformLocation(shaderProgram, "projMatrix");
+        viewMatrixLoc = glGetUniformLocation(shaderProgram, "viewMatrix");
 	}
     void initializeGL();
     
+    // res = a cross b;
+    void crossProduct( float *a, float *b, float *res) {
+     
+        res[0] = a[1] * b[2]  -  b[1] * a[2];
+        res[1] = a[2] * b[0]  -  b[2] * a[0];
+        res[2] = a[0] * b[1]  -  b[0] * a[1];
+    }
+     
+    // Normalize a vec3
+    void normalize(float *a) {
+     
+        float mag = sqrt(a[0] * a[0]  +  a[1] * a[1]  +  a[2] * a[2]);
+     
+        a[0] /= mag;
+        a[1] /= mag;
+        a[2] /= mag;
+    }
+
+    void setIdentityMatrix( float *mat, int size) {
+        // fill matrix with 0s
+        for (int i = 0; i < size * size; ++i)
+                mat[i] = 0.0f;
+        // fill diagonal with 1s
+        for (int i = 0; i < size; ++i)
+            mat[i + i * size] = 1.0f;
+    }
+    //
+    // a = a * b;
+    //
+    void multMatrix(float *a, float *b) {
+        float res[16];
+     
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                res[j*4 + i] = 0.0f;
+                for (int k = 0; k < 4; ++k) {
+                    res[j*4 + i] += a[k*4 + i] * b[j*4 + k];
+                }
+            }
+        }
+        memcpy(a, res, 16 * sizeof(float));
+    }
+    // Defines a transformation matrix mat with a translation
+    void setTranslationMatrix(float *mat, float x, float y, float z) {
+        setIdentityMatrix(mat,4);
+        mat[12] = x;
+        mat[13] = y;
+        mat[14] = z;
+    }
+    void buildProjectionMatrix(float fov, float ratio, float nearP, float farP) {
+        float f = 1.0f / tan (fov * (M_PI / 360.0));
+     
+        setIdentityMatrix(projMatrix,4);
+     
+        projMatrix[0] = f / ratio;
+        projMatrix[1 * 4 + 1] = f;
+        projMatrix[2 * 4 + 2] = (farP + nearP) / (nearP - farP);
+        projMatrix[3 * 4 + 2] = (2.0f * farP * nearP) / (nearP - farP);
+        projMatrix[2 * 4 + 3] = -1.0f;
+        projMatrix[3 * 4 + 3] = 0.0f;
+    }
+    void setCamera(float posX, float posY, float posZ,
+               float lookAtX, float lookAtY, float lookAtZ) {
+        float dir[3], right[3], up[3];
+     
+        up[0] = 0.0f;   up[1] = 1.0f;   up[2] = 0.0f;
+     
+        dir[0] =  (lookAtX - posX);
+        dir[1] =  (lookAtY - posY);
+        dir[2] =  (lookAtZ - posZ);
+        normalize(dir);
+     
+        crossProduct(dir,up,right);
+        normalize(right);
+     
+        crossProduct(right,dir,up);
+        normalize(up);
+     
+        float aux[16];
+     
+        viewMatrix[0]  = right[0];
+        viewMatrix[4]  = right[1];
+        viewMatrix[8]  = right[2];
+        viewMatrix[12] = 0.0f;
+     
+        viewMatrix[1]  = up[0];
+        viewMatrix[5]  = up[1];
+        viewMatrix[9]  = up[2];
+        viewMatrix[13] = 0.0f;
+     
+        viewMatrix[2]  = -dir[0];
+        viewMatrix[6]  = -dir[1];
+        viewMatrix[10] = -dir[2];
+        viewMatrix[14] =  0.0f;
+     
+        viewMatrix[3]  = 0.0f;
+        viewMatrix[7]  = 0.0f;
+        viewMatrix[11] = 0.0f;
+        viewMatrix[15] = 1.0f;
+     
+        setTranslationMatrix(aux, -posX, -posY, -posZ);
+     
+        multMatrix(viewMatrix, aux);
+    }
+
     void OnDisplay();
+    void OnReshape(int w, int h) {
+        if (h == 0)
+            h = 1;
+        glViewport(0, 0, w, h);
+        float ratio = ((float) w) / h;
+        buildProjectionMatrix(60, ratio, 1, 300);
+    }
     void OnKeyboard(unsigned char key, int x, int y) {}
     void OnMouse(int button, int state, int x, int y) {}
     void OnMotion(int x, int y) {}
@@ -146,6 +265,7 @@ public:
 SPED3_freeglutWindow::SPED3_freeglutWindow(SPED3* device): freeglutWindow("SPED-3") {
     this->device = device;
     vertexData = new float[SPED3::MAX_VERTICES*4*2];
+    setCamera(100, 0, 0, 0, 0, 0);
 }
 SPED3_freeglutWindow::~SPED3_freeglutWindow() {
     delete[] vertexData;
@@ -273,7 +393,10 @@ void SPED3_freeglutWindow::OnDisplay() {
 	//glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData, GL_STATIC_DRAW);
 	
 	glUseProgram(shaderProgram);
-	glEnable (GL_BLEND);
+    glUniformMatrix4fv(projMatrixLoc, 1, false, projMatrix);
+    glUniformMatrix4fv(viewMatrixLoc, 1, false, viewMatrix);
+	glEnable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	glEnableVertexAttribArray(0);
@@ -286,6 +409,7 @@ void SPED3_freeglutWindow::OnDisplay() {
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 	glUseProgram(0);
 	

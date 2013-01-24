@@ -9,12 +9,14 @@
 
 const std::string SPED3_VertexShader(
 	"#version 330\n"
+    "uniform mat4 viewMatrix, projMatrix;"
 	"layout(location = 0) in vec4 position;\n"
     "layout(location = 1) in vec4 inputColor;\n"
     "flat out vec4 theColor;\n"
 	"void main()\n"
 	"{\n"
 	"   gl_Position = position;\n"
+	//"   gl_Position = viewMatrix * projMatrix * position;\n"
 	"   theColor = inputColor;\n"
 	"}\n"
 );
