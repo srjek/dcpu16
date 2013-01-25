@@ -11,7 +11,7 @@
 #include "../../freeglut.h"
 
 #define PI 3.14159265359
-#define TAU 2*PI
+#define TAU (2.0*PI)
 
 class SPED3;
 
@@ -22,7 +22,7 @@ protected:
     wxLongLong lastTime = 0;
     
     GLuint projMatrixLoc, viewMatrixLoc;
-    float projMatrix[16];
+    GLfloat projMatrix[16];
     float viewMatrix[16];
     
     GLuint shaderProgram;
@@ -43,7 +43,7 @@ public:
 
 	    std::for_each(shaderList.begin(), shaderList.end(), glDeleteShader);
         projMatrixLoc = glGetUniformLocation(shaderProgram, "projMatrix");
-        viewMatrixLoc = glGetUniformLocation(shaderProgram, "viewMatrix");
+        //viewMatrixLoc = glGetUniformLocation(shaderProgram, "viewMatrix");
 	}
     void initializeGL();
     
@@ -97,16 +97,26 @@ public:
         mat[14] = z;
     }
     void buildProjectionMatrix(float fov, float ratio, float nearP, float farP) {
-        float f = 1.0f / tan (fov * (M_PI / 360.0));
-     
+        float f = 1.0f / tan(fov * PI / 360.0f);
+        std::cout << f << std::endl;
         setIdentityMatrix(projMatrix,4);
      
         projMatrix[0] = f / ratio;
         projMatrix[1 * 4 + 1] = f;
-        projMatrix[2 * 4 + 2] = (farP + nearP) / (nearP - farP);
-        projMatrix[3 * 4 + 2] = (2.0f * farP * nearP) / (nearP - farP);
-        projMatrix[2 * 4 + 3] = -1.0f;
+        //projMatrix[2 * 4 + 2] = (farP) / (farP - nearP);
+        //projMatrix[3 * 4 + 2] = (farP * nearP) / (farP - nearP);
+        projMatrix[2 * 4 + 2] = -(nearP+farP) / (nearP - farP);
+        projMatrix[3 * 4 + 2] = (2*farP*nearP) / (nearP - farP);
+        projMatrix[2 * 4 + 3] = 1.0f;
         projMatrix[3 * 4 + 3] = 0.0f;
+        
+        //projMatrix[2 * 4 + 2] = 1.0f;
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 4; x++) {
+                std::cout << projMatrix[y * 4 + x] << " ";
+            }
+            std::cout << std::endl;
+        }
     }
     void setCamera(float posX, float posY, float posZ,
                float lookAtX, float lookAtY, float lookAtZ) {
@@ -158,7 +168,7 @@ public:
             h = 1;
         glViewport(0, 0, w, h);
         float ratio = ((float) w) / h;
-        buildProjectionMatrix(60, ratio, 1, 300);
+        buildProjectionMatrix(30, ratio, 1, 10);
     }
     void OnKeyboard(unsigned char key, int x, int y) {}
     void OnMouse(int button, int state, int x, int y) {}
@@ -296,10 +306,14 @@ void SPED3_freeglutWindow::OnDisplay() {
     volatile unsigned short* ram = device->host->ram;
     unsigned short vertexAddress = device->vertexAddress;
     unsigned short vertexCount = device->vertexCount;
-    
+
     float targetRotation = device->targetRotation;
     float currentRotation = device->currentRotation;
-    
+
+    while (currentRotation > PI)
+        currentRotation -= TAU;
+    while (currentRotation < -PI)
+        currentRotation += TAU;
     float diffRotation = targetRotation - currentRotation;
     while (diffRotation > PI)
         diffRotation -= TAU;
@@ -314,7 +328,7 @@ void SPED3_freeglutWindow::OnDisplay() {
     currentRotation += diffRotation;
     device->currentRotation = currentRotation;
     lastTime = time;
-    
+
     static const int color_offset = SPED3::MAX_VERTICES*4;
     static int lastCount = 0;
     static unsigned short lastAddress = 0;
@@ -326,7 +340,7 @@ void SPED3_freeglutWindow::OnDisplay() {
         lastCount = vertexCount;
         lastAddress = vertexAddress;
         lastValue = ram[vertexAddress];
-        
+
         float x = lastValue & 0xFF;
         std::cout << x << std::endl;
         x /= 255.0f;
@@ -334,32 +348,45 @@ void SPED3_freeglutWindow::OnDisplay() {
         x = (x * 2.0f) - 1.0f;
         std::cout << x << std::endl;
     }
-    
+
+    //std::cout << "Current rotation: " << (currentRotation*360.0f)/TAU << std::endl;
+    //std::cout << "Target rotation: " << (targetRotation*360.0f)/TAU << std::endl;
     for (int i = 0; i < vertexCount; i++) {
         unsigned short firstWord = ram[vertexAddress+i*2];
         //std::cout << firstWord << std::endl;
         float x = firstWord & 0xFF;
         x /= 255;
+        //x = (x * 1.8f) + 1.1f;
         x = (x * 1.8f) - 0.9f;
         float y = (firstWord >> 8) & 0xFF;
         y /= 255.0f;
+        //y = (y * 1.8f) + 4.1f;
         y = (y * 1.8f) - 0.9f;
-        
+
         unsigned short secondWord = ram[vertexAddress+i*2+1];
         float z = secondWord & 0xFF;
         z /= 255.0f;
+        //z = (z * 1.8f) + 4.1f;
         z = (z * 1.8f) - 0.9f;
-        
+
         int color = (secondWord >> 8) & 0x07;
-        
+
         float cosScale = cos(currentRotation);
         float sinScale = sin(currentRotation);
-        
-        vertexData[i*4+0] = x*cosScale + y*sinScale; //final X coord
+
+        vertexData[i*4+0] = x*cosScale + y*sinScale; //final SPED-3 X coord
         vertexData[i*4+1] = z;
-        vertexData[i*4+2] = x*sinScale + y*cosScale; //final Y coord
+        vertexData[i*4+2] = x*sinScale + y*cosScale; //final SPED-3 Y coord
         vertexData[i*4+3] = 1.0f;
-        
+
+        //vertexData[i*4+2] += 7.0f;
+        //vertexData[i*4+3] = vertexData[i*4+2];
+        //vertexData[i*4+2] = -(projMatrix[2 * 4 + 2] * vertexData[i*4+2] + projMatrix[3 * 4 + 2]);
+        //vertexData[i*4+0] *= projMatrix[0];
+        //vertexData[i*4+1] *= projMatrix[1 * 4 + 1];
+
+        //std::cout << "Final coord " << i << ": (" << vertexData[i*4+0] << ", " << vertexData[i*4+1] << ", " << vertexData[i*4+2] << ", " << vertexData[i*4+3] << ")" << std::endl;
+
         if (color & 0x3) {
             if ((color&0x3) == 1)
                 vertexData[color_offset+i*4+0] = 1.0f;
@@ -384,35 +411,35 @@ void SPED3_freeglutWindow::OnDisplay() {
             vertexData[color_offset+i*4+3] = 0.4f;
     }
     
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+
     glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData);
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData, GL_STATIC_DRAW);
-	
-	glUseProgram(shaderProgram);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData);
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*SPED3::MAX_VERTICES*2, vertexData, GL_STATIC_DRAW);
+
+    glUseProgram(shaderProgram);
     glUniformMatrix4fv(projMatrixLoc, 1, false, projMatrix);
-    glUniformMatrix4fv(viewMatrixLoc, 1, false, viewMatrix);
-	glEnable(GL_BLEND);
-	glDisable(GL_DEPTH_TEST);
+    //glUniformMatrix4fv(viewMatrixLoc, 1, false, viewMatrix);
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)(color_offset*sizeof(float)));
+    glDrawArrays(GL_LINE_STRIP, 0, vertexCount);
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
 	
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)(color_offset*sizeof(float)));
-	glDrawArrays(GL_LINE_STRIP, 0, vertexCount);
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-	glDisable(GL_BLEND);
-	glUseProgram(0);
+    glDisable(GL_BLEND);
+    glUseProgram(0);
 	
-	glutSwapBuffers();
+    glutSwapBuffers();
 }
 
 device* SPED3Config::createDevice(cpu* host) {
