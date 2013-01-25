@@ -396,7 +396,7 @@ void SPED3_freeglutWindow::OnDisplay() {
     glUniformMatrix4fv(projMatrixLoc, 1, false, projMatrix);
     glUniformMatrix4fv(viewMatrixLoc, 1, false, viewMatrix);
 	glEnable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_DEPTH_TEST);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	glEnableVertexAttribArray(0);
@@ -409,7 +409,6 @@ void SPED3_freeglutWindow::OnDisplay() {
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 	glUseProgram(0);
 	

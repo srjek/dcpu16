@@ -110,6 +110,7 @@ void freeglutManager_glutSpecialFunc(int key, int x, int y) {
     freeglutManager->windows[glutGetWindow()]->OnSpecial(key, x, y);
 }
 void freeglutManager_RenderTimer(int value) {
+    glutSetWindow(value);
     freeglutManager->windows[value]->OnRender();
     glutTimerFunc(15, freeglutManager_RenderTimer, value);
 }
