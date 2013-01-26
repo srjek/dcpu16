@@ -1,0 +1,35 @@
+
+#Set compile flags
+CXX = $(shell wx-config --cxx)
+WX_LIBS = $(shell wx-config --libs)
+WX_CXXFLAGS = $(shell wx-config --cxxflags)
+LIBS = -lboost_system -lGL -lGLU -lGLEW -lglut
+
+#Set compile flags for a static binary on mingw
+ifeq ($(shell uname), MINGW32_NT-6.1)
+CXX = $(shell wx-config --static=yes --cxx --unicode=yes)
+WX_CXXFLAGS = $(shell wx-config --static=yes --cxxflags --unicode=yes)
+WX_LIBS = $(shell wx-config --libs --static=yes --unicode=yes)
+CXXFLAGS = -I/usr/local/include -I/usr/include -I/usr/include/boost-1_52 -DFREEGLUT_STATIC -DGLEW_STATIC
+LIBS = -L/usr/lib -lboost_system-mgw47-mt-1_52 -lfreeglut32_static -lopengl32 -lglu32 -lws2_32 -lglew32 -lwinmm
+STATIC := --static
+endif
+
+#Combine flags into a nice "$(CXX) $(CXXFLAGS) $(LIBS)"
+CXXFLAGS := $(WX_CXXFLAGS) $(CXXFLAGS)
+LIBS := $(WX_LIBS) $(LIBS)
+C11 := -std=c++0x
+
+#Find python3
+PYTHON := python
+ifneq ($(shell python --version 2>&1 | sed "s:Python \([0-9]\).*:\1:"), 3)
+PYTHON := python3
+endif
+ifneq ($(shell echo "$PYTHON"), 3)
+endif
+
+
+.SUFFIXES:      .o .cpp
+
+.cpp.o :
+	$(CXX) $(CXXFLAGS) -c -o $@ $<

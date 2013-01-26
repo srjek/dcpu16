@@ -1,3 +1,5 @@
+include ../Makefile.rules
+
 CPUS := $(shell find * -type d -print)
 CLEANCPUS := $(CPUS:%=clean-%)
 MISSINGCPUS := $(filter-out $(CPUS), $(shell cat .lastCpus 2>/dev/null))

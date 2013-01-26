@@ -1,10 +1,5 @@
-CXX = $(shell wx-config --cxx)
+include Makefile.rules
 PROGRAM = emulator
-# wx-config --libs
-WX_LIBS = $(shell wx-config --libs)
-LIBS = -lboost_system -lGL -lGLU -lGLEW -lglut
-# wx-config --cxxflags
-WX_CXXFLAGS = $(shell wx-config --cxxflags)
 
 SOURCES := $(wildcard *.cpp)
 GENERATED_SOURCES := cpus/cpus.h devices/devices.h
@@ -12,36 +7,23 @@ OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 CPU_OBJS := $(shell cd cpus; make print_cpu_objs | tr " " "\n" | sed "s:.*:cpus/&:" | tr "\n" " ")
 DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s:.*:devices/&:" | tr "\n" " ")
 
-STATIC :=
-ifeq ($(shell uname), MINGW32_NT-6.1)
-CXX = $(shell wx-config --static=yes --cxx --unicode=yes)
-STATIC := --static
-WX_CXXFLAGS = $(shell wx-config --static=yes --cxxflags --unicode=yes) -I/usr/local/include -I/usr/include -I/usr/include/boost-1_52 -DFREEGLUT_STATIC -DGLEW_STATIC
-WX_LIBS = $(shell wx-config --libs --static=yes --unicode=yes)
-LIBS = -L/usr/lib -lboost_system-mgw47-mt-1_52 -lfreeglut32_static -lopengl32 -lglu32 -lws2_32 -lglew32 -lwinmm
-endif
-
 all:	$(PROGRAM)
 
 ifneq (,$(findstring depend,$(MAKECMDGOALS)))
-MAKEDEPEND := $(SOURCES)
+MAKEDEPEND := $(SOURCES) $(wildcard *.h)
 endif
 makedepend: $(MAKEDEPEND) $(GENERATED_SOURCES)
 	@SOURCES="$(SOURCES)" CFLAGS="$(CFLAGS)" ./gen-makedepend.bash
 
 depend: makedepend
     
-.SUFFIXES:      .o .cpp
-
-.cpp.o :
-	$(CXX) $(WX_CXXFLAGS) -c  -o $@ $<
 orderedForwardMap.o: orderedForwardMap.cpp
 	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
 
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
 $(PROGRAM): $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
-	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(WX_LIBS) $(LIBS) $(STATIC)
+	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(LIBS) $(STATIC)
 
 include makedepend
 

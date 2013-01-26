@@ -1,20 +1,7 @@
-OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
+include ../../Makefile.rules
 
-CXX = $(shell wx-config --cxx)
-# wx-config --cxxflags
-WX_CXXFLAGS = $(shell wx-config --cxxflags)
-ifeq ($(shell uname), MINGW32_NT-6.1)
-WX_CXXFLAGS := $(WX_CXXFLAGS) -I/usr/include/boost-1_52
-endif
-
-# implementation
-
-.SUFFIXES:      .o .cpp
-
-.cpp.o :
-	$(CXX) -c  -o $@ $<
 LEM1802.o: LEM1802.cpp LEM1802.h ../../device.h ../../cpu.h
-	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
+	$(CXX) $(CXXFLAGS) $(C11) -c  -o $@ $<
     
 .PHONY: clean
 
