@@ -29,6 +29,7 @@ protected:
     float* vertexData;
     GLuint vertexBufferObject;
     GLuint vao;
+    
 public:
     SPED3_freeglutWindow(SPED3* device);
     ~SPED3_freeglutWindow();
@@ -276,6 +277,9 @@ SPED3_freeglutWindow::SPED3_freeglutWindow(SPED3* device): freeglutWindow("SPED-
     this->device = device;
     vertexData = new float[SPED3::MAX_VERTICES*4*2];
     setCamera(100, 0, 0, 0, 0, 0);
+    
+    glutSetWindow(this->id);
+    OnReshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 }
 SPED3_freeglutWindow::~SPED3_freeglutWindow() {
     delete[] vertexData;
@@ -349,8 +353,6 @@ void SPED3_freeglutWindow::OnDisplay() {
         std::cout << x << std::endl;
     }
 
-    //std::cout << "Current rotation: " << (currentRotation*360.0f)/TAU << std::endl;
-    //std::cout << "Target rotation: " << (targetRotation*360.0f)/TAU << std::endl;
     for (int i = 0; i < vertexCount; i++) {
         unsigned short firstWord = ram[vertexAddress+i*2];
         //std::cout << firstWord << std::endl;
@@ -373,19 +375,17 @@ void SPED3_freeglutWindow::OnDisplay() {
 
         float cosScale = cos(currentRotation);
         float sinScale = sin(currentRotation);
-
-        vertexData[i*4+0] = x*cosScale + y*sinScale; //final SPED-3 X coord
+            
+        vertexData[i*4+0] = x*cosScale - y*sinScale; //final SPED-3 X coord
         vertexData[i*4+1] = z;
         vertexData[i*4+2] = x*sinScale + y*cosScale; //final SPED-3 Y coord
         vertexData[i*4+3] = 1.0f;
-
-        //vertexData[i*4+2] += 7.0f;
-        //vertexData[i*4+3] = vertexData[i*4+2];
-        //vertexData[i*4+2] = -(projMatrix[2 * 4 + 2] * vertexData[i*4+2] + projMatrix[3 * 4 + 2]);
-        //vertexData[i*4+0] *= projMatrix[0];
-        //vertexData[i*4+1] *= projMatrix[1 * 4 + 1];
-
-        //std::cout << "Final coord " << i << ": (" << vertexData[i*4+0] << ", " << vertexData[i*4+1] << ", " << vertexData[i*4+2] << ", " << vertexData[i*4+3] << ")" << std::endl;
+            
+        vertexData[i*4+2] += 5.0f;
+        vertexData[i*4+3] = vertexData[i*4+2];
+        vertexData[i*4+2] = -(projMatrix[2 * 4 + 2] * vertexData[i*4+2] + projMatrix[3 * 4 + 2]);
+        vertexData[i*4+0] *= projMatrix[0];
+        vertexData[i*4+1] *= projMatrix[1 * 4 + 1];
 
         if (color & 0x3) {
             if ((color&0x3) == 1)
@@ -423,7 +423,7 @@ void SPED3_freeglutWindow::OnDisplay() {
     glUniformMatrix4fv(projMatrixLoc, 1, false, projMatrix);
     //glUniformMatrix4fv(viewMatrixLoc, 1, false, viewMatrix);
     glEnable(GL_BLEND);
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);   //glDisable(GL_DEPTH_TEST);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glEnableVertexAttribArray(0);

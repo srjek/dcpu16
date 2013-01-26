@@ -73,13 +73,13 @@ class freeglutWindow {
 protected:
     int id;
     void DefaultReshapeFunc(int width, int height);
-public:
-    freeglutWindow(char* name) {
-        freeglut* freeglutManager = getFreeglutManager();
-        id = freeglutManager->CreateWindow(name);
-        freeglutManager->RegisterWindow(this);
-    }
     
+public:  
+    freeglutWindow(char* name) {
+        id = getFreeglutManager()->CreateWindow(name);
+        getFreeglutManager()->RegisterWindow(this);
+    }
+      
     virtual void OnDisplay() =0;
     virtual void OnReshape(int width, int height) {
         DefaultReshapeFunc(width, height);

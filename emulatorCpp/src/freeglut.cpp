@@ -123,8 +123,9 @@ public:
     void callback() {
 	    unsigned int displayMode = GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH | GLUT_STENCIL;
         glutInitDisplayMode (displayMode);
-	    glutInitContextVersion (3, 3);
-	    glutInitContextProfile(GLUT_CORE_PROFILE);
+        glutInitWindowSize(400, 400);
+        glutInitContextVersion (3, 3);
+        glutInitContextProfile(GLUT_CORE_PROFILE);
         result = glutCreateWindow(name);
         waiting = false;
     }
