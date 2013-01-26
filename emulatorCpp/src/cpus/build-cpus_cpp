@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo "#include <cstring>"  #for NULL
+echo ""
+
+#Null terminated list of available cpus (made available in generated header file)
+echo "char* cpu_names[100] = { "
+find * -type d -print | tr " " "\n" | sed "s:.*:    \"&\",:"
+echo "    NULL };"
+echo ""

@@ -9,6 +9,7 @@
 #include "../../strHelper.h"
 #include "../../orderedForwardMap.h"
 #include "../../device.h"
+#include "../../test.h"
 
 class dcpu16;
 
@@ -1180,4 +1181,9 @@ dcpu16Config::dcpu16Config(int& argc, wxChar**& argv) {
 }
 cpu* dcpu16Config::createCpu() {
     return new dcpu16(debug);
+}
+
+
+bool dcpu16_runTest() {
+    return false;
 }

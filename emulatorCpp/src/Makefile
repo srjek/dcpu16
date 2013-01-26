@@ -4,8 +4,9 @@ PROGRAM = emulator
 SOURCES := $(wildcard *.cpp)
 GENERATED_SOURCES := cpus/cpus.h devices/devices.h
 OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
-CPU_OBJS := $(shell cd cpus; make print_cpu_objs | tr " " "\n" | sed "s:.*:cpus/&:" | tr "\n" " ")
-DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s:.*:devices/&:" | tr "\n" " ")
+OBJECTS := $(filter-out main.o, $(filter-out test.o, $(OBJECTS)))
+CPU_OBJS := $(shell cd cpus; make print_cpu_objs | tr " " "\n" | sed "s:.*:cpus/&:" | tr "\n" " ") cpus/cpus.o
+DEVICE_OBJS := $(shell cd devices; make print_device_objs | tr " " "\n" | sed "s:.*:devices/&:" | tr "\n" " ") #devices/devices.o
 
 all:	$(PROGRAM)
 
@@ -18,12 +19,14 @@ makedepend: $(MAKEDEPEND) $(GENERATED_SOURCES)
 depend: makedepend
     
 orderedForwardMap.o: orderedForwardMap.cpp
-	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c  -o $@ $<
+	$(CXX) $(WX_CXXFLAGS) -std=gnu++0x -c -o $@ $<
 
 #$(PROGRAM):$(SOURCES)
 #	$(CXX) $(SOURCES) $(WX_CXXFLAGS) $(WX_LIBS) -o $(PROGRAM)
-$(PROGRAM): $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
-	$(CXX) -o $(PROGRAM) $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(LIBS) $(STATIC)
+$(PROGRAM): main.o $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
+	$(CXX) -o $(PROGRAM) main.o $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(LIBS) $(STATIC)
+emulator-test: test.o $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS)
+	$(CXX) -o emulator-test test.o $(OBJECTS) $(CPU_OBJS) $(DEVICE_OBJS) $(LIBS) $(STATIC)
 
 include makedepend
 

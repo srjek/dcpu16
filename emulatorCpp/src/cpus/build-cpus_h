@@ -1,6 +1,7 @@
 #!/bin/bash
 
-echo "#include \"wx/wx.h\"" #We need some typedefs and string comparsion
+echo "#include <cstring>" #We need string comparsion
+echo "#include \"wx/wx.h\"" #We need some typedefs and more string comparsion
 echo "#include \"../cpu.h\""  #We need the cpuConfig definition
 echo ""
 
@@ -18,6 +19,10 @@ find * -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
 #echo -e "{ wxCMD_LINE_SWITCH, wxT(\"c\"), wxT(\"cpus\"), wxT(\"CPUS!\") },"
 echo ""
 
+#Null terminated list of available cpus (defined in generated cpp file)
+echo "extern char* cpu_names[];"
+echo ""
+
 #Helper methods to find a device from it's coresponding cmdline arg
 echo "inline bool findCpu(wxChar* arg) {"
 find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
@@ -30,6 +35,13 @@ echo "    argc--; argv++;"
 find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"
 echo "    argc++; argv--;"
 echo "    return NULL;"
+echo "}"
+echo ""
+
+#Helper methods to test devices
+echo "inline bool runCpuTest(char* name) {"
+find * -type d -print | tr " " "\n" | sed "s:.*:    if (strcmp(name, \"&\") == 0) return &_runTest();:"
+echo "    return false;"
 echo "}"
 
 echo ""

@@ -6,7 +6,7 @@ MISSINGDEVICES := $(filter-out $(DEVICES), $(shell cat .lastDevices 2>/dev/null)
 EXTRADEVICES := $(filter-out $(shell cat .lastDevices 2>/dev/null), $(DEVICES))
 EXTRADEVICES := $(EXTRADEVICES:%=extra-%)
 	
-devices: $(DEVICES)
+devices: $(DEVICES) devices.h
 
 devices.h: $(MISSINGDEVICES) $(EXTRADEVICES) build-devices_h
 	@echo -n $(DEVICES) > .lastDevices

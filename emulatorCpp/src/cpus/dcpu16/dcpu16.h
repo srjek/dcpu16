@@ -32,4 +32,6 @@ public:
     cpu* createCpu();
 };
 
+bool dcpu16_runTest();
+
 #endif
