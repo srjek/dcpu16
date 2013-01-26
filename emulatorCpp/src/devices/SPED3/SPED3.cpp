@@ -25,6 +25,9 @@ protected:
     GLfloat projMatrix[16];
     float viewMatrix[16];
     
+    GLuint rotMatrixLoc;
+    float rotMatrix[16];
+    
     GLuint shaderProgram;
     float* vertexData;
     GLuint vertexBufferObject;
@@ -44,13 +47,16 @@ public:
 
 	    std::for_each(shaderList.begin(), shaderList.end(), glDeleteShader);
         projMatrixLoc = glGetUniformLocation(shaderProgram, "projMatrix");
+        rotMatrixLoc = glGetUniformLocation(shaderProgram, "rotMatrix");
         //viewMatrixLoc = glGetUniformLocation(shaderProgram, "viewMatrix");
+        
+        setIdentityMatrix(rotMatrix, 4);
+        rotMatrix[3*4+2] = 5.0f;
 	}
     void initializeGL();
     
     // res = a cross b;
     void crossProduct( float *a, float *b, float *res) {
-     
         res[0] = a[1] * b[2]  -  b[1] * a[2];
         res[1] = a[2] * b[0]  -  b[2] * a[0];
         res[2] = a[0] * b[1]  -  b[0] * a[1];
@@ -58,7 +64,6 @@ public:
      
     // Normalize a vec3
     void normalize(float *a) {
-     
         float mag = sqrt(a[0] * a[0]  +  a[1] * a[1]  +  a[2] * a[2]);
      
         a[0] /= mag;
@@ -99,25 +104,14 @@ public:
     }
     void buildProjectionMatrix(float fov, float ratio, float nearP, float farP) {
         float f = 1.0f / tan(fov * PI / 360.0f);
-        std::cout << f << std::endl;
         setIdentityMatrix(projMatrix,4);
      
         projMatrix[0] = f / ratio;
         projMatrix[1 * 4 + 1] = f;
-        //projMatrix[2 * 4 + 2] = (farP) / (farP - nearP);
-        //projMatrix[3 * 4 + 2] = (farP * nearP) / (farP - nearP);
         projMatrix[2 * 4 + 2] = -(nearP+farP) / (nearP - farP);
         projMatrix[3 * 4 + 2] = (2*farP*nearP) / (nearP - farP);
         projMatrix[2 * 4 + 3] = 1.0f;
         projMatrix[3 * 4 + 3] = 0.0f;
-        
-        //projMatrix[2 * 4 + 2] = 1.0f;
-        for (int y = 0; y < 4; y++) {
-            for (int x = 0; x < 4; x++) {
-                std::cout << projMatrix[y * 4 + x] << " ";
-            }
-            std::cout << std::endl;
-        }
     }
     void setCamera(float posX, float posY, float posZ,
                float lookAtX, float lookAtY, float lookAtZ) {
@@ -334,58 +328,34 @@ void SPED3_freeglutWindow::OnDisplay() {
     lastTime = time;
 
     static const int color_offset = SPED3::MAX_VERTICES*4;
-    static int lastCount = 0;
-    static unsigned short lastAddress = 0;
-    static unsigned short lastValue = 0;
-    
-    if (lastCount != vertexCount || lastAddress != vertexAddress || lastValue != ram[vertexAddress]) {
-        std::cout << vertexAddress << ", " << vertexCount << " [" << ram[vertexAddress] << "]" << std::endl;
-        //std::cout << "vertexCount is now " << vertexCount << std::endl;
-        lastCount = vertexCount;
-        lastAddress = vertexAddress;
-        lastValue = ram[vertexAddress];
 
-        float x = lastValue & 0xFF;
-        std::cout << x << std::endl;
-        x /= 255.0f;
-        std::cout << x << std::endl;
-        x = (x * 2.0f) - 1.0f;
-        std::cout << x << std::endl;
-    }
-
+    float cosScale = cos(currentRotation);
+    float sinScale = sin(currentRotation);
+    rotMatrix[0*4+0] = cosScale;
+    rotMatrix[2*4+0] = -sinScale;
+    rotMatrix[0*4+2] = sinScale;
+    rotMatrix[2*4+2] = cosScale;
+        
     for (int i = 0; i < vertexCount; i++) {
         unsigned short firstWord = ram[vertexAddress+i*2];
-        //std::cout << firstWord << std::endl;
         float x = firstWord & 0xFF;
         x /= 255;
-        //x = (x * 1.8f) + 1.1f;
         x = (x * 1.8f) - 0.9f;
         float y = (firstWord >> 8) & 0xFF;
         y /= 255.0f;
-        //y = (y * 1.8f) + 4.1f;
         y = (y * 1.8f) - 0.9f;
 
         unsigned short secondWord = ram[vertexAddress+i*2+1];
         float z = secondWord & 0xFF;
         z /= 255.0f;
-        //z = (z * 1.8f) + 4.1f;
         z = (z * 1.8f) - 0.9f;
 
         int color = (secondWord >> 8) & 0x07;
 
-        float cosScale = cos(currentRotation);
-        float sinScale = sin(currentRotation);
-            
-        vertexData[i*4+0] = x*cosScale - y*sinScale; //final SPED-3 X coord
+        vertexData[i*4+0] = x;
         vertexData[i*4+1] = z;
-        vertexData[i*4+2] = x*sinScale + y*cosScale; //final SPED-3 Y coord
+        vertexData[i*4+2] = y;
         vertexData[i*4+3] = 1.0f;
-            
-        vertexData[i*4+2] += 5.0f;
-        vertexData[i*4+3] = vertexData[i*4+2];
-        vertexData[i*4+2] = -(projMatrix[2 * 4 + 2] * vertexData[i*4+2] + projMatrix[3 * 4 + 2]);
-        vertexData[i*4+0] *= projMatrix[0];
-        vertexData[i*4+1] *= projMatrix[1 * 4 + 1];
 
         if (color & 0x3) {
             if ((color&0x3) == 1)
@@ -422,6 +392,7 @@ void SPED3_freeglutWindow::OnDisplay() {
     glUseProgram(shaderProgram);
     glUniformMatrix4fv(projMatrixLoc, 1, false, projMatrix);
     //glUniformMatrix4fv(viewMatrixLoc, 1, false, viewMatrix);
+    glUniformMatrix4fv(rotMatrixLoc, 1, false, rotMatrix);
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);   //glDisable(GL_DEPTH_TEST);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

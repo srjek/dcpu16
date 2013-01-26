@@ -10,13 +10,13 @@
 const std::string SPED3_VertexShader(
 	"#version 330\n"
     "uniform mat4 projMatrix;"
+    "uniform mat4 rotMatrix;"
 	"layout(location = 0) in vec4 position;\n"
     "layout(location = 1) in vec4 inputColor;\n"
     "flat out vec4 theColor;\n"
 	"void main()\n"
 	"{\n"
-	//"   gl_Position = position * projMatrix;\n"
-	"   gl_Position = position;\n"
+	"   gl_Position = projMatrix * rotMatrix * position;\n"
 	"   theColor = inputColor;\n"
 	"}\n"
 );
@@ -27,7 +27,6 @@ const std::string SPED3_FragmentShader(
 	"void main()\n"
 	"{\n"
 	"   outputColor = theColor;\n"
-	//"   outputColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
 	"}\n"
 );
 
