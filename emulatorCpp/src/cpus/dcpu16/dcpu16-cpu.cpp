@@ -137,6 +137,8 @@ dcpu16::dcpu16(bool debug): cpu(totalCycles) {
     cmdState = 1;
     this->debug = debug;
     
+    ctrlWindow = NULL;
+    
     stateMutex = new wxMutex();
     
     reset();

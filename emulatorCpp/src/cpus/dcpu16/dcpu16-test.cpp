@@ -15,10 +15,7 @@ void runTest(int test_num, int num_args, unsigned short* args) {
     char* bin = dcpu16_SET_bin;
     size_t size = dcpu16_SET_bin_size - num_args;
     
-    dcpu16Config* tmpConfig = new dcpu16Config();
-    cpu* test_comp = tmpConfig->createCpu();
-    delete tmpConfig;
-    
+    dcpu16* test_comp = new dcpu16(false);
     
     
     delete test_comp;
