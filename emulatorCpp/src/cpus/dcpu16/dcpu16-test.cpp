@@ -19,13 +19,15 @@ void runTest(int test_num, int num_args, unsigned short* args) {
     cpu* test_comp = tmpConfig->createCpu();
     delete tmpConfig;
     
+    
+    
     delete test_comp;
 }
 
 bool dcpu16_runTest() {
     char testBuffer[100];
     
-    std::cout << "Testing operation SET: " << std::endl;
+    std::cout << "Testing operation SET: ";
     for (int i = 0; i < 10; i++) {
         unsigned short r = (32 + rand() % ((1 >> 16)-32)) & 0xFFFF;
         unsigned short r2 = (-1 + rand() % 32) & 0xFFFF;
