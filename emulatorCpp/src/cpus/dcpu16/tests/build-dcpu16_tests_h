@@ -7,8 +7,31 @@ echo "#ifndef emulator_dcpu16_tests_h"
 echo "#define emulator_dcpu16_tests_h"
 echo ""
 
+#Not sure if this is just mingw32, or windows. Define might need to be changed
+echo "#ifndef __MINGW32__"
+echo ""
+
 #Include any tests
-find * -type f -print | grep ".dasm" | tr " " "\n" | sed "s:\.dasm::" | sed "s:.*:extern char _binary_&_bin_start;\nextern char _binary_&_bin_end;\nextern char _binary_&_bin_size;\n#define &_bin (\&_binary_&_bin_start)\n#define &_bin_size ((size_t) (\&_binary_&_bin_size)):"
+find * -type f -print | grep ".dasm" | tr " " "\n" | sed "s:\.dasm::" | sed "s:.*:extern char _binary_&_bin_start;\nextern char _binary_&_bin_end;\nextern char _binary_&_bin_size;:"
 
 echo ""
+echo "#else"
+echo ""
+
+#Mingw, maybe just windows in general, has an extra _ from g++, but not from objcopy
+
+#Include any tests
+find * -type f -print | grep ".dasm" | tr " " "\n" | sed "s:\.dasm::" | sed "s:.*:extern char binary_&_bin_start;\nextern char binary_&_bin_end;\nextern char binary_&_bin_size;:"
+
+#define macros so we can still use the *nix names
+find * -type f -print | grep ".dasm" | tr " " "\n" | sed "s:\.dasm::" | sed "s:.*:#define _binary_&_bin_start binary_&_bin_start\n#define _binary_&_bin_end binary_&_bin_end\n#define _binary_&_bin_size binary_&_bin_size:"
+
+echo ""
+echo "#endif"
+echo ""
+
+#create some handy defines
+find * -type f -print | grep ".dasm" | tr " " "\n" | sed "s:\.dasm::" | sed "s:.*:#define &_bin (\&_binary_&_bin_start)\n#define &_bin_size ((size_t) (\&_binary_&_bin_size)):"
+echo ""
+
 echo "#endif"

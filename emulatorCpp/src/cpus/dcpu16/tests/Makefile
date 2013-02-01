@@ -2,7 +2,11 @@ include ../../../Makefile.rules
 
 SOURCES := $(wildcard *.dasm)
 OBJECTS := $(patsubst %.dasm,%.o,$(SOURCES))
+
 OBJCOPY := objcopy --input binary -B $(BINARY_ARCH) --output $(ELF_ARCH)
+ifeq ($(shell uname), MINGW32_NT-6.1)
+OBJCOPY := objcopy --input-target binary -B $(BINARY_ARCH) --output-target $(ELF_ARCH)
+endif
 
 .SUFFIXES: .bin .dasm
 .dasm.bin :
