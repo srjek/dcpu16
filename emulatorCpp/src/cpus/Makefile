@@ -1,6 +1,6 @@
 include ../Makefile.rules
 
-CPUS := $(shell find * -type d -print)
+CPUS := $(shell find * -maxdepth 0 -type d -print)
 CLEANCPUS := $(CPUS:%=clean-%)
 MISSINGCPUS := $(filter-out $(CPUS), $(shell cat .lastCpus 2>/dev/null))
 EXTRACPUS := $(filter-out $(shell cat .lastCpus 2>/dev/null), $(CPUS))

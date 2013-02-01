@@ -1,6 +1,6 @@
 include ../Makefile.rules
 
-DEVICES := $(shell find * -type d -print)
+DEVICES := $(shell find * -maxdepth 0 -type d -print)
 CLEANDEVICES := $(DEVICES:%=clean-%)
 MISSINGDEVICES := $(filter-out $(DEVICES), $(shell cat .lastDevices 2>/dev/null))
 EXTRADEVICES := $(filter-out $(shell cat .lastDevices 2>/dev/null), $(DEVICES))

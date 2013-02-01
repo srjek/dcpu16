@@ -5,7 +5,7 @@
 #include <wx/wfstream.h>
 #include <wx/stdpaths.h>
 
-#include "dcpu16.h"
+#include "dcpu16-cpu.h"
 #include "../../strHelper.h"
 #include "../../orderedForwardMap.h"
 #include "../../device.h"
@@ -1181,9 +1181,4 @@ dcpu16Config::dcpu16Config(int& argc, wxChar**& argv) {
 }
 cpu* dcpu16Config::createCpu() {
     return new dcpu16(debug);
-}
-
-
-bool dcpu16_runTest() {
-    return false;
 }

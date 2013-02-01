@@ -29,6 +29,12 @@ endif
 ifneq ($(shell echo "$PYTHON"), 3)
 endif
 
+SRC_ROOT := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+ASSEMBLER := $(PYTHON) $(SRC_ROOT)/../../assembler/assembler.py
+
+#Add conditionals here for objcopy
+ELF_ARCH := elf32-i386
+BINARY_ARCH := i386
 
 .SUFFIXES:      .o .cpp
 

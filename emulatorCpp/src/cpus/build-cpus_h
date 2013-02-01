@@ -6,7 +6,7 @@ echo "#include \"../cpu.h\""  #We need the cpuConfig definition
 echo ""
 
 #Include available cpus
-find * -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
 echo ""
 
 #Header guard
@@ -15,7 +15,7 @@ echo "#define emulator_cpus_h"
 
 #create define for cmdline argument table
 echo -e "\n#define CPUS_CMDLINE_HELP \\"
-find * -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
 #echo -e "{ wxCMD_LINE_SWITCH, wxT(\"c\"), wxT(\"cpus\"), wxT(\"CPUS!\") },"
 echo ""
 
@@ -25,14 +25,14 @@ echo ""
 
 #Helper methods to find a device from it's coresponding cmdline arg
 echo "inline bool findCpu(wxChar* arg) {"
-find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
 echo "    return false;"
 echo "}"
 
 echo "inline cpuConfig* createCpuConfig(int& argc, wxChar**& argv) {"
 echo "    wxChar* arg = argv[0];"
 echo "    argc--; argv++;"
-find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"
 echo "    argc++; argv--;"
 echo "    return NULL;"
 echo "}"
@@ -40,7 +40,7 @@ echo ""
 
 #Helper methods to test devices
 echo "inline bool runCpuTest(char* name) {"
-find * -type d -print | tr " " "\n" | sed "s:.*:    if (strcmp(name, \"&\") == 0) return &_runTest();:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:    if (strcmp(name, \"&\") == 0) return &_runTest();:"
 echo "    return false;"
 echo "}"
 

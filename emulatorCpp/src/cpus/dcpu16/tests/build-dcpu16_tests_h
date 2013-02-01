@@ -1,0 +1,14 @@
+#!/bin/bash
+
+echo ""
+
+#Header guard
+echo "#ifndef emulator_dcpu16_tests_h"
+echo "#define emulator_dcpu16_tests_h"
+echo ""
+
+#Include any tests
+find * -type f -print | grep ".dasm" | tr " " "\n" | sed "s:\.dasm::" | sed "s:.*:extern char _binary_&_bin_start;\nextern char _binary_&_bin_end;\nextern char _binary_&_bin_size;\n#define &_bin (\&_binary_&_bin_start)\n#define &_bin_size ((size_t) (\&_binary_&_bin_size)):"
+
+echo ""
+echo "#endif"

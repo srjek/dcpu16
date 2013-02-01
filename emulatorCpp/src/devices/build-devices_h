@@ -5,7 +5,7 @@ echo "#include \"../cpu.h\""  #We need the deviceConfig definition
 echo ""
 
 #Include available devices
-find * -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:#include \"&/&.h\":"
 
 #Header guard
 echo "#ifndef emulator_devices_h"
@@ -13,20 +13,20 @@ echo "#define emulator_devices_h"
 
 #create define for cmdline argument table
 echo -e "\n#define DEVICES_CMDLINE_HELP \\"
-find * -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:&_CMDLINE_HELP \\\\:"
 #echo -e "{ wxCMD_LINE_SWITCH, wxT(\"d\"), wxT(\"devices\"), wxT(\"DEVICES!\") },"
 echo ""
 
 #Helper methods to find a device from it's coresponding cmdline arg
 echo "inline bool findDevice(wxChar* arg) {"
-find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return true;:"
 echo "    return false;"
 echo "}"
 
 echo "inline deviceConfig* createDeviceConfig(int& argc, wxChar**& argv) {"
 echo "    wxChar* arg = argv[0];"
 echo "    argc--; argv++;"
-find * -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"
+find * -maxdepth 0 -type d -print | tr " " "\n" | sed "s:.*:    if (wxStrcmp(arg, _(\"--&\")) == 0) return new &Config(argc, argv);:"
 echo "    argc++; argv--;"
 echo "    return NULL;"
 echo "}"
