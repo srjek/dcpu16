@@ -13,10 +13,15 @@
 void runTest(int test_num, int num_args, unsigned short* args) {
     //TODO: use test_num
     char* bin = dcpu16_SET_bin;
-    size_t size = dcpu16_SET_bin_size - num_args;
+    size_t size = dcpu16_SET_bin_size - num_args*2;
     
-    dcpu16* test_comp = new dcpu16(false);
+    dcpu16* test_comp = new dcpu16(true);
     
+    test_comp->loadImage(size, bin);
+    
+    
+    test_comp->cycle(1);
+    test_comp->cycle(test_comp->time-1);
     
     delete test_comp;
 }

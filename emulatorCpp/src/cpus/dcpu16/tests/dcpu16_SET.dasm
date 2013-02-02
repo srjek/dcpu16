@@ -1,3 +1,4 @@
+    HWI 0
     SET A, [PC++]
 arg1:
     DAT 0

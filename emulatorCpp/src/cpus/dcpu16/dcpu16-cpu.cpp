@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdio>
+#include <cstring>
 
 #include <wx/filename.h>
 #include <wx/wfstream.h>
@@ -62,6 +63,26 @@ void dcpu16_rom_callback::callback() {
 }
 
 
+//TODO: Save image elsewhere to auto reload on reset, like the other loadImage functions
+void dcpu16::loadImage(size_t len, unsigned short* image) {
+    memcpy((void*) ram, image, len*sizeof(unsigned short));
+    romDevice->disable();
+}
+void dcpu16::loadImage(size_t len, char* image) {
+    for (int i = 0; i < ((len >> 1) + 1); i++) {
+        if (i*2 >= len)
+            break;
+        unsigned short c1 = image[i*2];
+        if (i*2+1 >= len) {
+            ram[i] = (c1 << 8) || 0;
+            break;
+        }
+        unsigned short c2 = image[i*2+1];
+        ram[i] = (c1 << 8) | c2;
+    }
+    memcpy((void*) ram, image, len*sizeof(unsigned short));
+    romDevice->disable();
+}
 void dcpu16::LoadImage() {
     if (wxImagePath == 0)
         return;
@@ -105,6 +126,7 @@ void dcpu16::reset() {
     for (int i = 0; i < DCPU16_NUM_REGS; i++)
         registers[i] = 0;
     
+    cycles = 0;
     totalCycles = 0;
     intQueueStart = 0;
     intQueueEnd = 0;

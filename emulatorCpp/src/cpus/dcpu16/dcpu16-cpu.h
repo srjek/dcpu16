@@ -148,6 +148,8 @@ public:
     
     void scheduleCallback(unsigned long long time, cpuCallback* callback);
     
+    void loadImage(size_t len, char* image);
+    void loadImage(size_t len, unsigned short* image);
     void loadImage(wxString wxImagePath);
     void loadImage(const wxChar* imagePath);
     void Run();
