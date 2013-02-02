@@ -1,0 +1,11 @@
+    SET [[PC++]], [PC++]
+arg1:
+    DAT 0
+arg0:
+    DAT 0
+    SET A, [[PC++]]
+arg2:
+    DAT 0
+
+
+    DAT arg0, arg1, arg2

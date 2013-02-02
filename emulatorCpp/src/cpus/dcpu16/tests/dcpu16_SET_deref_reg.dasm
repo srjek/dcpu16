@@ -1,0 +1,73 @@
+    SET A, [PC++]
+arg0:
+    DAT 0
+    SET [A], [PC++]
+arg1:
+    DAT 0
+    SET B, [A]
+    
+    
+    SET B, [PC++]
+arg2:
+    DAT 0
+    SET [B], [PC++]
+arg3:
+    DAT 0
+    SET A, [B]
+    
+    
+    SET C, [PC++]
+arg4:
+    DAT 0
+    SET [C], [PC++]
+arg5:
+    DAT 0
+    SET A, [C]
+    
+    
+    SET X, [PC++]
+arg6:
+    DAT 0
+    SET [X], [PC++]
+arg7:
+    DAT 0
+    SET A, [X]
+    
+    
+    SET Y, [PC++]
+arg8:
+    DAT 0
+    SET [Y], [PC++]
+arg9:
+    DAT 0
+    SET A, [Y]
+    
+    
+    SET Z, [PC++]
+arg10:
+    DAT 0
+    SET [Z], [PC++]
+arg11:
+    DAT 0
+    SET A, [Z]
+    
+    
+    SET I, [PC++]
+arg12:
+    DAT 0
+    SET [I], [PC++]
+arg13:
+    DAT 0
+    SET A, [I]
+    
+    
+    SET J, [PC++]
+arg14:
+    DAT 0
+    SET [J], [PC++]
+arg15:
+    DAT 0
+    SET A, [J]
+
+
+    DAT arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15

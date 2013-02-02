@@ -363,6 +363,84 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         }
     }
     std::cout << TEST_SUCCESS << std::endl;
+    
+    std::cout << "\t\tTesting dereferencing: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        unsigned short r = (10 + rand() % ((1 << 16)-20)) & 0xFFFF;
+        unsigned short r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2, r};
+        runTest(stateList, dcpu16_SET_deref_bin_size, dcpu16_SET_deref_bin, 3, args, 2);
+        
+        std::ostringstream output; output << std::hex;
+        bool failed = false;
+        
+        if (stateList[0]->ram[r] != r2) {
+            failed = true;
+            output << "\t\t\tCould not set [" << r << "] to " << r2 << ". Ram was " << stateList[0]->ram[r] << " instead" << std::endl;
+        }
+        if (stateList[1]->ram[r] != stateList[0]->ram[r]) {
+            failed = true;
+            output << "\t\t\t\"SET A, [" << r << "]\" failed. Ram changed from " << stateList[0]->ram[r] << " to " << stateList[1]->ram[r] << std::endl;
+        }
+        if (stateList[1]->A != stateList[0]->ram[r]) {
+            failed = true;
+            output << "\t\t\tCould not read [" << r << "]. Ram was read as " << stateList[1]->A << " instead of " << stateList[0]->ram[r] << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            return false;
+        }
+    }
+    std::cout << TEST_SUCCESS << std::endl;
+    
+    std::cout << "\t\tTesting register dereferencing: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        unsigned short args[16];
+        for (int i = 0; i < 16; i += 2) {
+            args[i] = (50 + rand() % ((1 << 16)-60)) & 0xFFFF;
+            args[i+1] = (rand() % (1 << 16)) & 0xFFFF;
+        }
+        
+        runTest(stateList, dcpu16_SET_deref_reg_bin_size, dcpu16_SET_deref_reg_bin, 16, args, 24);
+        
+        std::ostringstream output; output << std::hex;
+        bool failed = false;
+        
+        for (int i = 0; i < 8; i++) {
+            if (stateList[i*3+1]->ram[args[i*2]] != args[i*2+1]) {
+                failed = true;
+                output << "\t\t\tCould not set [" << registerNames[i] << "] ([" << args[i*2] << "]) to " << args[i*2+1] << ". Ram was " << stateList[i*3+1]->ram[args[i*2]] << " instead" << std::endl;
+            }
+            if (stateList[i*3+2]->ram[args[i*2]] != stateList[i*3+1]->ram[args[i*2]]) {
+                failed = true;
+                output << "\t\t\t\"SET ";
+                
+                if (i == 0) output << "B";
+                else        output << "A";
+                
+                output << ", [" << registerNames[i] << "]\" ([" << args[i*2] << "]) failed. Ram changed from " << stateList[i*3+1]->ram[args[i*2]] << " to " << stateList[i*3+2]->ram[args[i*2]] << std::endl;
+            }
+            int read_reg = DCPU16_REG_A;
+            if (i == 0) read_reg = DCPU16_REG_B;
+            if (stateList[i*3+2]->registers[read_reg] != stateList[i*3+1]->ram[args[i*2]]) {
+                failed = true;
+                output << "\t\t\tCould not read [" << registerNames[i] << "] ([" << args[i*2] << "]). Ram was read as " << stateList[i*3+2]->registers[read_reg] << " instead of " << stateList[i*3+1]->ram[args[i*2]] << std::endl;
+            }
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            return false;
+        }
+    }
+    std::cout << TEST_SUCCESS << std::endl;
+    
     return true;
 }
 bool dcpu16_runTest() {
