@@ -277,7 +277,7 @@ class value:
         if self.value == 0x1F and self.shortLiteral:
             tmp = self._extraWords(labels)[0]
             tmp += 1
-            if tmp == 0x1000:
+            if tmp == 0x10000:
                 tmp = 0
             return 0x20 | tmp
         return self.value
@@ -477,6 +477,10 @@ class instruction:
         if (tmp & 0x1F) != tmp:
             self.printError("Invalid second operand")
             return 0
+        if (tmp & 0x1F) != tmp:
+            self.printError("self.a.build() returned "+repr(tmp)+", which is outside acceptable bounds")
+        if (self.b.build(labels) & 0x3F) != self.b.build(labels):
+            self.printError("self.b.build() returned "+repr(self.b.build(labels))+", which is outside acceptable bounds")
         return self.op | (tmp << 5) | (self.b.build(labels) << 10)
     def isConstSize(self):
         if self.op == instruction.opcodes["DAT"]:
