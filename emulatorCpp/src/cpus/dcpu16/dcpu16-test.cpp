@@ -159,11 +159,11 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
             std::cout << TEST_FAIL << std::endl;
             std::cout << "\t\t\tCould not read register PC. Register was read as " << stateList[2]->registers[DCPU16_REG_B] << " instead of " << r+3 << std::endl;
             return false;
-        
         }
         clearStateList(stateList);
     }
     std::cout << TEST_SUCCESS << std::endl;
+
     return true;
 }
 bool dcpu16_runTest() {

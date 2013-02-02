@@ -1,7 +1,7 @@
 #f = open("C:\\Users\\Josh\\Desktop\\dcpu16\\notchTest.bin", mode='rb')
 #w = open("C:\\Users\\Josh\\Desktop\\dcpu16\\notchTest.out", mode='w')
-f = open("C:\\Users\\Josh\\Desktop\\dcpu16\\PetriOS.bin", mode='rb')
-w = open("C:\\Users\\Josh\\Desktop\\dcpu16\\PetriOS.out", mode='w')
+f = open("cpus/dcpu16/tests/dcpu16_SET_reg.bin", mode='rb')
+w = open("PetriOS.out", mode='w')
 pos = 0
 output = ""
 while True:

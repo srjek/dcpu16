@@ -188,6 +188,8 @@ class value:
                     self.value = cpu["POP"]
                 elif part.upper() == "--SP":
                     self.value = cpu["PUSH"]
+                elif part.upper() == "SP+[PC++]":
+                    self.value = cpu["PICK"]
                 elif part.upper() == "SP":
                     self.value = cpu["PEEK"]
                 elif part.upper() == "[PC++]":
@@ -477,8 +479,6 @@ class instruction:
         if (tmp & 0x1F) != tmp:
             self.printError("Invalid second operand")
             return 0
-        if (tmp & 0x1F) != tmp:
-            self.printError("self.a.build() returned "+repr(tmp)+", which is outside acceptable bounds")
         if (self.b.build(labels) & 0x3F) != self.b.build(labels):
             self.printError("self.b.build() returned "+repr(self.b.build(labels))+", which is outside acceptable bounds")
         return self.op | (tmp << 5) | (self.b.build(labels) << 10)
