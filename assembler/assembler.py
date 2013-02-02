@@ -170,13 +170,14 @@ class value:
         global printError
         printError(error, self.lineNum)
         
-    def __init__(self, part, lineNum):
+    def __init__(self, part, lineNum, allowShortLiteral):
         self.lineNum = lineNum
         registers = value.registers
         cpu = value.cpu
         self.value = None
         self.extra = None
         self.shortLiteral = False
+        self.allowShortLiteral = allowShortLiteral
         if type(part) == type(0x42):
             self.value = part & 0x3F
         elif type(part) == type(""):
@@ -250,7 +251,7 @@ class value:
             if tmp:
                 return False
         self.lastLabels = labelCache
-        if self.value == 0x1F:
+        if self.value == 0x1F and self.allowShortLiteral:
             extra = self._extraWords(labels)[0]
             if extra != None:
                 lastShort = self.shortLiteral
@@ -432,8 +433,8 @@ class instruction:
             self.op = instruction.opcodes["SET"]
             parts = ["SET", "PC", parts[1]]
             return
-        self.a = value(parts[1], lineNum)
-        self.b = value(parts[2], lineNum)
+        self.a = value(parts[1], lineNum, False)
+        self.b = value(parts[2], lineNum, True)
     
     #def cycles(self):
     #    return self.size()
