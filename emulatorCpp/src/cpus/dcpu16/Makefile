@@ -21,3 +21,4 @@ FORCE: ;
 clean:
 	rm -f *.o
 	rm -f *.bin
+	@cd tests && $(MAKE) clean
