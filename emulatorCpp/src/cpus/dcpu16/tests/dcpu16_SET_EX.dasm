@@ -1,0 +1,7 @@
+    SET EX, [PC++]
+arg0:
+    DAT 0
+    SET A, EX
+
+
+    DAT arg0

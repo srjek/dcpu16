@@ -1,0 +1,17 @@
+    SET SP, [PC++]
+arg0:
+    DAT 0
+    SET A, SP
+    SET PUSH, 0x10c
+    SET A, SP
+    SET A, PEEK
+    SET A, POP
+    SET A, [SP-1]
+    SET B, [SP+[PC++]]
+arg1:
+    DAT 0   ;arg1 should be a negated arg0
+    SET [SP+[PC++]], 0xBEEF
+arg2:
+    DAT 0
+    
+    DAT arg0, arg1, arg2

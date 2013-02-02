@@ -164,9 +164,9 @@ def main():
         state = test(("SET PUSH, 0x10c", "SET A, [SP+1]", "SET [SP+"+repr(r)+"], 0xBEEF", "SET A, [SP+"+repr(r)+"]", "SET A, POP"), (1,1,1,1,1))
         #Push to stack when SP is 0
         if state[0].ram[state[0].SP] != 0x10c:
-            failed.append("\t\tStack operation \"SET PUSH, 0x10c\" failed, last item on stack was " + hex(state[1].ram[state[1].SP]))
+            failed.append("\t\tStack operation \"SET PUSH, 0x10c\" failed, last item on stack was " + hex(state[0].ram[state[0].SP]))
         if state[0].SP != 0xFFFF:
-            failed.append("\t\tStack operation \"SET PUSH, 0x10c\" failed, stack pointer was " + repr(state[1].SP) + " instead of " + repr(0xFFFF))
+            failed.append("\t\tStack operation \"SET PUSH, 0x10c\" failed, stack pointer was " + repr(state[0].SP) + " instead of " + repr(0xFFFF))
         #Pick from stack when SP is 0xFFFF
         if state[1].A != state[0].ram[0]:
             failed.append("\t\tCould not pick. Offset +1 was pick-ed as " + hex(state[1].A) + " instead of " + hex(state[0].ram[0]))
@@ -198,7 +198,7 @@ def main():
         if state[0].EX != r:
             failed.append("\t\tCould not set special register EX to " + repr(r) + ". Register was " + repr(state[0].EX) + " instead")
         if state[1].A != state[0].EX:
-            failed.append("\t\tCould not read special register EX. Register was read as " + repr(state[1].A) + " instead of " + repr(state[1].EX))
+            failed.append("\t\tCould not read special register EX. Register was read as " + repr(state[1].A) + " instead of " + repr(state[0].EX))
         if len(failed) > 0:
             print(FAILED)
             for msg in failed: print(msg)

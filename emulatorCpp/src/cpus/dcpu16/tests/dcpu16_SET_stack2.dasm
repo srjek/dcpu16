@@ -1,0 +1,12 @@
+    SET PUSH, 0x10c
+    SET A, [SP+1]
+    SET [SP+[PC++]], 0xBEEF
+arg0:
+    DAT 0
+    SET A, [SP+[PC++]]
+arg1:
+    DAT 0
+    SET A, POP
+
+
+    DAT arg0, arg1
