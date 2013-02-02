@@ -1,0 +1,38 @@
+    SET A, [PC++]
+arg0:
+    DAT 0
+    SET B, [PC++]
+arg1:
+    DAT 0
+    SET C, [PC++]
+arg2:
+    DAT 0
+    SET X, [PC++]
+arg3:
+    DAT 0
+    SET Y, [PC++]
+arg4:
+    DAT 0
+    SET Z, [PC++]
+arg5:
+    DAT 0
+    SET I, [PC++]
+arg6:
+    DAT 0
+    SET J, [PC++]
+arg7:
+    DAT 0
+    
+    SET B, A
+    SET B, [PC++]   ;SET B, [arg2] is better, but we haven't tested the the [x] operand yet
+arg8:
+    DAT 0
+    SET A, B
+    SET A, C
+    SET A, X
+    SET A, Y
+    SET A, Z
+    SET A, I
+    SET A, J
+
+    DAT arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8

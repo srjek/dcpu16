@@ -1,0 +1,8 @@
+    SET PC, [PC++]
+arg0:
+    DAT 0
+
+.align 0xFFFE
+    SET A, 1
+    
+    DAT arg0

@@ -1,8 +1,7 @@
-    HWI 0
     SET A, [PC++]
-arg1:
+arg0:
     DAT 0
-arg2:
+arg1:
     SET A, 3
 
-    DAT arg1, arg2
+    DAT arg0, arg1

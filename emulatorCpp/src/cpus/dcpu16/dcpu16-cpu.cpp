@@ -69,18 +69,18 @@ void dcpu16::loadImage(size_t len, unsigned short* image) {
     romDevice->disable();
 }
 void dcpu16::loadImage(size_t len, char* image) {
+    if (len > 0x10000*2) len = 0x10000*2;
     for (int i = 0; i < ((len >> 1) + 1); i++) {
         if (i*2 >= len)
             break;
         unsigned short c1 = image[i*2];
         if (i*2+1 >= len) {
-            ram[i] = (c1 << 8) || 0;
+            ram[i] = (c1 << 8) | 0;
             break;
         }
-        unsigned short c2 = image[i*2+1];
+        unsigned short c2 = ((unsigned short) image[i*2+1]) & 0xFF;
         ram[i] = (c1 << 8) | c2;
     }
-    memcpy((void*) ram, image, len*sizeof(unsigned short));
     romDevice->disable();
 }
 void dcpu16::LoadImage() {
@@ -109,7 +109,7 @@ void dcpu16::LoadImage() {
             break;
         unsigned short c2 = stream.GetC();
         if (stream.LastRead() == 0) {
-            ram[i] = (c1 << 8) || 0;
+            ram[i] = (c1 << 8) | 0;
             break;
         }
         ram[i] = (c1 << 8) | c2;
