@@ -395,7 +395,7 @@ class instruction:
         if op not in instruction.opcodes:
             if op in instruction.ext_opcodes:
                 self.op = 0
-                self.a = value(instruction.ext_opcodes[op], lineNum)
+                self.a = value(instruction.ext_opcodes[op], lineNum, False)
             else:
                 self.printError("Invalid opcode \"" + op + "\"")
                 self.op = None
@@ -423,10 +423,10 @@ class instruction:
             self.op = None
             return
         if op in instruction.ext_opcodes:
-            self.b = value(parts[1], lineNum)
+            self.b = value(parts[1], lineNum, True)
             return
         if op == "JMP":
-            self.b = value(parts[1], lineNum)
+            self.b = value(parts[1], lineNum, True)
             if self.b.value == 0x1F:
                 self.shortJmp = False
                 return
