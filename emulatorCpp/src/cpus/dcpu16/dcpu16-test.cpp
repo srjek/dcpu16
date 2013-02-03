@@ -520,7 +520,343 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     }
     std::cout << TEST_SUCCESS << std::endl;
     
-    return true;
+    
+    bool result = true;
+    /* ---------------------------------------ADD------------------------------------------ */
+    bool failed = false;
+    std::cout << "\tTesting operation ADD: " << std::flush;
+    for (int x = 0; x < 200; x++) {
+        unsigned short r = (rand() % (1 << 16)) & 0xFFFF;
+        unsigned short r2;
+        if (x < 100)
+            r2 = (1 + rand() % ((1 << 16)-r-1)) & 0xFFFF;
+        else
+            r2 = ((0x10000-r) + rand() % ((1 << 16)-(0x10000-r))) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_ADD_bin_size, dcpu16_ADD_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != ((r+r2)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not add " << r << " and " << r2 << ". Result was " << stateList[2]->A << " instead of " << ((r+r2)&0xFFFF) << std::endl;
+        }
+        if (stateList[2]->EX != (((r+r2)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not add " << r << " and " << r2 << ". EX was " << stateList[2]->EX << " instead of " << (((r+r2)>>16)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------SUB------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation SUB: " << std::flush;
+    for (int x = 0; x < 200; x++) {
+        unsigned short r = (rand() % ((1 << 16)-1)) & 0xFFFF;
+        unsigned short r2 = (rand() % (1 << 16)) & 0xFFFF;
+        if (x < 100) {
+            if (r2 > r) {
+                unsigned short tmp = r;
+                r = r2;
+                r2 = r;
+            }
+        } else {
+            if (r2 <= r) {
+                unsigned short tmp = r;
+                r = r2;
+                r2 = r+1;
+            }
+        }
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_SUB_bin_size, dcpu16_SUB_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != ((r-r2)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not subtract " << r << " from " << r2 << ". Result was " << stateList[2]->A << " instead of " << ((r-r2)&0xFFFF) << std::endl;
+        }
+        if (stateList[2]->EX != (((r-r2)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not subtract " << r << " from " << r2 << ". EX was " << stateList[2]->EX << " instead of " << (((r-r2)>>16)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------MUL------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation MUL: " << std::flush;
+    for (int x = 0; x < 200; x++) {
+        unsigned long long r = (rand() % (1 << 16)) & 0xFFFF;
+        unsigned long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        if (x < 100) {
+            while (r*r2 > 0xFFFF) {
+                unsigned long long tmp = r; r = r2;
+                r2 = (rand() % tmp) & 0xFFFF;
+            }
+        } else {
+            while (r*r2 <= 0xFFFF) {
+                unsigned long long tmp = r; r = r2;
+                r2 = (tmp + rand() % ((1 << 16)-tmp)) & 0xFFFF;
+            }
+        }
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_MUL_bin_size, dcpu16_MUL_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != ((r*r2)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not multiply " << r << " and " << r2 << ". Result was " << stateList[2]->A << " instead of " << ((r*r2)&0xFFFF) << std::endl;
+        }
+        if (stateList[2]->EX != (((r*r2)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not multiply " << r << " and " << r2 << ". EX was " << stateList[2]->EX << " instead of " << (((r*r2)>>16)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------MLI------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation MLI: " << std::flush;
+    for (int x = 0; x < 1000; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        if (r > 0x7FF)
+            r = -(0x10000 - r);
+        if (r2 > 0x7FF)
+            r2 = -(0x10000 - r2);
+        
+        unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
+        runTest(stateList, dcpu16_MLI_bin_size, dcpu16_MLI_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != ((r*r2)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not multiply " << (r&0xFFFF) << " and " << (r2&0xFFFF) << ". Result was " << stateList[2]->A << " instead of " << ((r*r2)&0xFFFF) << std::endl;
+        }
+        if (stateList[2]->EX != (((r*r2)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not multiply " << (r&0xFFFF) << " and " << (r2&0xFFFF) << ". EX was " << stateList[2]->EX << " instead of " << (((r*r2)>>16)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------DIV------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation DIV: " << std::flush;
+    for (int x = 0; x < 1000; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
+        
+        long long DIVresult = (r/r2)&0xFFFF;
+        long long extra = ((r<<16)/r2)&0xFFFF;
+        if (x == 0) {
+            r2 = 0;
+            DIVresult = 0;
+            extra = 0;
+        }
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_DIV_bin_size, dcpu16_DIV_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != DIVresult) {
+            failed = true;
+            output << "\t\tCould not divide " << r << " by " << r2 << ". Result was " << stateList[2]->A << " instead of " << DIVresult << std::endl;
+        }
+        if (stateList[2]->EX != extra) {
+            failed = true;
+            output << "\t\tCould not divide " << r << " by " << r2 << ". EX was " << stateList[2]->EX << " instead of " << extra << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------DVI------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation DVI: " << std::flush;
+    for (int x = 0; x < 1000; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
+        
+        if (r > 0x7FF)
+            r = -(0x10000 - r);
+        if (r2 > 0x7FF)
+            r2 = -(0x10000 - r2);
+        
+        long long DVIresult = (r/r2)&0xFFFF;
+        long long extra = ((r<<16)/r2)&0xFFFF;
+        if (x == 0) {
+            r2 = 0;
+            DVIresult = 0;
+            extra = 0;
+        }
+        
+        unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
+        runTest(stateList, dcpu16_DVI_bin_size, dcpu16_DVI_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != DVIresult) {
+            failed = true;
+            output << "\t\tCould not divide " << (r&0xFFFF) << " by " << (r2&0xFFFF) << ". Result was " << stateList[2]->A << " instead of " << DVIresult << std::endl;
+        }
+        if (stateList[2]->EX != extra) {
+            failed = true;
+            output << "\t\tCould not divide " << (r&0xFFFF) << " by " << (r2&0xFFFF) << ". EX was " << stateList[2]->EX << " instead of " << extra << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------MOD------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation MOD: " << std::flush;
+    for (int x = 0; x < 1000; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
+        
+        long long MODresult = (r%r2)&0xFFFF;
+        if (x == 0) {
+            r2 = 0;
+            MODresult = 0;
+        }
+        
+        unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
+        runTest(stateList, dcpu16_MOD_bin_size, dcpu16_MOD_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != MODresult) {
+            failed = true;
+            output << "\t\tCould not calculate " << (r&0xFFFF) << " mod " << (r2&0xFFFF) << ". Result was " << stateList[2]->A << " instead of " << MODresult << std::endl;
+        }
+        if (stateList[2]->EX != 0xBEEF) {
+            failed = true;
+            output << "\t\t\"MOD " << (r&0xFFFF) << ", " << (r2&0xFFFF) << "\" changed EX. EX changed from 0xBEEF to " << stateList[2]->EX << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------MDI------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation MDI: " << std::flush;
+    for (int x = 0; x < 1000; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
+        
+        if (r > 0x7FF)
+            r = -(0x10000 - r);
+        if (r2 > 0x7FF)
+            r2 = -(0x10000 - r2);
+        
+        long long MODresult = (r/r2);
+        MODresult = (r-r2*MODresult)&0xFFFF;
+        
+        if (x == 0) {
+            r2 = 0;
+            MODresult = 0;
+        }
+        
+        unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
+        runTest(stateList, dcpu16_MDI_bin_size, dcpu16_MDI_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != MODresult) {
+            failed = true;
+            output << "\t\tCould not calculate the remainder of " << (r&0xFFFF) << " divided by " << (r2&0xFFFF) << ". Result was " << stateList[2]->A << " instead of " << MODresult << std::endl;
+        }
+        if (stateList[2]->EX != 0xBEEF) {
+            failed = true;
+            output << "\t\t\"MDI " << (r&0xFFFF) << ", " << (r2&0xFFFF) << "\" changed EX. EX changed from 0xBEEF to " << stateList[2]->EX << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    return result;
 }
 bool dcpu16_runTest() {
     std::vector<dcpu16_state*> stateList;

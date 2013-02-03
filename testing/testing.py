@@ -418,9 +418,9 @@ def main():
         state = test(("SET A, "+repr(r), "DVI A, "+repr(r2)), 2)
         failed = []
         if state.A != result:
-            failed.append("\tCould not divide "+hex(r)+" and "+hex(r2)+". Result was " + hex(state.A) + " instead of " + hex(result))
+            failed.append("\tCould not divide "+hex(r)+" by "+hex(r2)+". Result was " + hex(state.A) + " instead of " + hex(result))
         if state.EX != extra:
-            failed.append("\tCould not divide "+hex(r)+" and "+hex(r2)+". EX was " + hex(state.EX) + " instead of " + hex(extra))
+            failed.append("\tCould not divide "+hex(r)+" by "+hex(r2)+". EX was " + hex(state.EX) + " instead of " + hex(extra))
         if len(failed) > 0:
             print(FAILED)
             for msg in failed: print(msg)

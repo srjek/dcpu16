@@ -1,0 +1,10 @@
+    SET EX, 0xBEEF
+    SET A, [PC++]
+arg0:
+    DAT 0
+    MLI A, [PC++]
+arg1:
+    DAT 0
+
+
+    DAT arg0, arg1
