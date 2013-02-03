@@ -1,0 +1,7 @@
+    JSR [PC++]
+arg0:
+    DAT 0
+    SET A, 0xbeef
+
+.align 0xFFFF
+    DAT arg0

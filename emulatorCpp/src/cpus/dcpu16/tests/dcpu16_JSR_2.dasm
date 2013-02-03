@@ -1,0 +1,2 @@
+    SET A, 0x10c
+    SET PC, POP

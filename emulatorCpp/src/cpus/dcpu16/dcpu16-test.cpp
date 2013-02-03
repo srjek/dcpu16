@@ -24,6 +24,7 @@ public:
     unsigned short PC;
     unsigned short SP;
     unsigned short EX;
+    unsigned short IA;
     
     dcpu16_state(dcpu16* cpu) {
         ram = new unsigned short[0x10000];
@@ -43,6 +44,7 @@ public:
         PC = registers[DCPU16_REG_PC];
         SP = registers[DCPU16_REG_SP];
         EX = registers[DCPU16_REG_EX];
+        IA = registers[DCPU16_REG_IA];
     }
     ~dcpu16_state() {
         delete[] ram;
@@ -169,7 +171,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         runTest(stateList, dcpu16_SET_PC_bin_size, tmp, 1, args, 6);
         
         delete tmp;
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         bool failed = false;
         
         if (stateList[0]->PC != r) {
@@ -212,7 +214,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, 0x10000-r, r2};
         runTest(stateList, dcpu16_SET_stack_bin_size, dcpu16_SET_stack_bin, 3, args, 9);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         bool failed = false;
         
         //Write to SP, read SP
@@ -343,7 +345,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r};
         runTest(stateList, dcpu16_SET_EX_bin_size, dcpu16_SET_EX_bin, 1, args, 2);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         bool failed = false;
         
         if (stateList[0]->EX != r) {
@@ -372,7 +374,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2, r};
         runTest(stateList, dcpu16_SET_deref_bin_size, dcpu16_SET_deref_bin, 3, args, 2);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         bool failed = false;
         
         if (stateList[0]->ram[r] != r2) {
@@ -407,7 +409,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         
         runTest(stateList, dcpu16_SET_deref_reg_bin_size, dcpu16_SET_deref_reg_bin, 16, args, 24);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         bool failed = false;
         
         for (int i = 0; i < 8; i++) {
@@ -465,7 +467,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         
         runTest(stateList, dcpu16_SET_deref_offset_bin_size, dcpu16_SET_deref_offset_bin, 8*8, args, 6*8);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         bool failed = false;
         
         for (int i = 0; i < 8; i++) {
@@ -536,7 +538,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_ADD_bin_size, dcpu16_ADD_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != ((r+r2)&0xFFFF)) {
             failed = true;
@@ -581,7 +583,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_SUB_bin_size, dcpu16_SUB_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != ((r-r2)&0xFFFF)) {
             failed = true;
@@ -624,7 +626,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_MUL_bin_size, dcpu16_MUL_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != ((r*r2)&0xFFFF)) {
             failed = true;
@@ -662,7 +664,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
         runTest(stateList, dcpu16_MLI_bin_size, dcpu16_MLI_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != ((r*r2)&0xFFFF)) {
             failed = true;
@@ -703,7 +705,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_DIV_bin_size, dcpu16_DIV_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != DIVresult) {
             failed = true;
@@ -749,7 +751,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
         runTest(stateList, dcpu16_DVI_bin_size, dcpu16_DVI_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != DVIresult) {
             failed = true;
@@ -788,7 +790,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
         runTest(stateList, dcpu16_MOD_bin_size, dcpu16_MOD_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != MODresult) {
             failed = true;
@@ -834,7 +836,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
         runTest(stateList, dcpu16_MDI_bin_size, dcpu16_MDI_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != MODresult) {
             failed = true;
@@ -867,7 +869,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_AND_bin_size, dcpu16_AND_bin, 2, args, 2);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[1]->A != (r&r2)) {
             failed = true;
@@ -896,7 +898,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_BOR_bin_size, dcpu16_BOR_bin, 2, args, 2);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[1]->A != (r|r2)) {
             failed = true;
@@ -925,7 +927,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_XOR_bin_size, dcpu16_XOR_bin, 2, args, 2);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[1]->A != (r^r2)) {
             failed = true;
@@ -954,7 +956,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_SHR_bin_size, dcpu16_SHR_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != (r>>r2)) {
             failed = true;
@@ -987,7 +989,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_ASR_bin_size, dcpu16_ASR_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         long long ASRresult = r>>r2;
         if (r & 0x8000)
@@ -1024,7 +1026,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_SHL_bin_size, dcpu16_SHL_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         long long SHLresult = (r<<r2)&0xFFFF;        
         if (stateList[2]->A != SHLresult) {
@@ -1060,7 +1062,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFB_bin_size, dcpu16_IFB_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != 1) {
             failed = true;
@@ -1099,7 +1101,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFC_bin_size, dcpu16_IFC_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != 1) {
             failed = true;
@@ -1140,7 +1142,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFE_bin_size, dcpu16_IFE_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != 1) {
             failed = true;
@@ -1181,7 +1183,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFN_bin_size, dcpu16_IFN_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != 1) {
             failed = true;
@@ -1218,7 +1220,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFG_bin_size, dcpu16_IFG_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != 1) {
             failed = true;
@@ -1255,7 +1257,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFA_bin_size, dcpu16_IFA_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (r > 0x7FFF)
             r = -(0x10000 - r);
@@ -1297,7 +1299,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFL_bin_size, dcpu16_IFL_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != 1) {
             failed = true;
@@ -1334,7 +1336,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2};
         runTest(stateList, dcpu16_IFU_bin_size, dcpu16_IFU_bin, 2, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (r > 0x7FFF)
             r = -(0x10000 - r);
@@ -1377,7 +1379,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2, r3};
         runTest(stateList, dcpu16_ADX_bin_size, dcpu16_ADX_bin, 3, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != ((r+r2+r3)&0xFFFF)) {
             failed = true;
@@ -1416,7 +1418,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         }
         runTest(stateList, dcpu16_SBX_bin_size, dcpu16_SBX_bin, 3, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->A != ((r-r2-r3)&0xFFFF)) {
             failed = true;
@@ -1452,7 +1454,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2, r, v};
         runTest(stateList, dcpu16_STI_bin_size, dcpu16_STI_bin, 4, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->I != r+1) {
             failed = true;
@@ -1492,7 +1494,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         unsigned short args[] = {r, r2, r, v};
         runTest(stateList, dcpu16_STD_bin_size, dcpu16_STD_bin, 4, args, 3);
         
-        std::ostringstream output; output << std::hex;
+        std::ostringstream output; output << std::hex << std::showbase;
         
         if (stateList[2]->I != r-1) {
             failed = true;
@@ -1518,14 +1520,109 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     if (!failed)
         std::cout << TEST_SUCCESS << std::endl;
     
+    
+    /* ---------------------------------------JSR------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation JSR: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (5 + rand() % ((1 << 16)-10)) & 0xFFFF;
+        
+        char* tmp = new char[dcpu16_JSR_bin_size];
+        memcpy(tmp, dcpu16_JSR_bin, dcpu16_JSR_bin_size);
+        memcpy(tmp+r*2, dcpu16_JSR_2_bin, dcpu16_JSR_2_bin_size);
+        
+        unsigned short args[] = {r};
+        runTest(stateList, dcpu16_JSR_bin_size, tmp, 1, args, 4);
+        
+        std::ostringstream output; output << std::hex << std::showbase;
+        
+        if (stateList[0]->PC != r) {
+            failed = true;
+            output << "\t\tCould not set register PC to " << r << ". Register was " << stateList[0]->PC << " instead" << std::endl;
+        }
+        if (stateList[0]->peek() != 2) {
+            failed = true;
+            output << "\t\tOperation \"JSR " << r << "\" failed, last item on stack was " << stateList[0]->peek() << " instead of 0x2" << std::endl;
+        }
+        if (stateList[0]->SP != 0xFFFF) {
+            failed = true;
+            output << "\t\tOperation \"JSR " << r << "\" failed, stack pointer was" << stateList[0]->SP << " instead of 0xffff" << std::endl;
+        }
+        if (stateList[1]->A != 0x10c) {
+            failed = true;
+            output << "\t\tEmulator failed to follow the PC register after a \"JSR " << r << "\"" << std::endl;
+        }
+        if (stateList[2]->PC != 2) {
+            failed = true;
+            output << "\t\tEmulator failed to pop from the stack into the PC register" << std::endl;
+        }
+        if (stateList[3]->A != 0xbeef) {
+            failed = true;
+            output << "\t\tEmulator failed to follow the PC register after a \"SET PC, POP\"" << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ------------------------------------IAS / IAG--------------------------------------- */
+    failed = false;
+    std::cout << "\tTesting operation IAS, IAG: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r};
+        runTest(stateList, dcpu16_IAS_IAG_bin_size, dcpu16_IAS_IAG_bin, 1, args, 2);
+        
+        std::ostringstream output; output << std::hex << std::showbase;
+        
+        if (stateList[0]->IA != r) {
+            failed = true;
+            output << "\t\tCould not set special register IA to " << r << ". Register was " << stateList[0]->IA << " instead" << std::endl;
+        }
+        if (stateList[1]->A != stateList[0]->IA) {
+            failed = true;
+            output << "\t\tCould not read special register IA. Register was read as " << stateList[1]->A << " instead of " << stateList[0]->IA << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    std::cout << "\tOperation IAQ: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tOperation INT: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tOperation RFI: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tOperation HWN: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tOperation HWQ: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tOperation HWI: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tInterrupts: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tInterrupt queuing: " << TEST_NOT_TESTED << std::endl;
+    std::cout << "\tHardware plugin API: " << TEST_NOT_TESTED << std::endl;
+    
     return result;
 }
 bool dcpu16_runTest() {
     std::vector<dcpu16_state*> stateList;
     
-    std::cout << std::hex;
+    std::cout << std::hex << std::showbase;
     bool result = dcpu16_runTest_inner(stateList);
-    std::cout << std::dec;
+    std::cout << std::dec << std::noshowbase;
     
     clearStateList(stateList);
     return result;

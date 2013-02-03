@@ -1,0 +1,7 @@
+    IAS [PC++]
+arg0:
+    DAT 0
+    IAG A
+
+
+    DAT arg0
