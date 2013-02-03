@@ -650,7 +650,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     /* ---------------------------------------MLI------------------------------------------ */
     failed = false;
     std::cout << "\tTesting operation MLI: " << std::flush;
-    for (int x = 0; x < 1000; x++) {
+    for (int x = 0; x < 500; x++) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (rand() % (1 << 16)) & 0xFFFF;
         
@@ -688,7 +688,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     /* ---------------------------------------DIV------------------------------------------ */
     failed = false;
     std::cout << "\tTesting operation DIV: " << std::flush;
-    for (int x = 0; x < 1000; x++) {
+    for (int x = 0; x < 100; x++) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
         
@@ -729,7 +729,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     /* ---------------------------------------DVI------------------------------------------ */
     failed = false;
     std::cout << "\tTesting operation DVI: " << std::flush;
-    for (int x = 0; x < 1000; x++) {
+    for (int x = 0; x < 100; x++) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
         
@@ -775,7 +775,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     /* ---------------------------------------MOD------------------------------------------ */
     failed = false;
     std::cout << "\tTesting operation MOD: " << std::flush;
-    for (int x = 0; x < 1000; x++) {
+    for (int x = 0; x < 100; x++) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
         
@@ -814,7 +814,7 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     /* ---------------------------------------MDI------------------------------------------ */
     failed = false;
     std::cout << "\tTesting operation MDI: " << std::flush;
-    for (int x = 0; x < 1000; x++) {
+    for (int x = 0; x < 100; x++) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
         
@@ -843,6 +843,197 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         if (stateList[2]->EX != 0xBEEF) {
             failed = true;
             output << "\t\t\"MDI " << (r&0xFFFF) << ", " << (r2&0xFFFF) << "\" changed EX. EX changed from 0xBEEF to " << stateList[2]->EX << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------AND------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation AND: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_AND_bin_size, dcpu16_AND_bin, 2, args, 2);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[1]->A != (r&r2)) {
+            failed = true;
+            output << "\t\tCould not binary AND " << (r&0xFFFF) << " and " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << (r&r2) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------BOR------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation BOR: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_BOR_bin_size, dcpu16_BOR_bin, 2, args, 2);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[1]->A != (r|r2)) {
+            failed = true;
+            output << "\t\tCould not binary OR " << (r&0xFFFF) << " and " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << (r|r2) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------XOR------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation XOR: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_XOR_bin_size, dcpu16_XOR_bin, 2, args, 2);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[1]->A != (r^r2)) {
+            failed = true;
+            output << "\t\tCould not binary XOR " << (r&0xFFFF) << " and " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << (r^r2) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------SHR------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation SHR: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % 17) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_SHR_bin_size, dcpu16_SHR_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != (r>>r2)) {
+            failed = true;
+            output << "\t\tCould not logical shift " << (r&0xFFFF) << " right by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << (r>>r2) << std::endl;
+        }
+        if (stateList[2]->EX != (((r<<16)>>r2)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not logical shift " << (r&0xFFFF) << " right by " << (r2&0xFFFF) << ". EX was " << stateList[2]->EX << " instead of " << (((r<<16)>>r2)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------ASR------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation ASR: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % 17) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_ASR_bin_size, dcpu16_ASR_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        long long result = r>>r2;
+        if (r & 0x8000)
+            result |= ((0xFFFF << (16-r2)) & 0xFFFF);
+        
+        if (stateList[2]->A != result) {
+            failed = true;
+            output << "\t\tCould not arithmetic shift " << (r&0xFFFF) << " right by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << result << std::endl;
+        }
+        if (stateList[2]->EX != (((r<<16)>>r2)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not arithmetic shift " << (r&0xFFFF) << " right by " << (r2&0xFFFF) << ". EX was " << stateList[2]->EX << " instead of " << (((r<<16)>>r2)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------SHL------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation SHL: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % 17) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_SHL_bin_size, dcpu16_SHL_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        long long result = (r<<r2)&0xFFFF;        
+        if (stateList[2]->A != result) {
+            failed = true;
+            output << "\t\tCould not logical shift " << (r&0xFFFF) << " left by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << result << std::endl;
+        }
+        if (stateList[2]->EX != (((r<<r2)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not logical shift " << (r&0xFFFF) << " left by " << (r2&0xFFFF) << ". EX was " << stateList[2]->EX << " instead of " << (((r<<16)>>r2)&0xFFFF) << std::endl;
         }
         
         clearStateList(stateList);
