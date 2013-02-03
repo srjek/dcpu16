@@ -32,9 +32,15 @@ endif
 SRC_ROOT := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 ASSEMBLER := $(PYTHON) $(SRC_ROOT)/../../assembler/assembler.py
 
+ARCH = $(shell $(CXX) -dumpmachine | sed "s/-.*//" | sed "s/_/-/g")
+
 #Add conditionals here for objcopy
-ELF_ARCH := elf32-i386
+ELF_ARCH := elf32-$(ARCH)
+BINARY_ARCH := $(ARCH)
+ifeq ($(ARCH), x86-64)
+ELF_ARCH := elf64-$(ARCH)
 BINARY_ARCH := i386
+endif
 
 .SUFFIXES:      .o .cpp
 
