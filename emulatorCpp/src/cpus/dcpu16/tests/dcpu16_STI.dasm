@@ -1,0 +1,12 @@
+    SET I, [PC++]
+arg0_0:
+    DAT 0
+    SET J, [PC++]
+arg1:
+    DAT 0
+    STI [J], [I]
+
+.align 0xFFFC
+    DAT arg0_0, arg1, arg0_1
+arg0_1:
+    DAT 0   ;arg2

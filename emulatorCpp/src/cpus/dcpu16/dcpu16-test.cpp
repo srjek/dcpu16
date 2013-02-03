@@ -1365,6 +1365,159 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     if (!failed)
         std::cout << TEST_SUCCESS << std::endl;
     
+    
+    /* ---------------------------------------ADX------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation ADX: " << std::flush;
+    for (int x = 0; x < 500; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        long long r3 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2, r3};
+        runTest(stateList, dcpu16_ADX_bin_size, dcpu16_ADX_bin, 3, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != ((r+r2+r3)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not add " << r << ", " << r2 << ", and " << r3 << ". Result was " << stateList[2]->A << " instead of " << ((r+r2+r3)&0xFFFF) << std::endl;
+        }
+        if (stateList[2]->EX != (((r+r2+r3)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not add " << r << ", " << r2 << ", and " << r3 << ". EX was " << stateList[2]->EX << " instead of " << (((r+r2+r3)>>16)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------SBX------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation SBX: " << std::flush;
+    for (int x = 0; x < 500; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        long long r3 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2, (-r3)&0xFFFF};
+        
+        if (x == 0) {
+            r3 = 0;
+            args[2] = 0;
+        }
+        runTest(stateList, dcpu16_SBX_bin_size, dcpu16_SBX_bin, 3, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != ((r-r2-r3)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not subtract " << r2 << " and " << r3 << " from " << r << ". Result was " << stateList[2]->A << " instead of " << ((r-r2-r3)&0xFFFF) << std::endl;
+        }
+        if (stateList[2]->EX != (((r-r2-r3)>>16)&0xFFFF)) {
+            failed = true;
+            output << "\t\tCould not subtract " << r2 << " and " << r3 << " from " << r << ". EX was " << stateList[2]->EX << " instead of " << (((r-r2-r3)>>16)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------STI------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation STI: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (10 + rand() % ((1 << 16)-15)) & 0xFFFF;
+        long long r2 = (10 + rand() % ((1 << 16)-15)) & 0xFFFF;
+        if (r == r2)
+            r2++;
+        long long v = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2, r, v};
+        runTest(stateList, dcpu16_STI_bin_size, dcpu16_STI_bin, 4, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->I != r+1) {
+            failed = true;
+            output << "\t\tSTI [J], [I] failed. Register I was " << stateList[2]->I << " instead of " << r+1 << std::endl;
+        }
+        if (stateList[2]->J != r2+1) {
+            failed = true;
+            output << "\t\tSTI [J], [I] failed. Register J was " << stateList[2]->J << " instead of " << r2+1 << std::endl;
+        }
+        if (stateList[2]->ram[r2] != v) {
+            failed = true;
+            output << "\t\tCould not set [" << r2 << "] to [" << r << "] (" << v << "). Ram was " << stateList[2]->ram[r2] << " instead" << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------STD------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation STD: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (10 + rand() % ((1 << 16)-15)) & 0xFFFF;
+        long long r2 = (10 + rand() % ((1 << 16)-15)) & 0xFFFF;
+        if (r == r2)
+            r2++;
+        long long v = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2, r, v};
+        runTest(stateList, dcpu16_STD_bin_size, dcpu16_STD_bin, 4, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->I != r-1) {
+            failed = true;
+            output << "\t\tSTD [J], [I] failed. Register I was " << stateList[2]->I << " instead of " << r-1 << std::endl;
+        }
+        if (stateList[2]->J != r2-1) {
+            failed = true;
+            output << "\t\tSTD [J], [I] failed. Register J was " << stateList[2]->J << " instead of " << r2-1 << std::endl;
+        }
+        if (stateList[2]->ram[r2] != v) {
+            failed = true;
+            output << "\t\tCould not set [" << r2 << "] to [" << r << "] (" << v << "). Ram was " << stateList[2]->ram[r2] << " instead" << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
     return result;
 }
 bool dcpu16_runTest() {

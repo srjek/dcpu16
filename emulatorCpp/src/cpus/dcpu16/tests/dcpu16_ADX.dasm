@@ -1,0 +1,12 @@
+    SET A, [PC++]
+arg0:
+    DAT 0
+    SET EX, [PC++]
+arg2:
+    DAT 0
+    ADX A, [PC++]
+arg1:
+    DAT 0
+
+
+    DAT arg0, arg1, arg2
