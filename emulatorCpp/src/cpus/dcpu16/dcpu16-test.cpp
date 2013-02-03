@@ -989,13 +989,13 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         
         std::ostringstream output; output << std::hex;
         
-        long long result = r>>r2;
+        long long ASRresult = r>>r2;
         if (r & 0x8000)
-            result |= ((0xFFFF << (16-r2)) & 0xFFFF);
+            ASRresult |= ((0xFFFF << (16-r2)) & 0xFFFF);
         
-        if (stateList[2]->A != result) {
+        if (stateList[2]->A != ASRresult) {
             failed = true;
-            output << "\t\tCould not arithmetic shift " << (r&0xFFFF) << " right by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << result << std::endl;
+            output << "\t\tCould not arithmetic shift " << (r&0xFFFF) << " right by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << ASRresult << std::endl;
         }
         if (stateList[2]->EX != (((r<<16)>>r2)&0xFFFF)) {
             failed = true;
@@ -1026,14 +1026,332 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         
         std::ostringstream output; output << std::hex;
         
-        long long result = (r<<r2)&0xFFFF;        
-        if (stateList[2]->A != result) {
+        long long SHLresult = (r<<r2)&0xFFFF;        
+        if (stateList[2]->A != SHLresult) {
             failed = true;
-            output << "\t\tCould not logical shift " << (r&0xFFFF) << " left by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << result << std::endl;
+            output << "\t\tCould not logical shift " << (r&0xFFFF) << " left by " << (r2&0xFFFF) << ". Result was " << stateList[1]->A << " instead of " << SHLresult << std::endl;
         }
         if (stateList[2]->EX != (((r<<r2)>>16)&0xFFFF)) {
             failed = true;
             output << "\t\tCould not logical shift " << (r&0xFFFF) << " left by " << (r2&0xFFFF) << ". EX was " << stateList[2]->EX << " instead of " << (((r<<16)>>r2)&0xFFFF) << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFB------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFB: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        if (rand() & 0x1)
+            r2 ^= (r&r2);
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFB_bin_size, dcpu16_IFB_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if (((r&r2) != 0) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if (((r&r2) == 0) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFC------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFC: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        if (rand() & 0x1)
+            r2 ^= (r&r2);
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFC_bin_size, dcpu16_IFC_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if (((r&r2) == 0) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if (((r&r2) != 0) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFE------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFE: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2;
+        if (rand() & 0x1)
+            r2 = r;
+        else
+            r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFE_bin_size, dcpu16_IFE_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r == r2) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r != r2) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFN------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFN: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2;
+        if (rand() & 0x1)
+            r2 = r;
+        else
+            r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFN_bin_size, dcpu16_IFN_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r != r2) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r == r2) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFG------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFG: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFG_bin_size, dcpu16_IFG_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r > r2) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r <= r2) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFA------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFA: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFA_bin_size, dcpu16_IFA_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (r > 0x7FFF)
+            r = -(0x10000 - r);
+        if (r2 > 0x7FFF)
+            r2 = -(0x10000 - r2);
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r > r2) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r <= r2) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFL------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFL: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFL_bin_size, dcpu16_IFL_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r < r2) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r >= r2) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
+        }
+        
+        clearStateList(stateList);
+        if (failed) {
+            result = false;
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            break;
+        }
+    }
+    if (!failed)
+        std::cout << TEST_SUCCESS << std::endl;
+    
+    
+    /* ---------------------------------------IFU------------------------------------------ */
+    failed = false;
+    std::cout << "\tTesting operation IFU: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        long long r = (rand() % (1 << 16)) & 0xFFFF;
+        long long r2 = (rand() % (1 << 16)) & 0xFFFF;
+        
+        unsigned short args[] = {r, r2};
+        runTest(stateList, dcpu16_IFU_bin_size, dcpu16_IFU_bin, 2, args, 3);
+        
+        std::ostringstream output; output << std::hex;
+        
+        if (r > 0x7FFF)
+            r = -(0x10000 - r);
+        if (r2 > 0x7FFF)
+            r2 = -(0x10000 - r2);
+        
+        if (stateList[2]->A != 1) {
+            failed = true;
+            output << "\t\tDid not reach expected point in program flow. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r < r2) && (stateList[2]->B != 1)) {
+            failed = true;
+            output << "\t\tProgram flow unexpectedly skipped. PC was " << stateList[2]->PC << std::endl;
+        }
+        if ((r >= r2) && (stateList[2]->B != 0)) {
+            failed = true;
+            output << "\t\tProgram flow did not skip as expected. PC was " << stateList[2]->PC << std::endl;
         }
         
         clearStateList(stateList);

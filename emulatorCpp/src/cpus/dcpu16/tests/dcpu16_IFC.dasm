@@ -1,0 +1,12 @@
+    IFC [PC++], [PC++]
+arg1:
+    DAT 0
+arg0:
+    DAT 0
+        SET B, 1
+    SET A, 1
+end:
+    JMP end
+
+
+    DAT arg0, arg1
