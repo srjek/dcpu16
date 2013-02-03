@@ -1,0 +1,216 @@
+;------------A-----------------
+    SET A, [PC++]
+Ar_0:
+    DAT 0                   ;r
+Atmp0:
+    SET [A+1], [PC++]
+#define Av_0 Atmp0+1        ;v
+Ar2_0:
+    DAT 0                   ;r2
+Atmp1:
+    SET B, [A+1]
+#define Ar2_1 Atmp1+1       ;r2
+    SET A, [PC++]
+Ar3_0:
+    DAT 0                   ;r3
+Atmp2:
+    SET [A+1], [PC++]
+#define Av_1 Atmp2+1        ;v
+Ar4_0:
+    DAT 0                   ;r4
+    
+Atmp3:
+    SET B,[A+1]
+#define Ar4_1 Atmp3+1       ;r4
+
+
+;------------B-----------------
+    SET B, [PC++]
+Br_0:
+    DAT 0                   ;r
+Btmp0:
+    SET [B+1], [PC++]
+#define Bv_0 Btmp0+1        ;v
+Br2_0:
+    DAT 0                   ;r2
+Btmp1:
+    SET A, [B+1]
+#define Br2_1 Btmp1+1       ;r2
+    SET B, [PC++]
+Br3_0:
+    DAT 0                   ;r3
+Btmp2:
+    SET [B+1], [PC++]
+#define Bv_1 Btmp2+1        ;v
+Br4_0:
+    DAT 0                   ;r4
+    
+Btmp3:
+    SET A,[B+1]
+#define Br4_1 Btmp3+1       ;r4
+
+
+;------------C-----------------
+    SET C, [PC++]
+Cr_0:
+    DAT 0                   ;r
+Ctmp0:
+    SET [C+1], [PC++]
+#define Cv_0 Ctmp0+1        ;v
+Cr2_0:
+    DAT 0                   ;r2
+Ctmp1:
+    SET A, [C+1]
+#define Cr2_1 Ctmp1+1       ;r2
+    SET C, [PC++]
+Cr3_0:
+    DAT 0                   ;r3
+Ctmp2:
+    SET [C+1], [PC++]
+#define Cv_1 Ctmp2+1        ;v
+Cr4_0:
+    DAT 0                   ;r4
+    
+Ctmp3:
+    SET A,[C+1]
+#define Cr4_1 Ctmp3+1       ;r4
+
+
+;------------X-----------------
+    SET X, [PC++]
+Xr_0:
+    DAT 0                   ;r
+Xtmp0:
+    SET [X+1], [PC++]
+#define Xv_0 Xtmp0+1        ;v
+Xr2_0:
+    DAT 0                   ;r2
+Xtmp1:
+    SET A, [X+1]
+#define Xr2_1 Xtmp1+1       ;r2
+    SET X, [PC++]
+Xr3_0:
+    DAT 0                   ;r3
+Xtmp2:
+    SET [X+1], [PC++]
+#define Xv_1 Xtmp2+1        ;v
+Xr4_0:
+    DAT 0                   ;r4
+    
+Xtmp3:
+    SET A,[X+1]
+#define Xr4_1 Xtmp3+1       ;r4
+
+
+;------------Y-----------------
+    SET Y, [PC++]
+Yr_0:
+    DAT 0                   ;r
+Ytmp0:
+    SET [Y+1], [PC++]
+#define Yv_0 Ytmp0+1        ;v
+Yr2_0:
+    DAT 0                   ;r2
+Ytmp1:
+    SET A, [Y+1]
+#define Yr2_1 Ytmp1+1       ;r2
+    SET Y, [PC++]
+Yr3_0:
+    DAT 0                   ;r3
+Ytmp2:
+    SET [Y+1], [PC++]
+#define Yv_1 Ytmp2+1        ;v
+Yr4_0:
+    DAT 0                   ;r4
+    
+Ytmp3:
+    SET A,[Y+1]
+#define Yr4_1 Ytmp3+1       ;r4
+
+
+;------------Z-----------------
+    SET Z, [PC++]
+Zr_0:
+    DAT 0                   ;r
+Ztmp0:
+    SET [Z+1], [PC++]
+#define Zv_0 Ztmp0+1        ;v
+Zr2_0:
+    DAT 0                   ;r2
+Ztmp1:
+    SET A, [Z+1]
+#define Zr2_1 Ztmp1+1       ;r2
+    SET Z, [PC++]
+Zr3_0:
+    DAT 0                   ;r3
+Ztmp2:
+    SET [Z+1], [PC++]
+#define Zv_1 Ztmp2+1        ;v
+Zr4_0:
+    DAT 0                   ;r4
+    
+Ztmp3:
+    SET A,[Z+1]
+#define Zr4_1 Ztmp3+1       ;r4
+
+
+;------------I-----------------
+    SET I, [PC++]
+Ir_0:
+    DAT 0                   ;r
+Itmp0:
+    SET [I+1], [PC++]
+#define Iv_0 Itmp0+1        ;v
+Ir2_0:
+    DAT 0                   ;r2
+Itmp1:
+    SET A, [I+1]
+#define Ir2_1 Itmp1+1       ;r2
+    SET I, [PC++]
+Ir3_0:
+    DAT 0                   ;r3
+Itmp2:
+    SET [I+1], [PC++]
+#define Iv_1 Itmp2+1        ;v
+Ir4_0:
+    DAT 0                   ;r4
+    
+Itmp3:
+    SET A,[I+1]
+#define Ir4_1 Itmp3+1       ;r4
+
+
+;------------J-----------------
+    SET J, [PC++]
+Jr_0:
+    DAT 0                   ;r
+Jtmp0:
+    SET [J+1], [PC++]
+#define Jv_0 Jtmp0+1        ;v
+Jr2_0:
+    DAT 0                   ;r2
+Jtmp1:
+    SET A, [J+1]
+#define Jr2_1 Jtmp1+1       ;r2
+    SET J, [PC++]
+Jr3_0:
+    DAT 0                   ;r3
+Jtmp2:
+    SET [J+1], [PC++]
+#define Jv_1 Jtmp2+1        ;v
+Jr4_0:
+    DAT 0                   ;r4
+    
+Jtmp3:
+    SET A,[J+1]
+#define Jr4_1 Jtmp3+1       ;r4
+
+
+    DAT Ar_0, Ar2_0, Ar2_1, Ar3_0, Ar4_0, Ar4_1, Av_0, Av_1
+    DAT Br_0, Br2_0, Br2_1, Br3_0, Br4_0, Br4_1, Bv_0, Bv_1
+    DAT Cr_0, Cr2_0, Cr2_1, Cr3_0, Cr4_0, Cr4_1, Cv_0, Cv_1
+    DAT Xr_0, Xr2_0, Xr2_1, Xr3_0, Xr4_0, Xr4_1, Xv_0, Xv_1
+    DAT Yr_0, Yr2_0, Yr2_1, Yr3_0, Yr4_0, Yr4_1, Yv_0, Yv_1
+    DAT Zr_0, Zr2_0, Zr2_1, Zr3_0, Zr4_0, Zr4_1, Zv_0, Zv_1
+    DAT Ir_0, Ir2_0, Ir2_1, Ir3_0, Ir4_0, Ir4_1, Iv_0, Iv_1
+    DAT Jr_0, Jr2_0, Jr2_1, Jr3_0, Jr4_0, Jr4_1, Jv_0, Jv_1

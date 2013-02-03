@@ -441,6 +441,85 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
     }
     std::cout << TEST_SUCCESS << std::endl;
     
+    std::cout << "\t\tTesting register+offset dereferencing: " << std::flush;
+    for (int x = 0; x < 100; x++) {
+        unsigned short args[8*8];
+        for (int i = 0; i < 8*8; i += 8) {
+            unsigned short r, r2, r3, r4;
+            r = (70 + rand() % ((1 << 15)-80)) & 0xFFFF;
+            r2 = (70 + rand() % ((1 << 15)-80)) & 0xFFFF;
+            while ((r3+r4) < (0xFFFF+20)) {
+                r3 = (r3 + rand() % ((1 << 16)-r3)) & 0xFFFF;
+                r4 = (r4 + rand() % ((1 << 16)-r4)) & 0xFFFF;
+            }
+            unsigned short v = (rand() % (1 << 16)) & 0xFFFF;
+            args[i]   = r;
+            args[i+1] = r2;
+            args[i+2] = r2;
+            args[i+3] = r3;
+            args[i+4] = r4;
+            args[i+5] = r4;
+            args[i+6] = v;
+            args[i+7] = v;
+        }
+        
+        runTest(stateList, dcpu16_SET_deref_offset_bin_size, dcpu16_SET_deref_offset_bin, 8*8, args, 6*8);
+        
+        std::ostringstream output; output << std::hex;
+        bool failed = false;
+        
+        for (int i = 0; i < 8; i++) {
+            unsigned short r, r2, r3, r4, v;
+            r  = args[i*8];
+            r2 = args[i*8+1];
+            r3 = args[i*8+3];
+            r4 = args[i*8+4];
+            v  = args[i*8+6];
+            
+            int read_reg = DCPU16_REG_A;
+            char* read_reg_name = "A";
+            if (i == 0) {
+                read_reg = DCPU16_REG_B;
+                read_reg_name = "B";
+            }
+            
+            //When offset doesn't wrap around
+            if (stateList[i*6+1]->ram[r+r2] != v) {
+                failed = true;
+                output << "\t\t\tCould not set [" << registerNames[i] << "+" << r2 << "]\" ([" << r << "+" << r2 << "]) to " << v << ". Ram was " << stateList[i*6+1]->ram[r+r2] << " instead" << std::endl;
+            }
+            if (stateList[i*6+2]->ram[r+r2] != stateList[i*6+1]->ram[r+r2]) {
+                failed = true;
+                output << "\t\t\t\"SET " << read_reg_name << ", [" << registerNames[i] << "+" << r2 << "]\" ([" << r << "+" << r2 << "]) failed. Ram changed from " << stateList[i*6+1]->ram[r+r2] << " to " << stateList[i*6+2]->ram[r+r2] << std::endl;
+            }
+            if (stateList[i*6+2]->registers[read_reg] != stateList[i*6+1]->ram[r+r2]) {
+                failed = true;
+                output << "\t\t\tCould not read [" << registerNames[i] << "+" << r2 << "] ([" << r << "+" << r2 << "]). Ram was read as " << stateList[i*6+2]->registers[read_reg] << " instead of " << stateList[i*6+1]->ram[r+r2] << std::endl;
+            }
+            //When offset wraps around
+            if (stateList[i*6+4]->ram[(r3+r4)&0xFFFF] != v) {
+                failed = true;
+                output << "\t\t\tCould not set [" << registerNames[i] << "+" << r4 << "]\" ([" << r3 << "+" << r4 << "]) to " << v << ". Ram was " << stateList[i*6+4]->ram[(r3+r4)&0xFFFF] << " instead" << std::endl;
+            }
+            if (stateList[i*6+5]->ram[(r3+r4)&0xFFFF] != stateList[i*6+4]->ram[(r3+r4)&0xFFFF]) {
+                failed = true;
+                output << "\t\t\t\"SET " << read_reg_name << ", [" << registerNames[i] << "+" << r4 << "]\" ([" << r3 << "+" << r4 << "]) failed. Ram changed from " << stateList[i*6+4]->ram[(r3+r4)&0xFFFF] << " to " << stateList[i*6+5]->ram[(r3+r4)&0xFFFF] << std::endl;
+            }
+            if (stateList[i*6+5]->registers[read_reg] != stateList[i*6+4]->ram[(r3+r4)&0xFFFF]) {
+                failed = true;
+                output << "\t\t\tCould not read [" << registerNames[i] << "+" << r4 << "] ([" << r3 << "+" << r4 << "]). Ram was read as " << stateList[i*6+5]->registers[read_reg] << " instead of " << stateList[i*6+4]->ram[(r3+r4)&0xFFFF] << std::endl;
+            }
+        }
+            
+        clearStateList(stateList);
+        if (failed) {
+            std::cout << TEST_FAIL << std::endl;
+            std::cout << output.str();
+            return false;
+        }
+    }
+    std::cout << TEST_SUCCESS << std::endl;
+    
     return true;
 }
 bool dcpu16_runTest() {
