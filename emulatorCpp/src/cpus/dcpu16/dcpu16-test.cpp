@@ -654,9 +654,9 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (rand() % (1 << 16)) & 0xFFFF;
         
-        if (r > 0x7FF)
+        if (r > 0x7FFF)
             r = -(0x10000 - r);
-        if (r2 > 0x7FF)
+        if (r2 > 0x7FFF)
             r2 = -(0x10000 - r2);
         
         unsigned short args[] = {r&0xFFFF, r2&0xFFFF};
@@ -733,9 +733,9 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
         
-        if (r > 0x7FF)
+        if (r > 0x7FFF)
             r = -(0x10000 - r);
-        if (r2 > 0x7FF)
+        if (r2 > 0x7FFF)
             r2 = -(0x10000 - r2);
         
         long long DVIresult = (r/r2)&0xFFFF;
@@ -818,9 +818,9 @@ bool dcpu16_runTest_inner(std::vector<dcpu16_state*>& stateList) {
         long long r = (rand() % (1 << 16)) & 0xFFFF;
         long long r2 = (1 + rand() % ((1 << 16)-1)) & 0xFFFF;
         
-        if (r > 0x7FF)
+        if (r > 0x7FFF)
             r = -(0x10000 - r);
-        if (r2 > 0x7FF)
+        if (r2 > 0x7FFF)
             r2 = -(0x10000 - r2);
         
         long long MODresult = (r/r2);
