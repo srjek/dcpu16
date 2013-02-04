@@ -55,5 +55,6 @@ clean:
 	rm -f makedepend.bak
 	rm -f *.o
 	rm -f $(PROGRAM) $(PROGRAM).exe
+	rm -f emulator-test emulator-test.exe
 	@cd cpus && $(MAKE) clean
 	@cd devices && $(MAKE) clean
