@@ -1,4 +1,3 @@
- * gdb protocol
+ * verify correctness of gdb protocol
  * non-graphical mode
- * port testing.py to C++ (which would use the non-graphical mode?)
  * terminal for non-graphical mode?
