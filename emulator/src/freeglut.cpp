@@ -26,11 +26,6 @@ void freeglut::addToQueueAndWait(freeglutCallback* callback) {
 void freeglut::StartMainLoop() {
     running = true;
     if (MainLoopLock->TryLock() == wxMUTEX_NO_ERROR) {
-	    unsigned int displayMode = GLUT_RGBA | GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH | GLUT_STENCIL;
-        glutInitDisplayMode (displayMode);
-	    glutInitContextVersion (3, 3);
-	    glutInitContextProfile(GLUT_CORE_PROFILE);
-	    
         int tmpWindow = glutCreateWindow("GLEW init");
         glutShowWindow();
         initGlew();
@@ -39,6 +34,11 @@ void freeglut::StartMainLoop() {
         std::cout << "OpenGL: " << glGetString(GL_VERSION) << std::endl;
         glutHideWindow();
         glutDestroyWindow(tmpWindow);
+        
+        unsigned int displayMode = GLUT_RGBA | GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH | GLUT_STENCIL;
+        glutInitDisplayMode (displayMode);
+        glutInitContextVersion (3, 0);
+        glutInitContextProfile(GLUT_CORE_PROFILE);
         
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
         
