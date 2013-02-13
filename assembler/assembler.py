@@ -435,7 +435,8 @@ class instruction:
         
         Any instructions or addresses based off this instruction can no longer be guaranteed to be correct.
         This includes any instructions added after this one. (This may have been the original reasoning behind the name.)
-        **Use only after instruction creation, and before any instructions are added after.**
+        
+        *********** Use only after instruction creation, and before any instructions are added after. ***********
         """
         self.preceding = preceding
         if preceding != None:
