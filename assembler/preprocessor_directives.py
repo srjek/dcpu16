@@ -1,8 +1,10 @@
 import sys
+import os.path
+import copy
+
 from assembler import preprocessor_directive, address, stdwrap, printError
 from mathEval import eval_0xSCAmodified, wordString, extractVaribles, tokenize, validate
 from dcpu16 import dcpu16_instruction
-import copy
 
 class value_preprocesser:
     def printError(self, error):
