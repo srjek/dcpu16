@@ -14,14 +14,10 @@ class dcpu16_instruction(instruction):
     ops.extend(opcodes.keys())
     ops.extend(ext_opcodes.keys())
 
-    def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
     def __init__(self, parts, preceding, lineNum):
-        self.lineNum = lineNum
+        super().__init__(parts, preceding, lineNum)
         self.a = None
         self.b = None
-        self.badRelocate(preceding)
         
         op = parts[0].upper()
         if op not in dcpu16_instruction.opcodes:
@@ -124,8 +120,6 @@ class dcpu16_instruction(instruction):
         if self.op == instruction.opcodes["JMP"]:
             return False
         return self.a.isConstSize() and self.b.isConstSize()
-    def getAddress(self):
-        return self.address
     def optimize(self, labels):
         if self.op == instruction.opcodes["DAT"]:
             tmp = False
@@ -151,10 +145,3 @@ class dcpu16_instruction(instruction):
         if self.op == instruction.opcodes["DAT"]:
             result.values = copy.deepcopy(self.values)
         return result
-    def badRelocate(self, preceding):
-        self.preceding = preceding
-        if preceding != None:
-            self.address = preceding.getAddress().clone()
-            self.address.add(preceding)
-        else:
-            self.address = address(0)
