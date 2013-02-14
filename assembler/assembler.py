@@ -179,8 +179,7 @@ class preprocessor_directive(instruction):
         
         The default implemention will print an error to the console, but not throw an exception.
         
-        @param codeblock Array of `instruction` and/or `preprocessor_directive` objects. First instruction has a undefined preceding instruction set.
-        @todo Define exact preceding for first instruction of codeblock
+        @param codeblock Array of `instruction` and/or `preprocessor_directive` objects. First instruction has the same preceding as the triggering directive.
         """
         printError("Directive doesn't accept codeblocks", lineNum=("~"+self.lineNum))
     def endCodeblock(self, parts, lineNum):
@@ -258,14 +257,13 @@ class reader:
     def registerOp(self, opName, opClass):
         self.ops[opName] = opClass
     def registerDirective(self, directiveName, directiveClass):
-        self.ops[opName] = opClass
+        self.directives[directiveName] = directiveClass
         
     def printError(self, error, lineNum=None):
         if lineNum == None:
             lineNum = self.lineNum
         printError(error, lineNum)
     def parseTokens(self):
-        from preprocessor_directives import default_preprocessor_directive
         while len(self.tokenQueue) > 0:
             token = self.tokenQueue.pop(0)
             lineNum = token[0]
@@ -286,6 +284,8 @@ class reader:
                     if preceding.needsCodeblock():
                         self.inCodeblock = True
                         self.codeblock = reader()
+                        self.codeblock.ops = self.ops
+                        self.codeblock.directives = self.directives
                         self.codeblock.instructions.append(self.instructions[-2])   #Only an elseif or a else will continue, so this is the correct preceding instruction
                         self.codeblock.labels = self.labels
                 else:
@@ -295,13 +295,18 @@ class reader:
             if cmd.startswith("."):
                 if cmd == ".insert_macro":
                     args = (args[0], args[1]+"("+",".join(args[2:])+")")
-                tmp = default_preprocessor_directive(args, preceding, lineNum, self.labels)
-                self.instructions.append(tmp)
-                if tmp.needsCodeblock():
-                    self.inCodeblock = True
-                    self.codeblock = reader()
-                    self.codeblock.instructions.append(preceding)
-                    self.codeblock.labels = self.labels
+                if cmd[1:].lower() in self.directives:
+                    tmp = self.directives[cmd[1:]](args, preceding, lineNum, self.labels)
+                    self.instructions.append(tmp)
+                    if tmp.needsCodeblock():
+                        self.inCodeblock = True
+                        self.codeblock = reader()
+                        self.codeblock.ops = self.ops
+                        self.codeblock.directives = self.directives
+                        self.codeblock.instructions.append(preceding)
+                        self.codeblock.labels = self.labels
+                else:
+                    self.printError("Invalid preprocessor directive \""+cmd+"\"", lineNum=lineNum)
             else:
                 if cmd in self.ops:
                     tmp = self.ops[cmd](args, preceding, lineNum)
@@ -489,11 +494,19 @@ class writer:
 def main(argv):
     asm = open(argv[0], 'r')
     read = reader()
+    
     from dcpu16 import dcpu16_instruction
     for op in dcpu16_instruction.opcodes:
         read.registerOp(op, dcpu16_instruction)
     for op in dcpu16_instruction.ext_opcodes:
         read.registerOp(op, dcpu16_instruction)
+        
+    from preprocessor_directives import default_preprocessor_directive
+    for directive in default_preprocessor_directive.directives:
+        read.registerDirective(directive, default_preprocessor_directive)
+    read.registerDirective("reserve", default_preprocessor_directive)
+    read.registerDirective("ifndef", default_preprocessor_directive)
+    read.registerDirective("define", default_preprocessor_directive)
     
     read.read(asm)  #TODO: support @, cmd arguments
     asm.close()
