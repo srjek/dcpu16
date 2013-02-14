@@ -472,7 +472,7 @@ class preprocessor_directive(instruction):
     """Interface used by the assembler to work with preprocessor directives.
     
     Notes:
-        * This class inherits all members of the `instruction` class, the assembler will also expect the those functions are implemented even if they are overriden by `preprocessor_directive`.
+        * This class inherits all members of the `instruction` class, the assembler will also expect that those functions are implemented even if they are overriden by `preprocessor_directive`.
         * The assembler also expects implementations of the needsCodeblock(), setCodeblock(), and endCodeblock() functions, but only if codeblocks are used.
         * The provided `__init__()` is how the assembler will create any preprocesser-based class. Children should provide an `__init__()` with similar args, and call this class's `__init__()`
     """
