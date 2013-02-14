@@ -15,330 +15,6 @@ INCLUDEPATH = ()    #That's right folks, empty. I have no standard libraries for
 def printError(error, lineNum, file=sys.stderr):
     print("Line " + str(lineNum) + ": " + str(error), file=file)
 
-class eval_register:
-    def __init__(self, register):
-        self.register = register
-        self.offset = 0
-        self.isConst = True
-    def __add__(self, x):
-        tmp = eval_register(self.register)
-        tmp.offset = self.offset + x
-        while tmp.offset > 0xFFFF:
-            tmp.offset -= 0x10000
-        return tmp
-    __radd__ = __add__            # support for x+t
-    def __sub__(self, x):
-        tmp = eval_register(self.register)
-        tmp.offset = self.offset - x
-        while tmp.offset < 0:
-            tmp.offset += 0x10000
-        return tmp
-class value_preprocesser:
-    def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
-    def __init__(self, value, lineNum):
-        self.lineNum = lineNum
-        try:
-            self.extra = eval_0xSCAmodified(value, {}, preEval=True)
-            self.labels = extractVaribles(self.extra, "")
-        except Exception as err:
-            self.printError(repr(err))
-    def optimize(self, labels):
-        return False
-    def isConstSize(self):
-        return len(self.labels) == 0#False
-    def build(self, labels):
-        result = None
-        try:
-            result = self._extraWords(labels)
-        except Exception as err:
-            self.printError(repr(err))
-            return None
-        return result
-    def _extraWords(self, labels, labelCache=None):
-        if self.extra != None:
-            globalLabel = labels["$$globalLabel"]
-            eval_locals = {}
-            if labelCache == None:
-                for x in self.labels:
-                    if x.startswith("$") and not x.startswith("$$"):
-                        if (globalLabel+x) in labels:
-                            eval_locals[globalLabel+x] = labels[globalLabel+x].getAddress().getAddress()
-                    else:
-                        if x in labels:
-                            eval_locals[x] = labels[x].getAddress().getAddress()
-            else:
-                eval_locals.extend(labelCache)
-            eval_locals["abs"] = abs
-            eval_locals["str"] = str
-            eval_locals["hex"] = hex
-            return eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
-        return ()
-class value_const16:
-    def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
-    def __init__(self, value, lineNum):
-        self.lineNum = lineNum
-        try:
-            self.extra = eval_0xSCAmodified(value, {}, preEval=True)
-            self.labels = extractVaribles(self.extra, "")
-        except Exception as err:
-            self.printError(repr(err))
-            return
-        self.size = None
-        self.lastLabels = []
-        self.isInt = False
-
-        labels = {"$$globalLabel":""}
-        for x in self.labels:
-            labels[x] = address(address(1))
-        try:
-            self.size = len(self._extraWords(labels))
-        except NameError as err:
-            self.printError(repr(err))
-        return
-    def optimize(self, labels):
-        if self.isInt or len(self.labels) == 0:
-            return False
-        labelCache = {}
-        if len(self.lastLabels) == len(labels):
-            globalLabel = labels["$$globalLabel"]
-            tmp = True
-            for key in self.labels.keys():
-                x = key
-                if key.startswith("$"):
-                    x = globalLabel+key
-                if x not in labels:
-                    tmp = False
-                    break
-                labelCache[x] = labels[x].getAddress().getAddress()
-                if (x not in self.lastLabels) or (self.labelCache[x] != self.lastLabels[x]):
-                    tmp = False
-                    break
-            if tmp:
-                return False
-        old_size = self.size
-        self.size = len(self._extraWords(labels, labelCache))
-        self.lastLabels = labelCache
-        return old_size != self.size
-    def isConstSize(self):
-        if len(self.labels) == 0:
-            return True
-        return False
-    def build(self, labels):
-        return 0x10000
-    def sizeExtraWords(self):
-        return self.size
-    def _extraWords(self, labels, labelCache=None):
-        if self.extra != None:
-            globalLabel = labels["$$globalLabel"]
-            eval_locals = {}
-            if labelCache == None:
-                for x in self.labels:
-                    if x.startswith("$") and not x.startswith("$$"):
-                        if (globalLabel+x) in labels:
-                            eval_locals[globalLabel+x] = labels[globalLabel+x].getAddress().getAddress()
-                    else:
-                        if x in labels:
-                            eval_locals[x] = labels[x].getAddress().getAddress()
-            else:
-                eval_locals.extend(labelCache)
-            eval_locals["abs"] = abs
-            eval_locals["str"] = str
-            eval_locals["hex"] = hex
-            extra = eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
-            if type(extra) == type("str"):
-                return tuple(extra.encode("ascii"))
-            if type(extra) == type(wordString(())):
-                return tuple(extra)
-            if extra != None:
-                self.isInt = True
-            return (extra,)
-        return ()
-    def extraWords(self, labels):
-        result = None
-        try:
-            result = self._extraWords(labels)[0:self.size]
-        except Exception as err:
-            self.printError(repr(err))
-            return tuple( [0]*self.size )
-        if len(result) < self.size:
-            result = list(result)
-            result.extend( [0]*(self.size-len(result)) )
-            result = tuple(result)
-        return result
-class value:
-    registers = {"a":0x0, "b":0x1, "c":0x2, "x":0x3, "y":0x4, "z":0x5, "i":0x6, "j":0x7}
-    cpu = {"POP":0x18, "PEEK":0x19, "PUSH":0x18, "PICK":0x1A, "SP":0x1B, "PC":0x1C, "EX":0x1D}
-    def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
-        
-    def __init__(self, part, lineNum, allowShortLiteral):
-        self.lineNum = lineNum
-        registers = value.registers
-        cpu = value.cpu
-        self.value = None
-        self.extra = None
-        self.shortLiteral = False
-        self.allowShortLiteral = allowShortLiteral
-        if type(part) == type(0x42):
-            self.value = part & 0x3F
-        elif type(part) == type(""):
-            if part.startswith("[") and part.endswith("]"):
-                part = part[1:-1]
-                if part.lower() in registers:
-                    self.value = 0x08 | registers[part.lower()]
-                elif part.upper() == "SP++":
-                    self.value = cpu["POP"]
-                elif part.upper() == "--SP":
-                    self.value = cpu["PUSH"]
-                elif part.upper() == "SP+[PC++]":
-                    self.value = cpu["PICK"]
-                elif part.upper() == "SP":
-                    self.value = cpu["PEEK"]
-                elif part.upper() == "[PC++]":
-                    self.value = 0x1E
-                elif part.upper() == "PC++":
-                    self.value = 0x1F
-                else:
-                    self.value = -1
-                    self.extra = part
-            elif part.lower() in registers:
-                self.value = registers[part.lower()]
-            elif part.upper() in cpu:
-                self.value = cpu[part.upper()]
-            else:
-                self.value = 0x1F
-                self.extra = part
-        else:
-            self.value = 0x1F
-            self.extra = part
-        labels = {}
-        self.lastLabels = []
-        self.labels = ()
-        if self.extra != None:
-            try:
-                self.extra = eval_0xSCAmodified(self.extra, {}, preEval=True)
-                self.labels = extractVaribles(self.extra, "")
-            except Exception as err:
-                self.printError(repr(err))
-                return
-        if len(self.labels) == 0:    #We need to force an optimize for those short literals
-            self.labels = ["NotReally"]
-            self.optimize({"NotReally":address(address(0)), "$$globalLabel":""})
-            self.labels = []
-            self.lastLabels = []
-    def optimize(self, labels):
-        if self.value != 0x1F:
-            return False
-        if len(self.labels) == 0:
-            return False
-        if self.extra == None:
-            return False
-        #if len(self.labels) > 0 and list(self.labels)[0] != "NotReally":    #Turns off short labels (Unless if program designed to use internal magic values)
-        #    return False
-        labelCache = {}
-        if len(self.lastLabels) == len(labels):
-            tmp = True
-            for key in self.labels.keys():
-                x = key
-                if key.startswith("$"):
-                    x = globalLabel+key
-                if x not in labels:
-                    tmp = False
-                    break
-                labelCache[x] = labels[x].getAddress().getAddress()
-                if (x not in self.lastLabels) or (self.labelCache[x] != self.lastLabels[x]):
-                    tmp = False
-                    break
-            if tmp:
-                return False
-        self.lastLabels = labelCache
-        if self.value == 0x1F and self.allowShortLiteral:
-            extra = self._extraWords(labels)[0]
-            if extra != None:
-                lastShort = self.shortLiteral
-                self.shortLiteral = (extra <= 0x1E or extra == 0xFFFF)
-                return self.shortLiteral != lastShort
-        return False
-    def isConstSize(self):
-        if self.value == 0x1F and len(self.labels) != 0:
-            return False
-        return True
-    def sizeExtraWords(self):
-        if self.extra != None:
-            if self.value == 0x1F and self.shortLiteral:
-                return 0
-            return 1
-        return 0
-    def build(self, labels):
-        if self.value == -1:
-            extra = self._extraWords(labels)[0]
-            if extra != None:
-                if type(extra) == type(eval_register(0x0)):
-                    return extra.register
-                else:
-                    return 0x1E
-            return 0x20 | 0x00
-        if self.value == 0x1F and self.shortLiteral:
-            tmp = self._extraWords(labels)[0]
-            tmp += 1
-            if tmp == 0x10000:
-                tmp = 0
-            return 0x20 | tmp
-        return self.value
-    def __extraWords(self, labels):
-        if self.extra != None:
-            globalLabel = labels["$$globalLabel"]
-            eval_locals = {}
-            for x in self.labels:
-                if x.startswith("$") and not x.startswith("$$"):
-                    if (globalLabel+x) in labels:
-                        eval_locals[globalLabel+x] = labels[globalLabel+x].getAddress().getAddress()
-                else:
-                    if x in labels:
-                        eval_locals[x] = labels[x].getAddress().getAddress()
-            for x in value.registers.keys():
-                eval_locals[x.lower()] = eval_register(0x10 | value.registers[x])
-                eval_locals[x.upper()] = eval_register(0x10 | value.registers[x])
-            eval_locals["SP"] = eval_register(value.cpu["PICK"])
-            eval_locals["sP"] = eval_register(value.cpu["PICK"])
-            eval_locals["Sp"] = eval_register(value.cpu["PICK"])
-            eval_locals["sp"] = eval_register(value.cpu["PICK"])
-            eval_locals["abs"] = abs
-            extra = eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
-            if type(extra) == type(42):
-                while extra > 0xFFFF:
-                    extra -= 0x10000
-                while extra < 0x0000:
-                    extra += 0x10000
-            return (extra,)
-        return ()
-    def _extraWords(self, labels):
-        result = (None,)
-        try:
-            result = self.__extraWords(labels)
-        except Exception as err:
-            self.printError(repr(err))
-            result = (None,)
-        return result
-    def extraWords(self, labels):
-        tmp = self._extraWords(labels)
-        if self.value == 0x1F and self.extra != None:
-            if tmp[0] != None:
-                if (tmp[0] <= 0x1E or tmp[0] == 0xFFFF) and self.shortLiteral:
-                    return ()
-        result = []
-        for x in tmp:
-            if type(x) == type(eval_register(0x0)):
-                result.append(x.offset)
-            else:
-                result.append(x)
-        return tuple(result)
-
 class address:
     """Represents a position in the resulting binary.
     
@@ -499,18 +175,18 @@ class preprocessor_directive(instruction):
     def setCodeblock(self, codeblock):
         """Provides the directive with the next codeblock to manage.
         
-        Only called if `needsCodeblock()` returns True.
+        Only called if `needsCodeblock()` returned True.
         
         The default implemention will print an error to the console, but not throw an exception.
         
-        @param codeblock Array of instruction and/or preprocessor_directive objects. First instruction has a undefined preceding instruction set.
+        @param codeblock Array of `instruction` and/or `preprocessor_directive` objects. First instruction has a undefined preceding instruction set.
         @todo Define exact preceding for first instruction of codeblock
         """
         printError("Directive doesn't accept codeblocks", lineNum=("~"+self.lineNum))
     def endCodeblock(self, parts, lineNum):
         """Provides the directive used to end the codeblock to the starting directive.
         
-        Only called if `needsCodeblock()` returns True.
+        Only called if `needsCodeblock()` returned True.
         
         The default implemention will do nothing.
         
@@ -575,11 +251,21 @@ class reader:
         self.instructions = []
         self.labels = {"$$globalLabel":""}
         self.origin = origin(0)
+        
+        self.ops = {}
+        self.directives = {}
+    
+    def registerOp(self, opName, opClass):
+        self.ops[opName] = opClass
+    def registerDirective(self, directiveName, directiveClass):
+        self.ops[opName] = opClass
+        
     def printError(self, error, lineNum=None):
         if lineNum == None:
             lineNum = self.lineNum
         printError(error, lineNum)
     def parseTokens(self):
+        from preprocessor_directives import default_preprocessor_directive
         while len(self.tokenQueue) > 0:
             token = self.tokenQueue.pop(0)
             lineNum = token[0]
@@ -609,7 +295,7 @@ class reader:
             if cmd.startswith("."):
                 if cmd == ".insert_macro":
                     args = (args[0], args[1]+"("+",".join(args[2:])+")")
-                tmp = preprocessor_directive(args, preceding, lineNum, self.labels)
+                tmp = default_preprocessor_directive(args, preceding, lineNum, self.labels)
                 self.instructions.append(tmp)
                 if tmp.needsCodeblock():
                     self.inCodeblock = True
@@ -617,8 +303,12 @@ class reader:
                     self.codeblock.instructions.append(preceding)
                     self.codeblock.labels = self.labels
             else:
-                tmp = instruction(args, preceding, lineNum)
-                self.instructions.append(tmp)
+                if cmd in self.ops:
+                    tmp = self.ops[cmd](args, preceding, lineNum)
+                    self.instructions.append(tmp)
+                else:
+                    self.printError("Invalid opcode \""+cmd+"\"", lineNum=lineNum)
+                    self.printError("Invalid opcode made it past earlier check when it should have not", lineNum=lineNum)
     def readChar(self, char):
         printError = self.printError
         self.charNum += 1
@@ -694,7 +384,7 @@ class reader:
                 self.mode = "none"
                 return
             if char.isspace():
-                if self.curPart.upper() in instruction.ops:
+                if self.curPart.upper() in self.ops:
                     self.mode = "op"
                     self.curToken = (self.lineNum, self.curPart.upper(), [])
                     self.curPart = ""
@@ -799,6 +489,12 @@ class writer:
 def main(argv):
     asm = open(argv[0], 'r')
     read = reader()
+    from dcpu16 import dcpu16_instruction
+    for op in dcpu16_instruction.opcodes:
+        read.registerOp(op, dcpu16_instruction)
+    for op in dcpu16_instruction.ext_opcodes:
+        read.registerOp(op, dcpu16_instruction)
+    
     read.read(asm)  #TODO: support @, cmd arguments
     asm.close()
     obj = open(argv[1], 'wb')

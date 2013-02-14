@@ -1,4 +1,51 @@
-from assembler import preprocessor_directive, address
+import sys
+from assembler import preprocessor_directive, address, stdwrap, printError
+from mathEval import eval_0xSCAmodified, wordString, extractVaribles, tokenize, validate
+from dcpu16 import dcpu16_instruction
+import copy
+
+class value_preprocesser:
+    def printError(self, error):
+        global printError
+        printError(error, self.lineNum)
+    def __init__(self, value, lineNum):
+        self.lineNum = lineNum
+        try:
+            self.extra = eval_0xSCAmodified(value, {}, preEval=True)
+            self.labels = extractVaribles(self.extra, "")
+        except Exception as err:
+            self.printError(repr(err))
+    def optimize(self, labels):
+        return False
+    def isConstSize(self):
+        return len(self.labels) == 0#False
+    def build(self, labels):
+        result = None
+        try:
+            result = self._extraWords(labels)
+        except Exception as err:
+            self.printError(repr(err))
+            return None
+        return result
+    def _extraWords(self, labels, labelCache=None):
+        if self.extra != None:
+            globalLabel = labels["$$globalLabel"]
+            eval_locals = {}
+            if labelCache == None:
+                for x in self.labels:
+                    if x.startswith("$") and not x.startswith("$$"):
+                        if (globalLabel+x) in labels:
+                            eval_locals[globalLabel+x] = labels[globalLabel+x].getAddress().getAddress()
+                    else:
+                        if x in labels:
+                            eval_locals[x] = labels[x].getAddress().getAddress()
+            else:
+                eval_locals.extend(labelCache)
+            eval_locals["abs"] = abs
+            eval_locals["str"] = str
+            eval_locals["hex"] = hex
+            return eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
+        return ()
 
 class default_preprocessor_directive(preprocessor_directive):
     directives = ("align", "echo", "error", "rep", "if", "define", "undefine", "origin", "incbin", "include", "macro", "insert_macro", "label", "equ")
@@ -37,7 +84,7 @@ class default_preprocessor_directive(preprocessor_directive):
         if parts[0][1:].lower() == "reserve":
             parts[0] = ".rep"
             self.__init__(parts, preceding, lineNum, labels)
-            self.setCodeblock([instruction(("DAT","0"), preceding, lineNum)])
+            self.setCodeblock([dcpu16_instruction(("DAT","0"), preceding, lineNum)])
             self.endCodeblock((".end",), lineNum)
             return
         if parts[0][1:].lower() == "incpack":
