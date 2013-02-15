@@ -22,10 +22,10 @@ class eval_register:
         return tmp
 class value_const16:
     def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
-    def __init__(self, value, lineNum):
+        self.parent.printError(error, lineNum=self.lineNum)
+    def __init__(self, value, lineNum, parent):
         self.lineNum = lineNum
+        self.parent = parent
         try:
             self.extra = eval_0xSCAmodified(value, {}, preEval=True)
             self.labels = extractVaribles(self.extra, "")
@@ -93,6 +93,7 @@ class value_const16:
             eval_locals["abs"] = abs
             eval_locals["str"] = str
             eval_locals["hex"] = hex
+            eval_locals["$$curAddress"] = self.parent
             extra = eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
             if type(extra) == type("str"):
                 return tuple(extra.encode("ascii"))
@@ -118,11 +119,11 @@ class value:
     registers = {"a":0x0, "b":0x1, "c":0x2, "x":0x3, "y":0x4, "z":0x5, "i":0x6, "j":0x7}
     cpu = {"POP":0x18, "PEEK":0x19, "PUSH":0x18, "PICK":0x1A, "SP":0x1B, "PC":0x1C, "EX":0x1D}
     def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
+        self.parent.printError(error, lineNum=self.lineNum)
         
-    def __init__(self, part, lineNum, allowShortLiteral):
+    def __init__(self, part, lineNum, parent, allowShortLiteral):
         self.lineNum = lineNum
+        self.parent = parent
         registers = value.registers
         cpu = value.cpu
         self.value = None
@@ -254,6 +255,7 @@ class value:
             eval_locals["Sp"] = eval_register(value.cpu["PICK"])
             eval_locals["sp"] = eval_register(value.cpu["PICK"])
             eval_locals["abs"] = abs
+            eval_locals["$$curAddress"] = self.parent
             extra = eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
             if type(extra) == type(42):
                 while extra > 0xFFFF:
@@ -283,6 +285,13 @@ class value:
             else:
                 result.append(x)
         return tuple(result)
+    def clone(self):
+        result = value("A", self.lineNum, self.parent, self.allowShortLiteral)
+        result.value = self.value
+        result.extra = copy.deepcopy(self.extra)
+        result.labels = copy.deepcopy(self.labels)
+        result.shortLiteral = self.shortLiteral
+        return result
 
 class dcpu16_instruction(instruction):
     opcodes = {         "SET":0x01, "ADD":0x02, "SUB":0x03, "MUL":0x04, "MLI":0x05, "DIV":0x06, "DVI":0x07,
@@ -298,8 +307,8 @@ class dcpu16_instruction(instruction):
     ops.extend(opcodes.keys())
     ops.extend(ext_opcodes.keys())
 
-    def __init__(self, parts, preceding, lineNum):
-        super().__init__(parts, preceding, lineNum)
+    def __init__(self, parts, preceding, lineNum, fileName, reader):
+        super().__init__(parts, preceding, lineNum, fileName, reader)
         self.a = None
         self.b = None
         
@@ -307,7 +316,7 @@ class dcpu16_instruction(instruction):
         if op not in dcpu16_instruction.opcodes:
             if op in dcpu16_instruction.ext_opcodes:
                 self.op = 0
-                self.a = value(dcpu16_instruction.ext_opcodes[op], lineNum, False)
+                self.a = value(dcpu16_instruction.ext_opcodes[op], lineNum, self, False)
             else:
                 self.printError("Invalid opcode \"" + op + "\"")
                 self.op = None
@@ -327,7 +336,7 @@ class dcpu16_instruction(instruction):
                 return
             values = []
             for p in parts[1:]:
-                values.append(value_const16(p, lineNum))
+                values.append(value_const16(p, lineNum, self))
             self.values = values
             return
         elif op in dcpu16_instruction.opcodes and len(parts) - 1 != 2:
@@ -335,18 +344,18 @@ class dcpu16_instruction(instruction):
             self.op = None
             return
         if op in dcpu16_instruction.ext_opcodes:
-            self.b = value(parts[1], lineNum, True)
+            self.b = value(parts[1], lineNum, self, True)
             return
         if op == "JMP":
-            self.b = value(parts[1], lineNum, True)
+            self.b = value(parts[1], lineNum, self, True)
             if self.b.value == 0x1F:
                 self.shortJmp = False
                 return
             self.op = dcpu16_instruction.opcodes["SET"]
             parts = ["SET", "PC", parts[1]]
             return
-        self.a = value(parts[1], lineNum, False)
-        self.b = value(parts[2], lineNum, True)
+        self.a = value(parts[1], lineNum, self, False)
+        self.b = value(parts[2], lineNum, self, True)
     
     #def cycles(self):
     #    return self.size()
@@ -368,7 +377,7 @@ class dcpu16_instruction(instruction):
                 result.extend(val.extraWords(labels))
             return result
         if self.op == dcpu16_instruction.opcodes["JMP"]:
-            result = dcpu16_instruction(["SET", "PC", self.b.extra], self.preceding, self.lineNum)
+            result = dcpu16_instruction(["SET", "PC", self.b.extra], self.preceding, self.lineNum, self.fileName, self.reader)
             result.b = self.b
             if self.shortJmp and result.size() != 1:
                 dest = self.b.extraWords(labels)[0]
@@ -378,7 +387,7 @@ class dcpu16_instruction(instruction):
                     op = "SUB"
                     dest = (start - dest)
                     start = 0
-                result = dcpu16_instruction([op, "PC", repr(dest-start)], self.preceding, self.lineNum)
+                result = dcpu16_instruction([op, "PC", repr(dest-start)], self.preceding, self.lineNum, self.fileName, self.reader)
                 result.optimize(labels)
                 if result.size() != 1:
                     printError("Failed to optimize jmp instruction as reported")
@@ -422,10 +431,15 @@ class dcpu16_instruction(instruction):
             return result or (lastShortJmp != self.shortJmp)
         return self.a.optimize(labels) or result
     def clone(self):
-        result = dcpu16_instruction(("DAT", "\"\""), self.preceding, self.lineNum)
+        result = dcpu16_instruction(("DAT", "\"\""), self.preceding, self.lineNum, self.fileName, self.reader)
         result.op = copy.copy(self.op)
-        result.a = copy.deepcopy(self.a)
-        result.b = copy.deepcopy(self.b)
+        result.a = self.a.clone()
+        result.a.parent = result
+        result.b = self.b.clone()
+        result.b.parent = result
         if self.op == dcpu16_instruction.opcodes["DAT"]:
-            result.values = copy.deepcopy(self.values)
+            values = []
+            for v in self.values:
+                values.append(value_const16(v.extra, self.lineNum, self))
+            result.values = values #copy.deepcopy(self.values)
         return result

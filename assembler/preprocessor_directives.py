@@ -3,15 +3,16 @@ import os.path
 import copy
 
 from assembler import preprocessor_directive, address, stdwrap, printError, reader
+import assembler
 from mathEval import eval_0xSCAmodified, wordString, extractVaribles, tokenize, validate
 from dcpu16 import dcpu16_instruction
 
 class value_preprocesser:
     def printError(self, error):
-        global printError
-        printError(error, self.lineNum)
-    def __init__(self, value, lineNum):
+        self.parent.printError(error, lineNum=self.lineNum)
+    def __init__(self, value, lineNum, parent):
         self.lineNum = lineNum
+        self.parent = parent
         try:
             self.extra = eval_0xSCAmodified(value, {}, preEval=True)
             self.labels = extractVaribles(self.extra, "")
@@ -46,18 +47,17 @@ class value_preprocesser:
             eval_locals["abs"] = abs
             eval_locals["str"] = str
             eval_locals["hex"] = hex
+            eval_locals["$$curAddress"] = self.parent
             return eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
         return ()
 
 class echo_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
-        self.a = value_preprocesser(self.extra, lineNum)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
+        self.a = value_preprocesser(self.extra, lineNum, self)
     
     def build(self, labels):
-        labels["$$curAddress"] = self
         value = self.a.build(labels)
-        labels.pop("$$curAddress")
         
         if self.directive == "echo":
             self.printError(value, file=sys.stdout)
@@ -70,8 +70,8 @@ class echo_directive(preprocessor_directive):
 ## @todo Fix .equ directive
 # @todo Fix .define behavior
 class define_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
         if self.directive == "def": self.directive = ".define"
         if self.directive == "undef": self.directive = ".undefine"
@@ -91,13 +91,11 @@ class define_directive(preprocessor_directive):
             extra = "0"
         
         self.extra = extra
-        self.a = value_preprocesser(extra, lineNum)
         self.value = None
+        self.a = value_preprocesser(extra, lineNum, self)
     
     def build(self, labels):
-        labels["$$curAddress"] = self
         value = self.a.build(labels)
-        labels.pop("$$curAddress")
         
         if self.directive == "define":
             labels[self.varible] = address(address(value))
@@ -110,17 +108,11 @@ class define_directive(preprocessor_directive):
                 pass
         return ()
     def optimize(self, labels):
-        if self.directive == "": return False
-        
-        labels["$$curAddress"] = self
         result = self.a.optimize(labels)
-        labels.pop("$$curAddress")
         
         if self.directive in ("define", "equ"):
             lastValue = self.value
-            labels["$$curAddress"] = self
             self.value = self.a.build(labels)
-            labels.pop("$$curAddress")
             if self.directive == "equ":
                 labels["$$labels"][self.varible] = address(address(self.value))
             else:
@@ -133,11 +125,11 @@ class define_directive(preprocessor_directive):
                 pass
         return False
     def clone(self):
-        return define_directive(("." + self.directive, self.varible, self.extra), self.preceding, self.lineNum)
+        return define_directive(("." + self.directive, self.varible, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         
 class label_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
         tmp = {"$$labels": labels, "$$globalLabel": labels["$$globalLabel"]}
         self.updateLabel(tmp)
@@ -159,11 +151,11 @@ class label_directive(preprocessor_directive):
         return False    #We can return False, because we only change in value when another instruction changes in size, which would have already returned True
         
 class align_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
         self._size = 0
-        self.a = value_preprocesser(self.extra, lineNum)
+        self.a = value_preprocesser(self.extra, lineNum, self)
     
     def size(self):
         return self._size
@@ -172,9 +164,7 @@ class align_directive(preprocessor_directive):
     def build(self, labels):
         return (0,)*self._size
     def optimize(self, labels):
-        labels["$$curAddress"] = self
         result = self.a.optimize(labels)
-        labels.pop("$$curAddress")
         
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
@@ -185,13 +175,13 @@ class align_directive(preprocessor_directive):
         return (lastSize != self._size) or result
 
 class origin_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
        
         self._size = 0
         if self.directive == "org":
             self.directive = ".origin"
-        self.a = value_preprocesser(self.extra, lineNum)
+        self.a = value_preprocesser(self.extra, lineNum, self)
     
     def size(self):
         return self._size
@@ -200,9 +190,7 @@ class origin_directive(preprocessor_directive):
     def build(self, labels):
         return ()
     def optimize(self, labels):
-        labels["$$curAddress"] = self
         result = self.a.optimize(labels)
-        labels.pop("$$curAddress")
         
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
@@ -213,13 +201,13 @@ class origin_directive(preprocessor_directive):
         return (lastSize != self._size) or result
         
 class rep_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
         self._size = 0
         self.codeblock = None
         self.codeblockInstance = None
-        self.a = value_preprocesser(self.extra, lineNum)
+        self.a = value_preprocesser(self.extra, lineNum, self)
         
         if self.directive == "reserve":
             self.directive = ".rep"
@@ -251,9 +239,7 @@ class rep_directive(preprocessor_directive):
             result = i.optimize(labels) or result
         return result
     def optimize(self, labels):
-        labels["$$curAddress"] = self
         result = self.a.optimize(labels)
-        labels.pop("$$curAddress")
         
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
@@ -292,7 +278,7 @@ class rep_directive(preprocessor_directive):
             return
     def clone(self):
         result = None
-        result = rep_directive((".rep", self.a.extra), self.preceding, self.lineNum)
+        result = rep_directive((".rep", self.a.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.codeblock != None and result.needsCodeblock():
             codeblock = []
             for code in self.codeblock:
@@ -301,7 +287,7 @@ class rep_directive(preprocessor_directive):
         return result
     
 class if_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         parts = list(parts)
         if parts[0][1:].lower() == "ifdef":
             parts[0] = ".if"
@@ -309,14 +295,14 @@ class if_directive(preprocessor_directive):
         if parts[0][1:].lower() == "ifndef":
             parts[0] = ".if"
             parts[1] = "!isdef( " + parts[1].strip() + " )"
-        super().__init__(parts, preceding, lineNum, labels)
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
         self._size = 0
         self.codeblock = None
         self.codeblockInstance = None
         self.nextIf = None
         self.passIf = False
-        self.a = value_preprocesser(self.extra, lineNum)
+        self.a = value_preprocesser(self.extra, lineNum, self)
     
     def size(self):
         if self.passIf:
@@ -331,9 +317,7 @@ class if_directive(preprocessor_directive):
     def isConstSize(self):
         return False
     def build(self, labels):
-        labels["$$curAddress"] = self
         value = self.a.build(labels)
-        labels.pop("$$curAddress")
         
         if self.passIf:
             if self.nextIf != None:
@@ -353,9 +337,7 @@ class if_directive(preprocessor_directive):
             result = i.optimize(labels) or result
         return result
     def optimize(self, labels):
-        labels["$$curAddress"] = self
         result = self.a.optimize(labels)
-        labels.pop("$$curAddress")
         
         tmp = self.a.build(labels)
         if not (type(tmp) == type(42) or type(tmp) == type(False)):
@@ -393,17 +375,17 @@ class if_directive(preprocessor_directive):
         if parts[0][1:].lower() == "elseif":
             parts[0] = ".if"
 
-            self.nextIf = if_directive(parts, self.preceding, lineNum)
+            self.nextIf = if_directive(parts, self.preceding, lineNum, self.fileName, self.reader)
         elif parts[0][1:].lower() == "else":
             parts[0] = ".rep"
             parts.insert(1, "1")
-            self.nextIf = if_directive(parts, self.preceding, lineNum)
+            self.nextIf = if_directive(parts, self.preceding, lineNum, self.fileName, self.reader)
         elif parts[0][1:].lower() == "end":
             self.nextIf = None
         else:
             printError("Can't use \"" + parts[0] + "\" to end .if directive", lineNum=lineNum)
     def clone(self):
-        result = if_directive(("." + self.directive, self.a.extra), self.preceding, self.lineNum)
+        result = if_directive(("." + self.directive, self.a.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.codeblock != None and result.needsCodeblock():
             codeblock = []
             for code in self.codeblock:
@@ -416,8 +398,8 @@ class if_directive(preprocessor_directive):
 
 ## @todo don't leave obj in bad state on init error
 class include_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
 
         if self.extra.startswith("\"") and self.extra.endswith("\""):
             self.filepath = self.extra[1:-1]
@@ -435,12 +417,7 @@ class include_directive(preprocessor_directive):
             return
         else:
             self.printError("Could not understand the arguments "+repr(extra)+" for include")
-        oldStdout = sys.stdout
-        oldStderr = sys.stderr
-        ## @todo alt method for appending "File x:" to input, the reader class seems to ignore the wrapper
-        sys.stdout = stdwrap("File "+self.extra+": ", "", sys.stdout)
-        sys.stderr = stdwrap("File "+self.extra+": ", "", sys.stderr)
-        codeblock = reader()
+        codeblock = assembler.reader(fileName=self.extra)
         
         ## @todo Properly carry over ops and directives from parent reader
         from dcpu16 import dcpu16_instruction
@@ -457,20 +434,14 @@ class include_directive(preprocessor_directive):
         for l in codeblock.labels:
             labels[l] = codeblock.labels[l]
         self.codeblock = codeblock.instructions[1:]
-        sys.stdout = oldStdout
-        sys.stderr = oldStderr
     
     def size(self):
         if self.codeblock == None: return 0
-        oldStdout = sys.stdout; sys.stdout = stdwrap("File "+self.extra+": ", "", sys.stdout)
-        oldStderr = sys.stderr; sys.stderr = stdwrap("File "+self.extra+": ", "", sys.stderr)
         
         size = 0
         for i in self.codeblock:
             size += i.size()
         
-        sys.stdout = oldStdout
-        sys.stderr = oldStderr
         return size
         
     def isConstSize(self):
@@ -481,15 +452,11 @@ class include_directive(preprocessor_directive):
         
     def build(self, labels):
         if self.codeblock == None: return ()
-        oldStdout = sys.stdout; sys.stdout = stdwrap("File "+self.extra+": ", "", sys.stdout)
-        oldStderr = sys.stderr; sys.stderr = stdwrap("File "+self.extra+": ", "", sys.stderr)
         
         code = []
         for i in self.codeblock:
             code.extend(i.build(labels))
         
-        sys.stdout = oldStdout
-        sys.stderr = oldStderr
         return tuple(code)
     
     def optCodeblock(self, labels):
@@ -499,16 +466,12 @@ class include_directive(preprocessor_directive):
             result = i.optimize(labels) or result
         return result
     def optimize(self, labels):
-        oldStdout = sys.stdout; sys.stdout = stdwrap("File "+self.extra+": ", "", sys.stdout)
-        oldStderr = sys.stderr; sys.stderr = stdwrap("File "+self.extra+": ", "", sys.stderr)
         result = self.optCodeblock(labels)
-        sys.stdout = oldStdout
-        sys.stderr = oldStderr
         return result
 
 class incbin_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         if self.directive == "incpack":
             self.directive = ".incbin"
         
@@ -552,8 +515,8 @@ class incbin_directive(preprocessor_directive):
 
 ## @todo Check macro behavior when macros are defined in an .if
 class macro_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         self.codeblock = None
         
         operation = None
@@ -594,7 +557,7 @@ class macro_directive(preprocessor_directive):
             printError("Can't end .macro codeblock with a directive besides .end", lineNum=lineNum)
             return
     def clone(self):
-        result = macro_directive(("." + self.directive, self.extra), self.preceding, self.lineNum)
+        result = macro_directive(("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.codeblock != None and result.needsCodeblock():
             codeblock = []
             for code in self.codeblock:
@@ -603,8 +566,8 @@ class macro_directive(preprocessor_directive):
         return result
         
 class insert_macro_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, labels={}):
-        super().__init__(parts, preceding, lineNum, labels)
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
         self._size = 0
         self.codeblock = None
@@ -626,7 +589,7 @@ class insert_macro_directive(preprocessor_directive):
         self.macroName = operation[1]
         macroArgs = []
         for arg in operation[2]:
-            macroArgs.append(value_preprocesser(arg, lineNum))
+            macroArgs.append(value_preprocesser(arg, lineNum, None))
         self.macroArgs = tuple(macroArgs)
     
     def size(self):

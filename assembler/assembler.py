@@ -11,8 +11,14 @@ from mathEval import eval_0xSCAmodified, wordString, extractVaribles, tokenize, 
 ## List of directories to search when including standard assembly files.
 INCLUDEPATH = ()    #That's right folks, empty. I have no standard libraries for this assembler.
 
-def printError(error, lineNum, file=sys.stderr):
-    print("Line " + str(lineNum) + ": " + str(error), file=file)
+def printError(error, lineNum, fileName=None, file=sys.stderr):
+    result = ""
+    if fileName != None:
+        result = "File "+str(fileName)+": "
+    if lineNum != None:
+        result += "Line " + str(lineNum) + ": "
+    result += str(error)
+    print(result, file=file)
 
 class address:
     """Represents a position in the resulting binary.
@@ -81,14 +87,16 @@ class instruction:
         * `getAddress()` is expected by the assembler, and should not be re-implemented unless neccesary.
     """
     
-    def printError(self, error, lineNum=None, file=sys.stderr):
+    def printError(self, error, lineNum=None, fileName=None, file=sys.stderr):
         """Prints the line number and a message to stderr."""
         global printError
         if lineNum == None:
             lineNum = self.lineNum
-        printError(error, lineNum, file=file)
+        if fileName == None:
+            fileName = self.fileName
+        self.reader.printError(error, lineNum=lineNum, fileName=fileName, file=file)
     
-    def __init__(self, parts, preceding, lineNum):
+    def __init__(self, parts, preceding, lineNum, fileName, reader):
         """Initalizes data common to most if not all instructions.
         
         In particular,
@@ -105,6 +113,8 @@ class instruction:
         """
         
         self.lineNum = lineNum
+        self.fileName = fileName
+        self.reader = reader
         self.badRelocate(preceding)
     
     def getAddress(self):
@@ -127,7 +137,7 @@ class instruction:
         
         Result should be identical to creating an instruction via `__init__()`, so the use of `badRelocate()` will be safe immediately after.
         """
-        result = instruction(("DAT", "\"\""), self.preceding, self.lineNum)
+        result = instruction(("DAT", "\"\""), self.preceding, self.lineNum, self.fileName, self.reader)
         return result
     def badRelocate(self, preceding):
         """Relocates the current instruction by recreating self.address, see below for warning.
@@ -152,7 +162,7 @@ class preprocessor_directive(instruction):
         * The assembler also expects implementations of the needsCodeblock(), setCodeblock(), and endCodeblock() functions, but only if codeblocks are used.
         * The provided `__init__()` is how the assembler will create any preprocesser-based class. Children should provide an `__init__()` with similar args, and call this class's `__init__()`
     """
-    def __init__(self, parts, preceding, lineNum, labels={}):
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         """Initalizes data common to most if not all preprocessor directives.
         
         Nothing special is done for preprocessor_directives, but `super().__init__()` is called, so check the docs for `instruction.__init__()`.
@@ -162,7 +172,7 @@ class preprocessor_directive(instruction):
         @param lineNum Line number the instruction originated from. Stored in `self.lineNum`.
         @param labels A dictionary of labels and their corresponding objects. Each label has a `getAddress()` function. Modifications are passed on to the next instruction or directive.
         """
-        super().__init__(parts, preceding, lineNum);
+        super().__init__(parts, preceding, lineNum, fileName, reader);
         
         if not (parts[0].startswith(".") or parts[0].startswith("#")):
             self.printError("Preproccessor directives must start with a '.' or '#'")
@@ -213,7 +223,7 @@ class preprocessor_directive(instruction):
         
         The default implementation will call the overloaded __init__ function with args (("." + self.directive, self.extra), self.preceding, self.lineNum)
         """
-        return self.__class__(("." + self.directive, self.extra), self.preceding, self.lineNum)
+        return self.__class__(("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
 
 class stdwrap:
     def __init__(self, prefix, suffix, file):
@@ -250,7 +260,7 @@ class origin:
     def getAddress(self):
         return self.address
 class reader:
-    def __init__(self):
+    def __init__(self, fileName=None):
         self.curToken = None
         self.curPart = ""
         self.mode = "none"
@@ -266,6 +276,7 @@ class reader:
         self.labels = {"$$globalLabel":""}
         self.origin = origin(0)
         
+        self.fileName = fileName
         self.ops = {}
         self.directives = {}
     
@@ -274,10 +285,14 @@ class reader:
     def registerDirective(self, directiveName, directiveClass):
         self.directives[directiveName] = directiveClass
         
-    def printError(self, error, lineNum=None):
+    def printError(self, error, lineNum=None, fileName=None, file=sys.stderr):
         if lineNum == None:
             lineNum = self.lineNum
-        printError(error, lineNum)
+        if fileName == None:
+            fileName = self.fileName
+        global printError
+        printError(error, lineNum, fileName=fileName, file=file)
+    
     def parseTokens(self):
         while len(self.tokenQueue) > 0:
             token = self.tokenQueue.pop(0)
@@ -311,7 +326,7 @@ class reader:
                 if cmd == ".insert_macro":
                     args = (args[0], args[1]+"("+",".join(args[2:])+")")
                 if cmd[1:].lower() in self.directives:
-                    tmp = self.directives[cmd[1:]](args, preceding, lineNum, self.labels)
+                    tmp = self.directives[cmd[1:]](args, preceding, lineNum, self.fileName, self, self.labels)
                     self.instructions.append(tmp)
                     if tmp.needsCodeblock():
                         self.inCodeblock = True
@@ -324,7 +339,7 @@ class reader:
                     self.printError("Invalid preprocessor directive \""+cmd+"\"", lineNum=lineNum)
             else:
                 if cmd in self.ops:
-                    tmp = self.ops[cmd](args, preceding, lineNum)
+                    tmp = self.ops[cmd](args, preceding, lineNum, self.fileName, self)
                     self.instructions.append(tmp)
                 else:
                     self.printError("Invalid opcode \""+cmd+"\"", lineNum=lineNum)
