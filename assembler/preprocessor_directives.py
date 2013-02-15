@@ -138,7 +138,10 @@ class define_directive(preprocessor_directive):
 class label_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, labels={}):
         super().__init__(parts, preceding, lineNum, labels)
-        self.updateLabel({"$$labels": labels, "$$globalLabel": labels["$$globalLabel"]})
+        
+        tmp = {"$$labels": labels, "$$globalLabel": labels["$$globalLabel"]}
+        self.updateLabel(tmp)
+        labels["$$globalLabel"] = tmp["$$globalLabel"]
         
     def updateLabel(self, labels):
         label = self.extra
