@@ -98,6 +98,8 @@ class instruction:
         
         `__init__()` should be called by children's `__init__()`, and children should provide an `__init__()` with similar args.
         
+        The default implementation is a instruction of 0 size, regardless of any arguments passed.
+        
         @param parts An array of strings, representing an instruction name, following by it's arguments in order. Not used by interface's `__init__()`.
         @param preceding The previous instruction in the program. Used to determine `self.address`.
         @param lineNum Line number the instruction originated from. Stored in `self.lineNum`.
@@ -120,7 +122,7 @@ class instruction:
         """Returns an array of 16bit words representing the assembled instruction."""
         return ()
     def optimize(self, labels):
-        """Optimizes the current instruction, returns True only if a change occured."""
+        """Optimizes the current instruction, returns True only if a change in size or labels occured."""
         return False
     def clone(self):
         """Creates a proper copy of the instruction.
@@ -164,6 +166,18 @@ class preprocessor_directive(instruction):
         @todo Describe the labels param
         """
         super().__init__(parts, preceding, lineNum);
+        
+        if not (parts[0].startswith(".") or parts[0].startswith("#")):
+            self.printError("Preproccessor directives must start with a '.' or '#'")
+            return
+        self.directive = parts[0][1:].lower()
+        extra = ""
+        if len(parts) >= 2:
+            extra = parts[1]
+            for i in range(2, len(parts)):
+                extra += " " + parts[i]
+        self.extra = extra
+                
     def needsCodeblock(self):
         """Returns true if the preprocessor directive is also the start of a codeblock.
         
@@ -193,12 +207,16 @@ class preprocessor_directive(instruction):
         @param lineNum Line number of ending directive
         """
         return
+    def test(self):
+        return self.__class__
     def clone(self):
         """Creates a proper copy of the preprocesser directive.
         
         Result should be identical to creating a preprocesser directive via `__init__()`, so the use of `badRelocate()` will be safe immediately after.
+        
+        The default implementation will call the overloaded __init__ function with args (("." + self.directive, self.extra), self.preceding, self.lineNum)
         """
-        return preprocessor_directive(None, self.preceding, self.lineNum)
+        return self.__class__(("." + self.directive, self.extra), self.preceding, self.lineNum)
 
 class stdwrap:
     def __init__(self, prefix, suffix, file):
@@ -501,12 +519,8 @@ def main(argv):
     for op in dcpu16_instruction.ext_opcodes:
         read.registerOp(op, dcpu16_instruction)
         
-    from preprocessor_directives import default_preprocessor_directive
-    for directive in default_preprocessor_directive.directives:
-        read.registerDirective(directive, default_preprocessor_directive)
-    read.registerDirective("reserve", default_preprocessor_directive)
-    read.registerDirective("ifndef", default_preprocessor_directive)
-    read.registerDirective("define", default_preprocessor_directive)
+    from preprocessor_directives import registerDirectives
+    registerDirectives(read)
     
     read.read(asm)  #TODO: support @, cmd arguments
     asm.close()

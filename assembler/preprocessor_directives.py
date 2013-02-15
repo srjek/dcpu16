@@ -50,18 +50,13 @@ class value_preprocesser:
         return ()
 
 class default_preprocessor_directive(preprocessor_directive):
-    directives = ("align", "echo", "error", "rep", "if", "define", "undefine", "origin", "incbin", "include", "macro", "insert_macro", "label", "equ")
+    directives = ("if", "incbin", "include", "macro", "insert_macro")
 
-    def printError(self, error, file=sys.stderr, lineNum=None):
-        global printError
-        if lineNum == None:
-            lineNum = self.lineNum
-        printError(error, lineNum, file=file)
     def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+        
         parts = list(parts)
         
-        self.lineNum = lineNum
-        self.badRelocate(preceding)
         self.directive = ""
         self._size = 0
         self.codeblock = None
@@ -375,8 +370,6 @@ class default_preprocessor_directive(preprocessor_directive):
 
             return False
         return self.directive in ("echo", "error", "define", "undefine", "equ", "incbin", "macro", "label")
-    def getAddress(self):
-        return self.address
     def optimize(self, labels):
         if self.directive == "": return False
         if self.directive in ("echo", "error", "incbin"):
@@ -580,10 +573,268 @@ class default_preprocessor_directive(preprocessor_directive):
             result.nextIf = self.nextIf.clone()
         result.passIf = self.passIf
         return result
-    def badRelocate(self, preceding):
-        self.preceding = preceding
-        if preceding != None:
-            self.address = preceding.getAddress().clone()
-            self.address.add(preceding)
+
+class echo_directive(preprocessor_directive):
+    def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+        self.a = value_preprocesser(self.extra, lineNum)
+    
+    def build(self, labels):
+        labels["$$curAddress"] = self
+        value = self.a.build(labels)
+        labels.pop("$$curAddress")
+        
+        if self.directive == "echo":
+            self.printError(value, file=sys.stdout)
+        if self.directive == "error":
+            self.printError(value)
+            raise Exception("User-generated error")
+        
+        return ()
+
+## @todo Fix .equ directive
+# @todo Fix .define behavior
+class define_directive(preprocessor_directive):
+    def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+        
+        if self.directive == "def": self.directive = ".define"
+        if self.directive == "undef": self.directive = ".undefine"
+        
+        extra = ""
+        
+        nParts = []
+        for x in parts[1:]:
+            nParts.extend(x.split(" "))
+        self.varible = nParts[0]
+        if self.directive in ("define", "equ"):
+            if len(nParts) > 1:
+                extra = " ".join(nParts[1:])
+            else:
+                extra = "1"
         else:
-            self.address = address(0)
+            extra = "0"
+        
+        self.extra = extra
+        self.a = value_preprocesser(extra, lineNum)
+        self.value = None
+    
+    def build(self, labels):
+        labels["$$curAddress"] = self
+        value = self.a.build(labels)
+        labels.pop("$$curAddress")
+        
+        if self.directive == "define":
+            labels[self.varible] = address(address(value))
+        elif self.directive == "equ":
+            labels["$$labels"][self.varible] = address(address(value))
+        elif self.directive == "undefine":
+            try:
+                labels.pop(self.varible)
+            except KeyError:
+                pass
+        return ()
+    def optimize(self, labels):
+        if self.directive == "": return False
+        
+        labels["$$curAddress"] = self
+        result = self.a.optimize(labels)
+        labels.pop("$$curAddress")
+        
+        if self.directive in ("define", "equ"):
+            lastValue = self.value
+            labels["$$curAddress"] = self
+            self.value = self.a.build(labels)
+            labels.pop("$$curAddress")
+            if self.directive == "equ":
+                labels["$$labels"][self.varible] = address(address(self.value))
+            else:
+                labels[self.varible] = address(address(self.value))
+            return (lastValue != self.value)
+        elif self.directive == "undefine":
+            try:
+                labels.pop(self.varible)
+            except KeyError:
+                pass
+        return False
+    def clone(self):
+        return define_directive(("." + self.directive, self.varible, self.extra), self.preceding, self.lineNum)
+        
+class label_directive(preprocessor_directive):
+    def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+        self.updateLabel({"$$labels": labels})
+        
+    def updateLabel(self, labels):
+        label = self.extra
+        if label.startswith("_"):
+            label = labels["$$globalLabel"] + "$" + label[1:]
+        else:
+            labels["$$globalLabel"] = label
+        labels["$$labels"][label] = self
+        
+    def build(self, labels):
+        self.updateLabel(labels)
+        return ()
+    def optimize(self, labels):
+        self.updateLabel(labels)
+        return False    #We can return False, because we only change in value when another instruction changes in size, which would have already returned True
+        
+class align_directive(preprocessor_directive):
+    def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+        
+        self._size = 0
+        self.a = value_preprocesser(self.extra, lineNum)
+    
+    def size(self):
+        return self._size
+    def isConstSize(self):
+        return self.a.isConstSize() and self.getAddress().isConst()
+    def build(self, labels):
+        return (0,)*self._size
+    def optimize(self, labels):
+        labels["$$curAddress"] = self
+        result = self.a.optimize(labels)
+        labels.pop("$$curAddress")
+        
+        tmp = self.a.build(labels)
+        if type(tmp) != type(42):
+            self.printError("Can't align to an non-int boundary")
+            return False
+        lastSize = self._size
+        self._size = tmp - (self.getAddress().getAddress() % tmp)
+        return (lastSize != self._size) or result
+
+class origin_directive(preprocessor_directive):
+    def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+       
+        self._size = 0
+        if self.directive == "org":
+            self.directive = ".origin"
+        self.a = value_preprocesser(self.extra, lineNum)
+    
+    def size(self):
+        return self._size
+    def isConstSize(self):
+        return self.a.isConstSize() and self.getAddress().isConst()
+    def build(self, labels):
+        return ()
+    def optimize(self, labels):
+        labels["$$curAddress"] = self
+        result = self.a.optimize(labels)
+        labels.pop("$$curAddress")
+        
+        tmp = self.a.build(labels)
+        if type(tmp) != type(42):
+            self.printError("Can't set origin to an non-int boundary")
+            return False
+        lastSize = self._size
+        self._size = tmp - self.getAddress().getAddress()
+        return (lastSize != self._size) or result
+        
+class rep_directive(preprocessor_directive):
+    def __init__(self, parts, preceding, lineNum, labels={}):
+        super().__init__(parts, preceding, lineNum, labels)
+        
+        self._size = 0
+        self.codeblock = None
+        self.codeblockInstance = None
+        self.a = value_preprocesser(self.extra, lineNum)
+        
+        if self.directive == "reserve":
+            self.directive = ".rep"
+            self.setCodeblock([dcpu16_instruction(("DAT","0"), preceding, lineNum)])
+            self.endCodeblock((".end",), lineNum)
+            return
+    
+    def size(self):
+        size = 0
+        if self.codeblockInstance == None: return 0
+        for i in self.codeblockInstance:
+            size += i.size()
+        return size
+        
+    def isConstSize(self):
+        return False
+        
+    def build(self, labels):
+        code = []
+        if self.codeblockInstance == None: return ()
+        for i in self.codeblockInstance:
+            code.extend(i.build(labels))
+        return tuple(code)
+        
+    def optCodeblockInstance(self, labels):
+        if self.codeblockInstance == None: return False
+        result = False
+        for i in self.codeblockInstance:
+            result = i.optimize(labels) or result
+        return result
+    def optimize(self, labels):
+        labels["$$curAddress"] = self
+        result = self.a.optimize(labels)
+        labels.pop("$$curAddress")
+        
+        tmp = self.a.build(labels)
+        if type(tmp) != type(42):
+            self.printError("Can't repeat an non-int amount of times")
+            return False
+        lastSize = self._size
+        self._size = tmp
+        if lastSize != self._size:
+            if self._size < lastSize:
+                self.codeblockInstance = self.codeblockInstance[:self._size]
+            else:
+                instance = []
+                for foo in range(self._size):
+                    for code in self.codeblock:
+                        i = code.clone()
+                        if len(instance) == 0:
+                            i.badRelocate(self.preceding)
+                        else:
+                            i.badRelocate(instance[-1])
+                        instance.append(i)
+                self.codeblockInstance = tuple(instance)
+        return (lastSize != self._size) or result or self.optCodeblockInstance(labels)
+        
+    def setCodeblock(self, codeblock):
+        self.codeblock = codeblock
+    def needsCodeblock(self):
+        return (self.codeblock == None)
+    
+    def endCodeblock(self, parts, lineNum):
+        if not (parts[0].startswith(".") or parts[0].startswith("#")):
+            printError("Directives must start with a . or #")
+            return
+        parts = list(parts)
+        if parts[0][1:].lower() != "end":
+            printError("Can't end ."+self.directive+" codeblock with a directive besides .end", lineNum=lineNum)
+            return
+    def clone(self):
+        result = None
+        result = preprocessor_directive((".rep", self.a.extra), self.preceding, self.lineNum)
+        if self.codeblock != None and result.needsCodeblock():
+            codeblock = []
+            for code in self.codeblock:
+                codeblock.append(code.clone())
+            result.codeblock = tuple(codeblock)
+        return result
+        
+def registerDirectives(reader):
+    for directive in default_preprocessor_directive.directives:
+        reader.registerDirective(directive, default_preprocessor_directive)
+    reader.registerDirective("ifndef", default_preprocessor_directive)
+    
+    reader.registerDirective("define", define_directive)
+    reader.registerDirective("def", define_directive)
+    reader.registerDirective("undefine", define_directive)
+    reader.registerDirective("undef", define_directive)
+    reader.registerDirective("equ", define_directive)
+    reader.registerDirective("label", label_directive)
+    reader.registerDirective("align", align_directive)
+    reader.registerDirective("rep", rep_directive)
+    reader.registerDirective("reserve", rep_directive)
+    reader.registerDirective("org", origin_directive)
+    reader.registerDirective("origin", origin_directive)
