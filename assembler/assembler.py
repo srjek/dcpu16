@@ -9,7 +9,6 @@ import os.path
 from mathEval import eval_0xSCAmodified, wordString, extractVaribles, tokenize, validate
 
 ## List of directories to search when including standard assembly files.
-#  @todo Check that this is actually used by the assembler
 INCLUDEPATH = ()    #That's right folks, empty. I have no standard libraries for this assembler.
 
 def printError(error, lineNum, file=sys.stderr):
@@ -105,7 +104,6 @@ class instruction:
         @param lineNum Line number the instruction originated from. Stored in `self.lineNum`.
         """
         
-        ##Line number of opposing force
         self.lineNum = lineNum
         self.badRelocate(preceding)
     
@@ -162,8 +160,7 @@ class preprocessor_directive(instruction):
         @param parts An array of strings, representing an preprocessor directive, following by it's arguments in order. Not used by interface's `__init__()`.
         @param preceding The previous instruction in the program. Used to determine `self.address`.
         @param lineNum Line number the instruction originated from. Stored in `self.lineNum`.
-        @param labels Unknown
-        @todo Describe the labels param
+        @param labels A dictionary of labels and their corresponding objects. Each label has a `getAddress()` function. Modifications are passed on to the next instruction or directive.
         """
         super().__init__(parts, preceding, lineNum);
         
