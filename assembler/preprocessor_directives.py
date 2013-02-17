@@ -47,7 +47,8 @@ class value_preprocesser:
             eval_locals["abs"] = abs
             eval_locals["str"] = str
             eval_locals["hex"] = hex
-            eval_locals["$$curAddress"] = self.parent
+            if self.parent != None:
+                eval_locals["$$curAddress"] = self.parent.getAddress().getAddress()
             return eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
         return ()
 

@@ -93,7 +93,8 @@ class value_const16:
             eval_locals["abs"] = abs
             eval_locals["str"] = str
             eval_locals["hex"] = hex
-            eval_locals["$$curAddress"] = self.parent
+            if self.parent != None:
+                eval_locals["$$curAddress"] = self.parent.getAddress().getAddress()
             extra = eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
             if type(extra) == type("str"):
                 return tuple(extra.encode("ascii"))
@@ -258,7 +259,8 @@ class value:
             eval_locals["Sp"] = eval_register(value.cpu["PICK"])
             eval_locals["sp"] = eval_register(value.cpu["PICK"])
             eval_locals["abs"] = abs
-            eval_locals["$$curAddress"] = self.parent
+            if self.parent != None:
+                eval_locals["$$curAddress"] = self.parent.getAddress().getAddress()
             extra = eval_0xSCAmodified(self.extra, eval_locals, globalLabel)#eval(self.extra,{"__builtins__":None},eval_locals)
             if type(extra) == type(42):
                 while extra > 0xFFFF:
@@ -430,13 +432,17 @@ class dcpu16_jmp(instruction):
         result = self.b.optimize(labels)
         lastShortJmp = self.shortJmp
         if self.b.sizeExtraWords() > 0:
-            dest = self.b.extraWords(labels)[0]
-            start = self.getAddress().getAddress() + 1
-            tmp = start ^ dest
-            if (tmp == 0xFFFF) or (0 <= tmp <= 0x1E):
-                self.shortJmp = True
+            tmp = self.b.build(labels)
+            if tmp == 0x1F:
+                dest = self.b.extraWords(labels)[0]
+                start = self.getAddress().getAddress() + 1
+                tmp = start ^ dest
+                if (tmp == 0xFFFF) or (0 <= tmp <= 0x1E):
+                    self.shortJmp = True
+                else:
+                    self.shortJmp = (-0x1E <= (dest - start) <= 0x1E)
             else:
-                self.shortJmp = (-0x1E <= (dest - start) <= 0x1E)
+                self.shortJmp = False
         else:
             self.shortJmp = True
         return result or (lastShortJmp != self.shortJmp)

@@ -46,24 +46,24 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             set [notifyScreen+z], [notifyScreen+0x20+z]
             add z, 1
             ifg 0x20*10, z
-                set PC, notifyAPI_loop
+                jmp notifyAPI_loop
             set z, 0
             set [notifyAPI_loop2+1], a
 :notifyAPI_loop2
             set [notifyScreen+(0x20*10)+z], [0x0+z]
             add z, 1
             ifg 0x20, z
-                set PC, notifyAPI_loop2
+                jmp notifyAPI_loop2
             ifn [notifyScreenId], [curScreenId]
-                set PC, POP
+                jmp POP
             set z, 0
             set [notifyAPI_loop3+2], [screen_start]
 :notifyAPI_loop3
             set [0x0+z], [notifyScreen+z]
             add z, 1
             ifg 0x20*11, z
-                set PC, notifyAPI_loop3
-            set PC, POP
+                jmp notifyAPI_loop3
+            jmp POP
 :fork                                   ;FORK: Add a thread with the current stack to the system (uses i) (sys: j)
                                         ;   Put execution address into a
             ;(25 cycles, 16 words)      ;   This won't actually execute, so you will be able to recover your stack before registers are lost
