@@ -115,6 +115,9 @@ class value_const16:
             result.extend( [0]*(self.size-len(result)) )
             result = tuple(result)
         return result
+    def clone(self):
+        return value_const16(copy.deepcopy(self.extra), self.lineNum, self.parent)
+        
 class value:
     registers = {"a":0x0, "b":0x1, "c":0x2, "x":0x3, "y":0x4, "z":0x5, "i":0x6, "j":0x7}
     cpu = {"POP":0x18, "PEEK":0x19, "PUSH":0x18, "PICK":0x1A, "SP":0x1B, "PC":0x1C, "EX":0x1D}
@@ -433,13 +436,15 @@ class dcpu16_instruction(instruction):
     def clone(self):
         result = dcpu16_instruction(("DAT", "\"\""), self.preceding, self.lineNum, self.fileName, self.reader)
         result.op = copy.copy(self.op)
-        result.a = self.a.clone()
-        result.a.parent = result
-        result.b = self.b.clone()
-        result.b.parent = result
+        if self.a != None:
+            result.a = self.a.clone()
+            result.a.parent = result
+        if self.b != None:
+            result.b = self.b.clone()
+            result.b.parent = result
         if self.op == dcpu16_instruction.opcodes["DAT"]:
             values = []
             for v in self.values:
-                values.append(value_const16(v.extra, self.lineNum, self))
-            result.values = values #copy.deepcopy(self.values)
+                values.append(v.clone())
+            result.values = values
         return result
