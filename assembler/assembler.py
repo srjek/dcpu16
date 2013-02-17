@@ -284,7 +284,12 @@ class reader:
         self.ops[opName] = opClass
     def registerDirective(self, directiveName, directiveClass):
         self.directives[directiveName] = directiveClass
-        
+    def copyRegistration(self, reader):
+        for op in self.ops:
+            reader.registerOp(op, self.ops[op])
+        for directive in self.directives:
+            reader.registerDirective(directive, self.directives[directive])
+    
     def printError(self, error, lineNum=None, fileName=None, file=sys.stderr):
         if lineNum == None:
             lineNum = self.lineNum

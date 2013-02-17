@@ -418,15 +418,9 @@ class include_directive(preprocessor_directive):
             return
         else:
             self.printError("Could not understand the arguments "+repr(extra)+" for include")
+            
         codeblock = assembler.reader(fileName=self.extra)
-        
-        ## @todo Properly carry over ops and directives from parent reader
-        from dcpu16 import dcpu16_instruction
-        for op in dcpu16_instruction.opcodes:
-            codeblock.registerOp(op, dcpu16_instruction)
-        for op in dcpu16_instruction.ext_opcodes:
-            codeblock.registerOp(op, dcpu16_instruction)
-        registerDirectives(codeblock)
+        reader.copyRegistration(codeblock)
         
         codeblock.instructions.append(preceding)
         asm = open(self.filepath, 'r')
