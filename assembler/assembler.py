@@ -525,11 +525,12 @@ def main(argv):
     asm = open(argv[0], 'r')
     read = reader()
     
-    from dcpu16 import dcpu16_instruction
+    from dcpu16 import dcpu16_instruction, registerOps
     for op in dcpu16_instruction.opcodes:
         read.registerOp(op, dcpu16_instruction)
     for op in dcpu16_instruction.ext_opcodes:
         read.registerOp(op, dcpu16_instruction)
+    registerOps(read)
         
     from preprocessor_directives import registerDirectives
     registerDirectives(read)
