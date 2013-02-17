@@ -447,8 +447,7 @@ class dcpu16_jmp(instruction):
             self.shortJmp = True
         return result or (lastShortJmp != self.shortJmp)
     def clone(self):
-        result = dcpu16_instruction(("JMP", "0"), self.preceding, self.lineNum, self.fileName, self.reader)
-        result.op = copy.copy(self.op)
+        result = dcpu16_jmp(("JMP", "0"), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.b != None:
             result.b = self.b.clone()
             result.b.parent = result
@@ -493,7 +492,7 @@ class dat16(instruction):
             result = result or val.optimize(labels)
         return result
     def clone(self):
-        result = dcpu16_instruction(("DAT", "0"), self.preceding, self.lineNum, self.fileName, self.reader)
+        result = dat16(("DAT", "0"), self.preceding, self.lineNum, self.fileName, self.reader)
         values = []
         for v in self.values:
             values.append(v.clone())

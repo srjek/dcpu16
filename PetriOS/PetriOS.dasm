@@ -28,7 +28,7 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
 ;            ifl a, 0x8000+0x0180
 ;                set PC, t
 ;            set a, POP      ;--------------------
-            set PC, POP
+            jmp POP
 ;;            ;Memory Sensitive (9 cycles, 7 words) (The data structure storing stack pointers is minimal)
 ;;            set [j], SP                 ;J=-(current program number) aka [J] = current program stack address
 ;;            sub j, 1
@@ -37,9 +37,9 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
 ;;            set SP, [j]
 ;;            set PC, POP
 :malloc                                 ;MALLOC: Requests a bytes of memory, address returned in a. If a == 0, malloc failed.
-            set PC, unimplemented
+            jmp unimplemented
 :free                                   ;FREE: Frees memory previously malloc-ed at a
-            set PC, unimplemented
+            jmp unimplemented
 :notify                                 ;NOTIFY: Shows one-line notification [a] to user, useful when the user is looking at another screen
             set z, 0
 :notifyAPI_loop
@@ -84,7 +84,7 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             sub a, 1
             set [a], z              ;f< = z>
             set a, POP      ;ignore forked program's address
-            set PC, POP
+            jmp POP
             :testfork
 :quit                                   ;QUIT: program is considered aborted, this function will not return
             ;(14 cycles, 14 words)      ;stack and mem should be freed by program first, this will be ok as long as no api calls are made (besides quit, free)
@@ -97,7 +97,7 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             set [i-1], j        ;f< = p>
             set j, PEEK
             set [programLL_stack_pointer], SP
-            set PC, sleep       ;Move to next program
+            jmp sleep       ;Move to next program
 :screen_start
             dat 0x8020
 :screen_width
@@ -110,7 +110,7 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             dat 1
 :main
 ;End App Header/API ---------------------------
-            set PC, boot
+            jmp boot
 
 :programLL_stack_pointer        ;pointer to stack of free memory, each piece 3 words wide(for the linked list of stack pointers)
             dat 0
@@ -121,7 +121,7 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             set a, POP
             sub [mallocTmpDat], 0x0400
             set SP, [mallocTmpDat]
-            set PC, a
+            jmp a
 
 ;--------------Notify-----------------
 notify_bgprog:
@@ -140,18 +140,18 @@ _loop:
             set [0x801F], [_timer+a]
             set PUSH, _loop
             ifn [notifyScreenId], [curScreenId]
-                set PC, sleep
+                jmp sleep
             ifn [curScreenId], [lastScreenId]
-                set PC, sleep
+                jmp sleep
             set a, 0
             set [_screenLoop+2], [screen_start]
 _screenLoop:
             set [0x8020+a], [notifyScreen+a]
             add a, 1
             ifg 0x0160, a  ;start of 12th line (there is none in our buffer)
-                set PC, _screenLoop
+                jmp _screenLoop
             set [lastScreenId], [notifyScreenId]
-            set PC, sleep
+            jmp sleep
 _timer:
             dat "-\\|/"|0xF100, 0
 _defaultNotify:
@@ -168,7 +168,7 @@ _test11111:
 ;.incbin "notchTest2.bin"
 ;.incbin <notchTest.bin>
 .macro execNotchTest(loc, expectedResult)
-            SET PC, loc
+            jmp loc
 .end
             execNotchTest(0, 0x40)
 .elif 0
@@ -307,13 +307,13 @@ notifyScreenId:
             dat jumpstart
             
             set a, NoOS
-            set PC, PANIC
+            jmp PANIC
 :NoOS       dat "BAKA!                           THIS CODE DOESN'T DO ANYTHING!"|0xF100, 0
 
 ;------------Screen helpers---------------
 :clr_screen
             ;We don't actually know how big the screen is yet.....
-            set PC, POP
+            jmp POP
             
 :copystrlen             ;Copies a string from a to b of length c, clobbers a
             set [copystrlen_config+1], a
@@ -321,11 +321,11 @@ notifyScreenId:
             set a, 0
 :copystrlen_nextchar
             ife a, c
-                set PC, POP
+                jmp POP
 :copystrlen_config
             set [0x8000+a], [NoOS+a]
             add a, 1
-            set PC, copystrlen_nextchar
+            jmp copystrlen_nextchar
 
 ;----------------PANIC--------------------
 :unimplemented
@@ -340,9 +340,9 @@ notifyScreenId:
             set [b], [a]                    ; Video ram starts at 0x8000, copy char there
             add a, 1                        ; Increase loop counter
             add b, 1
-            set PC, PANIC_nextchar          ; Loop
+            jmp PANIC_nextchar          ; Loop
             
-:end        set PC, end
+:end        jmp end
 :unimplemented_str
             dat "KERNEL PANIC!                   API CALL UNIMPLEMENTED!", 0
 
@@ -361,7 +361,7 @@ notifyScreenId:
 :test1_loop_in
             add b, 1
             ifg 0x0100, b
-                set PC, test1_loop_in
+                jmp test1_loop_in
             set PUSH, i
             jsr sleep
             set i, POP
@@ -472,7 +472,7 @@ notifyScreenId:
             add y, 5
             set [y], 0
             add y, 1
-            set PC, POP
+            jmp POP
 :printHexChar
             and a, 0xF
             ifg a, 9
@@ -480,7 +480,7 @@ notifyScreenId:
             add a, 0x30|0xF100
             set [y], a
             sub y, 1
-            set PC, POP
+            jmp POP
 :output
             dat "1234567890", "1234567890", "1234567890", "1234567890", "1234567890", "1234567890", 0
 
@@ -505,3 +505,4 @@ notifyScreenId:
             ifg b, 15
                 set b, 0
             jmp color_inner
+            
