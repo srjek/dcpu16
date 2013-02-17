@@ -174,9 +174,6 @@ class preprocessor_directive(instruction):
         """
         super().__init__(parts, preceding, lineNum, fileName, reader);
         
-        if not (parts[0].startswith(".") or parts[0].startswith("#")):
-            self.printError("Preproccessor directives must start with a '.' or '#'")
-            return
         self.directive = parts[0][1:].lower()
         extra = ""
         if len(parts) >= 2:
@@ -184,6 +181,9 @@ class preprocessor_directive(instruction):
             for i in range(2, len(parts)):
                 extra += " " + parts[i]
         self.extra = extra
+        
+        if not (parts[0].startswith(".") or parts[0].startswith("#")):
+            self.printError("Preproccessor directives must start with a '.' or '#'")
                 
     def needsCodeblock(self):
         """Returns true if the preprocessor directive is also the start of a codeblock.

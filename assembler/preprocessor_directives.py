@@ -59,14 +59,14 @@ class echo_directive(preprocessor_directive):
     
     def build(self, labels):
         value = self.a.build(labels)
-        
-        if self.directive == "echo":
-            self.printError(value, file=sys.stdout)
-        if self.directive == "error":
-            self.printError(value)
-            raise Exception("User-generated error")
-        
+        self.printError(value, file=sys.stdout)
         return ()
+    
+class error_directive(echo_directive):
+    def build(self, labels):
+        value = self.a.build(labels)
+        self.printError(value)
+        raise Exception("User-generated error")
 
 ## @todo Fix .equ directive
 # @todo Fix .define behavior
@@ -180,8 +180,6 @@ class origin_directive(preprocessor_directive):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
        
         self._size = 0
-        if self.directive == "org":
-            self.directive = ".origin"
         self.a = value_preprocesser(self.extra, lineNum, self)
     
     def size(self):
@@ -196,6 +194,7 @@ class origin_directive(preprocessor_directive):
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
             self.printError("Can't set origin to an non-int boundary")
+            self._size = 0
             return False
         lastSize = self._size
         self._size = tmp - self.getAddress().getAddress()
@@ -209,12 +208,6 @@ class rep_directive(preprocessor_directive):
         self.codeblock = None
         self.codeblockInstance = None
         self.a = value_preprocesser(self.extra, lineNum, self)
-        
-        if self.directive == "reserve":
-            self.directive = ".rep"
-            self.setCodeblock([dcpu16_instruction(("DAT","0"), preceding, lineNum)])
-            self.endCodeblock((".end",), lineNum)
-            return
     
     def size(self):
         size = 0
@@ -279,28 +272,25 @@ class rep_directive(preprocessor_directive):
             return
     def clone(self):
         result = None
-        result = rep_directive((".rep", self.a.extra), self.preceding, self.lineNum, self.fileName, self.reader)
+        result = rep_directive(("."+self.directive, self.a.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.codeblock != None and result.needsCodeblock():
             codeblock = []
             for code in self.codeblock:
                 codeblock.append(code.clone())
             result.codeblock = tuple(codeblock)
         return result
+
+class reserve_directive(rep_directive):
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
+        self.setCodeblock([dcpu16_instruction(("DAT","0"), preceding, lineNum)])
+        self.endCodeblock((".end",), lineNum)
     
 class if_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
-        parts = list(parts)
-        if parts[0][1:].lower() == "ifdef":
-            parts[0] = ".if"
-            parts[1] = "isdef( " + parts[1].strip() + " )"
-        if parts[0][1:].lower() == "ifndef":
-            parts[0] = ".if"
-            parts[1] = "!isdef( " + parts[1].strip() + " )"
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
-        self._size = 0
         self.codeblock = None
-        self.codeblockInstance = None
         self.nextIf = None
         self.passIf = False
         self.a = value_preprocesser(self.extra, lineNum, self)
@@ -385,6 +375,7 @@ class if_directive(preprocessor_directive):
             self.nextIf = None
         else:
             printError("Can't use \"" + parts[0] + "\" to end .if directive", lineNum=lineNum)
+            self.nextIf = None
     def clone(self):
         result = if_directive(("." + self.directive, self.a.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.codeblock != None and result.needsCodeblock():
@@ -397,11 +388,22 @@ class if_directive(preprocessor_directive):
         result.passIf = self.passIf
         return result
 
-## @todo don't leave obj in bad state on init error
+class ifdef_directive(if_directive):
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        parts = list(parts)
+        parts[1] = "isdef( " + parts[1].strip() + " )"
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
+class ifndef_directive(if_directive):
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        parts = list(parts)
+        parts[1] = "!isdef( " + parts[1].strip() + " )"
+        super().__init__(parts, preceding, lineNum, fileName, reader, labels)
+
 class include_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
 
+        self.codeblock = None
         if self.extra.startswith("\"") and self.extra.endswith("\""):
             self.filepath = self.extra[1:-1]
             if not os.path.isfile(self.filepath):
@@ -463,6 +465,11 @@ class include_directive(preprocessor_directive):
     def optimize(self, labels):
         result = self.optCodeblock(labels)
         return result
+    
+    def clone(self):
+        if self.codeblock == None:
+            return copy.deepcopy(self)
+        return super().clone()
 
 class incbin_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
@@ -497,6 +504,8 @@ class incbin_directive(preprocessor_directive):
     def isConstSize(self):
         return True
     def build(self, labels):
+        if self._size == 0:
+            return ()
         file = open(self.filepath, 'rb')
         dat = file.read()
         while len(dat) < (self._size*2):
@@ -507,18 +516,30 @@ class incbin_directive(preprocessor_directive):
             obj.append(tmp)
         file.close()
         return tuple(obj)
+    def clone(self):
+        if self._size == 0:
+            return copy.deepcopy(self)
+        return super().clone()
 
 ## @todo Check macro behavior when macros are defined in an .if
 class macro_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+    def __initAlways__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         self.codeblock = None
+        self.macroName = None
+        self.macroArgs = None
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        self.__initAlways__(parts, preceding, lineNum, fileName, reader, labels)
+        
+        if len(parts) <= 1:
+            self.printError("No definition supplied for macro.")
+            return
         
         operation = None
         try:
             operation = validate( tokenize( self.extra, ("func",) ) )
         except Exception as e:
-            self.printError(e.args[0])
+            self.printError("Failed to understand macro definiton: " + str(e.args[0]))
             return
         if type(operation) != type(()) or operation[0] != "func":
             self.printError("Expected macro definition (Ex: \"aMacro()\", \"aMacro(param1, param2)\"")
@@ -535,10 +556,12 @@ class macro_directive(preprocessor_directive):
         self.macroArgs = operation[2]
     
     def build(self, labels):
-        labels["$$macro$"+self.macroName] = (self.macroArgs, self.codeblock)
+        if self.macroArgs != None:
+            labels["$$macro$"+self.macroName] = (self.macroArgs, self.codeblock)
         return ()
     def optimize(self, labels):
-        labels["$$macro$"+self.macroName] = (self.macroArgs, self.codeblock)
+        if self.macroArgs != None:
+            labels["$$macro$"+self.macroName] = (self.macroArgs, self.codeblock)
         return False
     def needsCodeblock(self):
         return (self.codeblock == None)
@@ -547,35 +570,39 @@ class macro_directive(preprocessor_directive):
     def endCodeblock(self, parts, lineNum):
         if not (parts[0].startswith(".") or parts[0].startswith("#")):
             printError("Directives must start with a . or #")
+            self.macroArgs = None
             return
         if parts[0][1:].lower() != "end":
             printError("Can't end .macro codeblock with a directive besides .end", lineNum=lineNum)
+            self.macroArgs = None
             return
     def clone(self):
-        result = macro_directive(("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
+        if self.macroArgs == None:
+            result = macro_directive.__new__(macro_directive, ("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
+            result.__initAlways__(("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
+        else:
+            result = macro_directive(("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
         if self.codeblock != None and result.needsCodeblock():
             codeblock = []
             for code in self.codeblock:
                 codeblock.append(code.clone())
             result.codeblock = tuple(codeblock)
         return result
-        
+
 class insert_macro_directive(preprocessor_directive):
-    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+    def __initAlways__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
-        
-        self._size = 0
         self.codeblock = None
-        self.codeblockInstance = None
-        self.nextIf = None
-        self.passIf = False
-        self.value = None
+        self.macroName = None
+        self.macroArgs = None
+    def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
+        self.__initAlways__(parts, preceding, lineNum, fileName, reader, labels)
         
         operation = None
         try:
             operation = eval_0xSCAmodified(self.extra, {}, preEval=True)
         except Exception as e:
-            self.printError(e.args[0])
+            self.printError("Failed to understand expression to insert macro: " + str(e.args[0]))
             return
 
         if type(operation) != type(()) or operation[0] != "func":
@@ -588,18 +615,19 @@ class insert_macro_directive(preprocessor_directive):
         self.macroArgs = tuple(macroArgs)
     
     def size(self):
-        if self.codeblock == None: return 0
+        if self.codeblock == None or self.macroArgs == None: return 0
         size = 0
         for i in self.codeblock:
             size += i.size()
         return size
     def isConstSize(self):
+        if self.macroArgs == None: return True
         if self.codeblock == None: return False
         for i in self.codeblock:
             if not i.isConstSize(): return False
         return True
     def build(self, labels):
-        if self.codeblock == None: return ()
+        if self.codeblock == None or self.macroArgs == None: return ()
         if ("$$macro$"+self.macroName) not in labels:
             self.printError("Macro "+repr(self.macroName)+" was not defined")
             return
@@ -630,6 +658,7 @@ class insert_macro_directive(preprocessor_directive):
             result = i.optimize(labels) or result
         return result
     def optimize(self, labels):
+        if self.macroArgs == None: return False
         if "$$macro$"+self.macroName not in labels:
             self.printError("Macro "+repr(self.macroName)+" was not defined")
             return
@@ -649,16 +678,23 @@ class insert_macro_directive(preprocessor_directive):
         for code in macro[1]:
             codeblock.append(code.clone())
         self.codeblock = codeblock
-        while self.optCodeblock(labels_): magic=42 #magic=42 doesn't actually do anything, unlike more magic
+        while self.optCodeblock(labels_): pass
         for label in labels_.keys():
             if label not in labels:
                 if label not in macro[0] or labels_[label] != args[label]:
                     labels[label] = labels_[label]
         return False
+    def clone(self):
+        if self.macroArgs == None:
+            result = macro_directive.__new__(macro_directive, ("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
+            result.__initAlways__(("." + self.directive, self.extra), self.preceding, self.lineNum, self.fileName, self.reader)
+            return result
+        return super().clone()
+            
 
 def registerDirectives(reader):
     reader.registerDirective("echo", echo_directive)
-    reader.registerDirective("error", echo_directive)
+    reader.registerDirective("error", error_directive)
     reader.registerDirective("define", define_directive)
     reader.registerDirective("def", define_directive)
     reader.registerDirective("undefine", define_directive)
@@ -667,12 +703,12 @@ def registerDirectives(reader):
     reader.registerDirective("label", label_directive)
     reader.registerDirective("align", align_directive)
     reader.registerDirective("rep", rep_directive)
-    reader.registerDirective("reserve", rep_directive)
+    reader.registerDirective("reserve", reserve_directive)
     reader.registerDirective("org", origin_directive)
     reader.registerDirective("origin", origin_directive)
     reader.registerDirective("if", if_directive)
-    reader.registerDirective("ifdef", if_directive)
-    reader.registerDirective("ifndef", if_directive)
+    reader.registerDirective("ifdef", ifdef_directive)
+    reader.registerDirective("ifndef", ifndef_directive)
     reader.registerDirective("include", include_directive)
     reader.registerDirective("incbin", incbin_directive)
     reader.registerDirective("incpack", incbin_directive)

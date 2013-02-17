@@ -341,11 +341,15 @@ class dcpu16_instruction(instruction):
             self.b = value(parts[1], lineNum, self, True)
             return
         self.a = value(parts[1], lineNum, self, False)
-        self.b = value(parts[2], lineNum, self, True)
+        self.b = value(parts[2], lineNum, self, True) #self.b is our check if there where no errors var, it should be present no matter what opcode is used
     
     def size(self):
+        if self.b == None:
+            return 0
         return 1 + self.a.sizeExtraWords() + self.b.sizeExtraWords()
     def build(self, labels):
+        if self.b == None:
+            return ()
         result = [self.createInstruction(labels)]
         result.extend(self.b.extraWords(labels))
         result.extend(self.a.extraWords(labels))
@@ -361,8 +365,12 @@ class dcpu16_instruction(instruction):
             return 0
         return self.op | (tmpA << 5) | (tmpB << 10)
     def isConstSize(self):
+        if self.b == None:
+            return True
         return self.a.isConstSize() and self.b.isConstSize()
     def optimize(self, labels):
+        if self.b == None:
+            return False
         result = self.b.optimize(labels)
         return self.a.optimize(labels) or result
     def clone(self):
@@ -371,9 +379,13 @@ class dcpu16_instruction(instruction):
         if self.a != None:
             result.a = self.a.clone()
             result.a.parent = result
+        else:
+            self.a = None
         if self.b != None:
             result.b = self.b.clone()
             result.b.parent = result
+        else:
+            self.b = None
         return result
 
 class dcpu16_jmp(instruction):
@@ -386,7 +398,6 @@ class dcpu16_jmp(instruction):
         
         if len(parts) - 1 != 1:
             self.printError("Opcode \"" + op + "\" requires 1 operand, " + str(len(parts) - 1) + " were given")
-            self.op = None
             return
             
         self.b = value(parts[1], lineNum, self, True)
