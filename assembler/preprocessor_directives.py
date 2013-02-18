@@ -155,6 +155,7 @@ class align_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
+        self.error = None
         self._size = 0
         self.a = value_preprocesser(self.extra, lineNum, self)
     
@@ -163,16 +164,20 @@ class align_directive(preprocessor_directive):
     def isConstSize(self):
         return self.a.isConstSize() and self.getAddress().isConst()
     def build(self, labels):
+        if self.error != None:
+            self.printError(self.error)
         return (0,)*self._size
     def optimize(self, labels):
         result = self.a.optimize(labels)
         
+        lastSize = self._size
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
-            self.printError("Can't align to an non-int boundary")
-            return False
-        lastSize = self._size
-        self._size = tmp - (self.getAddress().getAddress() % tmp)
+            self.error = "Can't align to an non-int boundary"
+            self._size = 0
+        else:
+            self.error = None
+            self._size = tmp - (self.getAddress().getAddress() % tmp)
         return (lastSize != self._size) or result
 
 class origin_directive(preprocessor_directive):
@@ -180,6 +185,7 @@ class origin_directive(preprocessor_directive):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
        
         self._size = 0
+        self.error = None
         self.a = value_preprocesser(self.extra, lineNum, self)
     
     def size(self):
@@ -187,23 +193,27 @@ class origin_directive(preprocessor_directive):
     def isConstSize(self):
         return self.a.isConstSize() and self.getAddress().isConst()
     def build(self, labels):
+        if self.error != None:
+            self.printError(self.error)
         return ()
     def optimize(self, labels):
         result = self.a.optimize(labels)
         
+        lastSize = self._size
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
-            self.printError("Can't set origin to an non-int boundary")
+            self.error = "Can't set origin to an non-int boundary"
             self._size = 0
-            return False
-        lastSize = self._size
-        self._size = tmp - self.getAddress().getAddress()
+        else:
+            self.error = None
+            self._size = tmp - self.getAddress().getAddress()
         return (lastSize != self._size) or result
         
 class rep_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
+        self.error = None
         self._size = 0
         self.codeblock = None
         self.codeblockInstance = None
@@ -220,6 +230,8 @@ class rep_directive(preprocessor_directive):
         return False
         
     def build(self, labels):
+        if self.error != None:
+            self.printError(self.error)
         code = []
         if self.codeblockInstance == None: return ()
         for i in self.codeblockInstance:
@@ -235,11 +247,14 @@ class rep_directive(preprocessor_directive):
     def optimize(self, labels):
         result = self.a.optimize(labels)
         
+        lastSize = self._size
         tmp = self.a.build(labels)
         if type(tmp) != type(42):
-            self.printError("Can't repeat an non-int amount of times")
-            return False
-        lastSize = self._size
+            self.error = "Can't repeat an non-int amount of times"
+            self._size = 0
+            return (lastSize != self._size) or result
+        self.error = None
+        
         self._size = tmp
         if lastSize != self._size:
             if self._size < lastSize:
@@ -290,6 +305,7 @@ class if_directive(preprocessor_directive):
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
         
+        self.error = None
         self.codeblock = None
         self.nextIf = None
         self.passIf = False
@@ -308,7 +324,8 @@ class if_directive(preprocessor_directive):
     def isConstSize(self):
         return False
     def build(self, labels):
-        value = self.a.build(labels)
+        if self.error != None:
+            self.printError(self.error)
         
         if self.passIf:
             if self.nextIf != None:
@@ -332,8 +349,8 @@ class if_directive(preprocessor_directive):
         
         tmp = self.a.build(labels)
         if not (type(tmp) == type(42) or type(tmp) == type(False)):
-            self.printError("Can't compare an non-int amount with 0")
-            return False
+            self.error = "Can't compare an non-int amount with 0"
+            return result
         lastPass = self.passIf
         self.passIf = (tmp == 0)
         if not self.passIf:
@@ -595,6 +612,7 @@ class insert_macro_directive(preprocessor_directive):
         self.codeblock = None
         self.macroName = None
         self.macroArgs = None
+        self.error = None
     def __init__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         self.__initAlways__(parts, preceding, lineNum, fileName, reader, labels)
         
@@ -627,13 +645,15 @@ class insert_macro_directive(preprocessor_directive):
             if not i.isConstSize(): return False
         return True
     def build(self, labels):
+        if self.error != None:
+            self.printError(self.error)
         if self.codeblock == None or self.macroArgs == None: return ()
         if ("$$macro$"+self.macroName) not in labels:
             self.printError("Macro "+repr(self.macroName)+" was not defined")
             return
         macro = labels["$$macro$"+self.macroName]
         if len(self.macroArgs) != len(macro[0]):
-            self.printError("Macro "+repr(self.macroName)+" is defined for "+str(len(macro[0]))+", not "+str(len(self.macroArgs)))
+            self.printError("Macro "+repr(self.macroName)+" is defined for "+str(len(macro[0]))+" args, not "+str(len(self.macroArgs))+" args.")
             return
         labels_ = copy.copy(labels)
         args = {}
@@ -660,11 +680,13 @@ class insert_macro_directive(preprocessor_directive):
     def optimize(self, labels):
         if self.macroArgs == None: return False
         if "$$macro$"+self.macroName not in labels:
-            self.printError("Macro "+repr(self.macroName)+" was not defined")
+            self.error = "Macro "+repr(self.macroName)+" was not defined"
+            self.codeblock = None
             return
         macro = labels["$$macro$"+self.macroName]
         if len(self.macroArgs) != len(macro[0]):
-            self.printError("Macro "+repr(self.macroName)+" is defined for "+str(len(macro[0]))+" args, not "+str(len(self.macroArgs))+" args.")
+            self.error = "Macro "+repr(self.macroName)+" is defined for "+str(len(macro[0]))+" args, not "+str(len(self.macroArgs))+" args."
+            self.codeblock = None
             return
         labels_ = copy.copy(labels)
         args = {}

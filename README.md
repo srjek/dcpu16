@@ -39,12 +39,11 @@ Done, run `./emulator --help` for usage.
  * `convertEndian.cpp` is a tool to flip the endian-ness of a file, created when I accidently thought the endian-ness of a file was flipped.
 
 ####Oddities####
- * The assembler works, but doesn't have the most useful error messages at times, which is part of the reason for a partial rewrite
  * Speaking of experiments like the compiler, there is a `experimental` folder. Sooner or later I will might split that into my own special branch, keeping just this repo for finished/usable code/tools.
  * There are some dcpu16 programs in the root folder, and others in the `testing` folder. Feel free to play around with them.
  
 ####TODO####
  * Maybe make a root-level Makefile
- * Rewrite the assembler to be more helpful, even when it fails (and reorganze the code while I'm at it)
- * When I can get [lldb](http://lldb.llvm.org/) to build with the dcpu16 lldb port under linux, use it to verify that the emulator is speaking the gdb-remote protocol correctly
+ * More work on the assembler to have better error messages, and improvements to support for directives
+ * When I can get [lldb](http://lldb.llvm.org/) to build with the dcpu16 llvm port under linux, use it to verify that the emulator is speaking the gdb-remote protocol correctly
  

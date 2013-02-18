@@ -85,6 +85,7 @@ class instruction:
         * The provided `__init__()` is how the assembler will create any instruction-based class. Children should provide an `__init__()` with similar args, and call this class's `__init__()`
         * `printError()` is provided as a helper function for any children.
         * `getAddress()` is expected by the assembler, and should not be re-implemented unless neccesary.
+        * optimize() will be called many times. Assemble errors should only be reported in one-time functions like `__init__()` or `build()` to avoid spamming stderr.
     """
     
     def printError(self, error, lineNum=None, fileName=None, file=sys.stderr):
