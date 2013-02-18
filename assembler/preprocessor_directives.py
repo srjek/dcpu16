@@ -538,7 +538,6 @@ class incbin_directive(preprocessor_directive):
             return copy.deepcopy(self)
         return super().clone()
 
-## @todo Check macro behavior when macros are defined in an .if
 class macro_directive(preprocessor_directive):
     def __initAlways__(self, parts, preceding, lineNum, fileName, reader, labels={}):
         super().__init__(parts, preceding, lineNum, fileName, reader, labels)
