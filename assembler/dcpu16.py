@@ -26,15 +26,18 @@ class value_const16:
     def __init__(self, value, lineNum, parent):
         self.lineNum = lineNum
         self.parent = parent
+        self.size = 0
+        self.lastLabels = []
+        self.isInt = False
+        self.error = None
         try:
             self.extra = eval_0xSCAmodified(value, {}, preEval=True)
             self.labels = extractVaribles(self.extra, "")
         except Exception as err:
             self.printError(repr(err))
+            self.labels = []
+            self.extra = None
             return
-        self.size = None
-        self.lastLabels = []
-        self.isInt = False
 
         labels = {"$$globalLabel":""}
         for x in self.labels:
@@ -42,6 +45,7 @@ class value_const16:
         try:
             self.size = len(self._extraWords(labels))
         except NameError as err:
+            self.printError("We encountered an error that shouldn't happen, this probably represents a bug in the assembler.")
             self.printError(repr(err))
         return
     def optimize(self, labels):
@@ -65,7 +69,12 @@ class value_const16:
             if tmp:
                 return False
         old_size = self.size
-        self.size = len(self._extraWords(labels, labelCache))
+        self.size = 0
+        try:
+            self.size = len(self._extraWords(labels, labelCache))
+            self.error = None
+        except Exception as err:
+            self.error = repr(err)
         self.lastLabels = labelCache
         return old_size != self.size
     def isConstSize(self):
@@ -115,6 +124,12 @@ class value_const16:
             result = list(result)
             result.extend( [0]*(self.size-len(result)) )
             result = tuple(result)
+        if len(result) > self.size:
+            result = result[:self.size]
+            if self.error != None:
+                self.printError(self.error)
+            else:
+                self.printError("value_const16 was reporting it's size incorrectly. This is likely a bug in the assembler.")
         return result
     def clone(self):
         return value_const16(copy.deepcopy(self.extra), self.lineNum, self.parent)
@@ -232,13 +247,18 @@ class value:
                     return extra.register
                 else:
                     return 0x1E
+            self.printError(self.error)
             return 0x20 | 0x00
         if self.value == 0x1F and self.shortLiteral:
             tmp = self._extraWords(labels)[0]
-            tmp += 1
-            if tmp == 0x10000:
-                tmp = 0
-            return 0x20 | tmp
+            if tmp == None:
+                self.printError(self.error)
+                return 0x21
+            else:
+                tmp += 1
+                if tmp == 0x10000:
+                    tmp = 0
+                return 0x20 | tmp
         return self.value
     def __extraWords(self, labels):
         if self.extra != None:
@@ -271,14 +291,18 @@ class value:
         return ()
     def _extraWords(self, labels):
         result = (None,)
+        self.error = None
         try:
             result = self.__extraWords(labels)
         except Exception as err:
-            self.printError(repr(err))
+            self.error = repr(err)
             result = (None,)
         return result
     def extraWords(self, labels):
         tmp = self._extraWords(labels)
+        if len(tmp) == 1 and tmp[0] == None:
+            self.printError(self.error)
+            return [0]*self.sizeExtraWords()
         if self.value == 0x1F and self.extra != None:
             if tmp[0] != None:
                 if (tmp[0] <= 0x1E or tmp[0] == 0xFFFF) and self.shortLiteral:
