@@ -1,33 +1,20 @@
 ; Petri (OS)
 ; by srjek
 
-;The following is a header needed in exe files that are loaded by this OS.
-;It defines the API accesible to programs running in the OS
-;This is the OS program, so actual implementations are added.
-;I highly recommend replacing the implementations of quit, fork, sleep, etc with "sub PC, 1".
-;This should stop the program/CPU if it is loaded without the proper OS.
 ;Calls should be jsr <api_call>
 ;First 32 words (First line) of screen is reserved for OS use (notifications)
 ;Register J is an OS register, it needs to appear unaltered to the next api call (J is needed by sleep, fork, quit)
 ;Register Z is used by fork, notify. Put PUSH, POP statements around these calls if needed
-;sleep switches programs, so any register may be modified "during its execution"
+;sleep switches programs, so any register may be modified "during its execution" so to speak
+
 ;App Header/API -------------------------------
-sleep:                                  ;SLEEP: this makes multi-tasking work. Call it so this OS can work.
+;sleep:                                  ;SLEEP: this makes multi-tasking work. Call it so this OS can work.
+.define sleep -1
             ;Performance Sensitive (5 cycles, 5 words) (Linked list, 3x as large as Memory Sensitive)
             ;set [j], SP                 ;J=-(current program number) aka [J] = current program stack address
             ;set j, [j+1]
             set PC, boot    ;this 2word instruction (and 1word dat) is replaced by the bootloader (look at label sleep0)
-            dat 0
             set SP, [j]
-;            set PUSH, a     ;--------------------
-;            set a, 0x8000
-;            bor [a], 0xF180
-;   :t
-;            bor [a], 0xF100
-;            add a, 1
-;            ifl a, 0x8000+0x0180
-;                set PC, t
-;            set a, POP      ;--------------------
             jmp POP
 ;;            ;Memory Sensitive (9 cycles, 7 words) (The data structure storing stack pointers is minimal)
 ;;            set [j], SP                 ;J=-(current program number) aka [J] = current program stack address
@@ -36,35 +23,35 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
 ;;                set j, 0
 ;;            set SP, [j]
 ;;            set PC, POP
-:malloc                                 ;MALLOC: Requests a bytes of memory, address returned in a. If a == 0, malloc failed.
+malloc:                                 ;MALLOC: Requests a bytes of memory, address returned in a. If a == 0, malloc failed.
             jmp unimplemented
-:free                                   ;FREE: Frees memory previously malloc-ed at a
+free:                                   ;FREE: Frees memory previously malloc-ed at a
             jmp unimplemented
-:notify                                 ;NOTIFY: Shows one-line notification [a] to user, useful when the user is looking at another screen
+notify:                                 ;NOTIFY: Shows one-line notification [a] to user, useful when the user is looking at another screen
             set z, 0
-:notifyAPI_loop
+_loop:
             set [notifyScreen+z], [notifyScreen+0x20+z]
             add z, 1
             ifg 0x20*10, z
-                jmp notifyAPI_loop
+                jmp _loop
             set z, 0
-            set [notifyAPI_loop2+1], a
-:notifyAPI_loop2
+            set [_loop2+1], a
+_loop2:
             set [notifyScreen+(0x20*10)+z], [0x0+z]
             add z, 1
             ifg 0x20, z
-                jmp notifyAPI_loop2
+                jmp _loop2
             ifn [notifyScreenId], [curScreenId]
                 jmp POP
             set z, 0
-            set [notifyAPI_loop3+2], [screen_start]
-:notifyAPI_loop3
+            set [_loop3+2], [screen_start]
+_loop3:
             set [0x0+z], [notifyScreen+z]
             add z, 1
             ifg 0x20*11, z
-                jmp notifyAPI_loop3
+                jmp _loop3
             jmp POP
-:fork                                   ;FORK: Add a thread with the current stack to the system (uses i) (sys: j)
+fork:                                   ;FORK: Add a thread with the current stack to the system (uses z) (sys: j)
                                         ;   Put execution address into a
             ;(25 cycles, 16 words)      ;   This won't actually execute, so you will be able to recover your stack before registers are lost
             set PUSH, a
@@ -85,9 +72,8 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             set [a], z              ;f< = z>
             set a, POP      ;ignore forked program's address
             jmp POP
-            :testfork
-:quit                                   ;QUIT: program is considered aborted, this function will not return
-            ;(14 cycles, 14 words)      ;stack and mem should be freed by program first, this will be ok as long as no api calls are made (besides quit, free)
+quit:                                   ;QUIT: program is considered aborted, this function will not return
+            ;(14 cycles, 14 words)      ;stack and mem should be freed by program first, this will be ok as long as no api calls are made after (besides quit, free)
             set a, PEEK
             set SP, [programLL_stack_pointer]   ;add freed memory to stack (SP can be discarded, should have been previously freed)
             set PUSH, j
@@ -98,26 +84,26 @@ sleep:                                  ;SLEEP: this makes multi-tasking work. C
             set j, PEEK
             set [programLL_stack_pointer], SP
             jmp sleep       ;Move to next program
-:screen_start
+screen_start:
             dat 0x8020
-:screen_width
+screen_width:
             dat 32
-:screen_height
+screen_height:
             dat 11
-:curScreenId
+curScreenId:
             dat 0
-:lastScreenId
+lastScreenId:
             dat 1
-:main
+main:
 ;End App Header/API ---------------------------
             jmp boot
 
 :programLL_stack_pointer        ;pointer to stack of free memory, each piece 3 words wide(for the linked list of stack pointers)
             dat 0
 ;----------------API------------------
-:mallocTmpDat
+mallocTmpDat:
             dat 0x0000
-:mallocTmp
+mallocTmp:
             set a, POP
             sub [mallocTmpDat], 0x0400
             set SP, [mallocTmpDat]
@@ -156,43 +142,6 @@ _timer:
             dat "-\\|/"|0xF100, 0
 _defaultNotify:
             dat "!"|0xF180,"           PetriOS            ."|0xF100
-_test11111:
-.rep 2
-.echo "_timer is at memory location " + hex(_timer)
-.rep 2
-            SET a, 0x0010
-.if 1
-            SET a, 0x1000
-.define ADEFINITION _timer
-.incbin "notchTest.bin"
-;.incbin "notchTest2.bin"
-;.incbin <notchTest.bin>
-.macro execNotchTest(loc, expectedResult)
-            jmp loc
-.end
-            execNotchTest(0, 0x40)
-.elif 0
-.undefine ADEFINITION
-            SET a, 0
-.end
-.end
-.end
-_test22222:
-.echo ".rep created data with a length of " + str(_test22222 - _test11111)
-.ifdef ADEFINITION
-.if ADEFINITION==0x90
-.error "INVALID VALUE"
-.end
-.echo "ADEFINITION is defined as " + hex(ADEFINITION)
-.else
-
-.echo "ADEFINITION is not defined"
-.end
-.undefine ADEFINITION
-.align      0x40
-.echo "_defaultNotify is at memory location " + hex(_defaultNotify)
-_notchTest:
-.include "notchTest.txt"
 notifyScreen:
             dat "                                "|0xF100
             dat "                                "|0xF100
@@ -211,20 +160,45 @@ notifyScreenId:
  
 
 ;---------------Boot------------------
-:bootmsg
+bootmsg:
             dat "Booting PetriOS...              "|0xF100
+monitormsg:
+            dat "    Looking for monitor...      "|0xF100
+successmsg:
+            dat "                         Success"|0xF100
+noMonitor:
+            SET A, _msg
+            JMP PANIC
+_msg:
+            dat "KERNEL PANIC! No Monitor!"|0xF100, 0
 :boot
-            set b, 0x8000
-            set a, 5
-            hwi 3
-            set b, 0
-            set a, 3
-            hwi 3
-            set b, 0x8000
-            set a, 0
-            hwi 3
             set a, bootmsg
             jsr notify
+            
+            
+            set a, monitormsg
+            jsr notify
+            
+            SET Z, 0
+            HWN I
+_loop:
+            IFE I, 0
+                JMP noMonitor
+            SUB I, 1
+            HWQ I
+            IFE A, 0xF615
+                IFE B, 0x7349
+                    SET Z, I
+            IFE Z, 0
+                JMP _loop
+            
+            set b, 0x8000
+            set a, 0
+            hwi z
+            
+            set a, successmsg
+            jsr notify
+            
             set SP, 0x0000          ;prepare stack of pointers to linked list items (linked list holds stack pointers)
             set i, 0
 :boot_loop
@@ -250,39 +224,6 @@ notifyScreenId:
             ;    sub PC, 4
             set j, jumpstart    ;Hook up the jumper cables
             set SP, 0x8000
-            jsr mallocTmp       ;malloc Stack
-            set a, [screen_start]
-            add a, [screen_width]
-            set PUSH, a
-            set PUSH, NoOS
-            set a, test2
-            jsr fork            ;fork test2
-            jsr mallocTmp       ;malloc Stack
-            set PUSH, 3
-            set PUSH, 0x0010
-            set a, test1
-            jsr fork            ;fork first test1
-            jsr mallocTmp       ;malloc Stack
-            set PUSH, 1
-            set PUSH, 0x0020
-            set a, test1
-            jsr fork            ;fork second test1
-            jsr mallocTmp       ;malloc Stack
-            set PUSH, 0
-            set PUSH, 0x0040
-            set a, test1
-            jsr fork            ;fork third test1
-            jsr mallocTmp       ;malloc Stack
-            set a, [screen_width]
-            mul a, 3
-            add a, [screen_start]
-            set PUSH, a
-            set a, listTasks
-            jsr fork            ;fork listTasks
-            
-            jsr mallocTmp       ;malloc Stack
-            set a, color
-            jsr fork            ;fork color cycle process
             
             ;Fork special OS processes
             jsr mallocTmp       ;malloc Stack
@@ -312,7 +253,11 @@ notifyScreenId:
 
 ;------------Screen helpers---------------
 :clr_screen
-            ;We don't actually know how big the screen is yet.....
+            SET I, 0
+_loop:
+            STI [0x8000+I], 0
+            IFN I, 32*12
+                JMP _loop
             jmp POP
             
 :copystrlen             ;Copies a string from a to b of length c, clobbers a
@@ -344,8 +289,20 @@ notifyScreenId:
             
 :end        jmp end
 :unimplemented_str
-            dat "KERNEL PANIC!                   API CALL UNIMPLEMENTED!", 0
+            dat "KERNEL PANIC!                   API CALL UNIMPLEMENTED!"|0xF100, 0
 
+
+
+
+.echo hex($)+" words used for boot"
+.if ($/512)<=512
+    .echo str($/512)+" sector will need to be loaded before OS can run (~"+str(($/512)*(1000/60))+" ms)"
+.else
+    .echo str($/512)+" sectors will need to be loaded before OS can run (~"+str(($/512)*(1000/60))+" ms)"
+.end
+
+
+            
 ;----------------TEST_PROGRAM------------------
 :test1
             set z, POP              ;We don't need to know the calling program
