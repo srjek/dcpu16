@@ -248,7 +248,7 @@ class value:
                 else:
                     return 0x1E
             self.printError(self.error)
-            return 0x20 | 0x00
+            return 0x1F
         if self.value == 0x1F and self.shortLiteral:
             tmp = self._extraWords(labels)[0]
             if tmp == None:
@@ -381,11 +381,11 @@ class dcpu16_instruction(instruction):
     def createInstruction(self, labels):
         tmpA = self.a.build(labels)
         if (tmpA & 0x1F) != tmpA:
-            self.printError("self.a.build() returned "+repr(self.b.build(labels))+", which is outside acceptable bounds. Please report this bug.")
+            self.printError("self.a.build() returned "+repr(tmpA)+", which is outside acceptable bounds. Please report this bug.")
             return 0
         tmpB = self.b.build(labels)
         if (tmpB & 0x3F) != tmpB:
-            self.printError("self.b.build() returned "+repr(self.b.build(labels))+", which is outside acceptable bounds. Please report this bug.")
+            self.printError("self.b.build() returned "+repr(tmpB)+", which is outside acceptable bounds. Please report this bug.")
             return 0
         return self.op | (tmpA << 5) | (tmpB << 10)
     def isConstSize(self):
