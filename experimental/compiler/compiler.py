@@ -8,6 +8,15 @@ class token:
         self.string = string
         self.lineNum = lineNum
         self.charNum = charNum
+    def isOp(self):
+        if self.string.isalnum():
+            return False
+        if self.string[0] == '"' and self.string[-1] == '"':
+            return False
+        return True
+    
+    def __str__(self):
+        return str(self.string)
     def __repr__(self):
         return "(Line "+str(self.lineNum)+", Char "+str(self.charNum)+", "+repr(self.string)+")"
 
@@ -54,10 +63,167 @@ class valType:
             result = "unsigned"
         return result + self.type + "*"*self.pointerLevel
 
+class operation:
+    def __init__(self, op, a, b): # a <op> b
+        self.op = op
+        self.a = a
+        self.b = b
+    def __repr__(self):
+        result = self.op.string
+        if self.a != None:
+            if isinstance(self.a, operation):
+                result = "(" + str(self.a) + ")" + result
+            else:
+                result = str(self.a) + result
+        if self.b != None:
+            if isinstance(self.b, operation):
+                result += "(" + str(self.b) + ")"
+            else:
+                result += str(self.b)
+        return result
+
+class functionCall:
+    def __init__(self, tokens):
+        self.name = tokens[0].string
+        self.args = []
+        
+        #TODO: input validation
+        i = 2
+        while tokens[i].string != ")":
+            if i == 2:
+                self.args.append(tokens[i].string)
+                i += 1
+            else:
+                self.args.append(tokens[i+1].string)
+                i += 2
+    
+    def __repr__(self):
+        result = self.name + "("
+        for x in self.args:
+            result += x + ", "
+        if len(self.args) > 0:
+            result = result[:-2]
+        result += ")"
+        return result
+
+class expression:
+    def processTokens(self, tokens):
+        result = []
+        
+        group = []
+        group_level = 0
+        for x in tokens:
+            if x.string == "(":
+                group_level += 1
+                if group_level == 1 and result[-1].string.isalnum():
+                    group = [result[-1]]
+                    result = result[:-1]
+                else:
+                    group = []
+            if group_level > 0:
+                group.append(x)
+            else:
+                result.append(x)
+            if x.string == ")":
+                group_level -= 1
+                if group_level == 0:
+                    if group[0].string.isalnum():
+                        result.append(functionCall(group))
+                    else:
+                        result.append(self.processTokens(group[1:-1]))
+                        if result[-1] == None:
+                            return None
+        
+        #TODO: array indexing
+        #TODO: type casting
+        table = [ ("ltr", {"++":False, "--":False, ".":True, "->":True}),
+                  ("rtl", {"++":False, "--":False, "+":False, "-":False, "!":False, "~":False, "*":False, "&":False}),
+                  ("ltr", {"*":True, "/":True, "%":True}),
+                  ("ltr", {"+":True, "-":True}),
+                  ("ltr", {"<<":True, ">>":True}),
+                  ("ltr", {"<":True, "<=":True, ">":True, ">=":True}),
+                  ("ltr", {"==":True, "!=":True}),
+                  ("ltr", {"&":True}),
+                  ("ltr", {"^":True}),
+                  ("ltr", {"|":True}),
+                  ("ltr", {"&&":True}),
+                  ("ltr", {"||":True}),
+                  #TODO: ternary conditional
+                  ("rtl", {"=":True, "+=":True, "-=":True, "*=":True, "/=":True, "%=":True, "<<=":True, ">>=":True, "&=":True, "^=":True, "|=":True}),
+                  ("ltr", {",":True}) ]
+        for entry in table:
+            ops = entry[1]
+            tokens = result
+            result = []
+            if entry[0] == "ltr":
+                i = 0
+                while i < len(tokens):
+                    if isinstance(tokens[i], token) and tokens[i].string in ops:
+                        op = tokens[i]
+                        b = None
+                        if ops[tokens[i].string]:
+                            b = tokens[i+1]
+                            i += 1
+                        if b == None and ((i+1) < len(tokens)) and (isinstance(tokens[i+1], operation) or (not tokens[i+1].isOp())):
+                            result.append(op)
+                        else:
+                            tmp = operation(op, result[-1], b)
+                            result = result[:-1]
+                            result.append(tmp)
+                    else:
+                        result.append(tokens[i])
+                    i += 1
+            else:
+                i = len(tokens)-1
+                while i >= 0:
+                    if isinstance(tokens[i], token) and tokens[i].string in ops:
+                        op = tokens[i]
+                        a = None
+                        if ops[tokens[i].string]:
+                            a = tokens[i-1]
+                            i -= 1
+                        if a == None and (i > 0) and (isinstance(tokens[i-1], operation) or (not tokens[i-1].isOp())):
+                            result.insert(0, op)
+                        else:
+                            tmp = operation(op, a,result[0])
+                            result = result[1:]
+                            result.insert(0, tmp)
+                    else:
+                        result.insert(0, tokens[i])
+                    i -= 1
+        if len(result) == 1:
+            result = result[0]
+        else:
+            result = None
+        return result
+        
+    def __init__(self, tokens):
+        self._tokensUsed = 0
+        if tokens[-1].string != ";":
+            return
+        self._tokensUsed = len(tokens)
+        self.ops = self.processTokens(tokens[:-1])
+        if self.ops == None:
+            self._tokens = 0
+        
+    def isValid(self):
+        return (self._tokensUsed != 0)
+    def tokensUsed(self):
+        return self._tokensUsed
+    
+    def expectsCode(self):
+        return False
+    def setCode(self, code):
+        return
+    
+    def __repr__(self):
+        return str(self.ops) + ";"
+
 class variableDeclaration:
     def __init__(self, tokens):
         self.type = None
-        self.name = None
+        self.variables = {}
+
         self.code = None
         self._tokensUsed = 0
         tokensUsed = 0
@@ -71,18 +237,58 @@ class variableDeclaration:
         if len(tokens) < tokensUsed+1:
             return
         
-        self.name = tokens[tokensUsed].string 
-        tokensUsed += 1
-        if not self.name.isalnum():
+        tmp = expression(tokens[tokensUsed:])
+        if not tmp.isValid():
             return
+        tokensUsed += tmp.tokensUsed()
         
-        if len(tokens) < tokensUsed+1:
-            return
+        tmp = tmp.ops
+        while True:
+            if not isinstance(tmp, operation):
+                return
+            if tmp.op.string == "=":
+                if (not isinstance(tmp.a, token)) or (not tmp.a.string.isalnum()):
+                    return
+                self.variables[tmp.a.string] = tmp.b
+                if (not isinstance(tmp.a, token)) or (not tmp.a.string.isalnum()):
+                    return
+                self.variables[tmp.a.string] = tmp.b
+                break
+            elif tmp.op.string == ",":
+                if (not isinstance(tmp.a, operation)) or (not tmp.a.op == "="):
+                    return
+                if (not isinstance(tmp.a.a, token)) or (not tmp.a.a.string.isalnum()):
+                    return
+                self.variables[tmp.a.a.string] = tmp.a.b
+            else:
+                return
+            tmp = tmp.b
         
-        while tokens[tokensUsed] = ",":
-            tokensUsed += 1
-            
+        self._tokensUsed = tokensUsed
         
+    def isValid(self):
+        return (self._tokensUsed != 0)
+    def tokensUsed(self):
+        return self._tokensUsed
+        
+    def expectsCode(self):
+        return False
+    def setCode(self, code):
+        return
+    
+    def __repr__(self):
+        result = ""
+        for x in self.variables:
+            result += repr(self.type) + " " + x + " = "
+            if isinstance(self.variables[x], token):
+                result += str(self.variables[x])
+            else:
+                result += repr(self.variables[x])
+            result += ";\n"
+        if len(self.variables) > 0:
+            result = result[:-1]
+        return result
+
 class function:
     def __init__(self, tokens):
         self.retType = None
@@ -199,7 +405,7 @@ class codeBlock:
     def expectsCode(self):
         return not self.closed
     def setCode(self, code):
-        if code == codeBlockEnd([token("}", 0, 0)]):
+        if isinstance(code, codeBlockEnd):
             self.closed = True
         else:
             self.code.append(code)
@@ -211,7 +417,10 @@ class codeBlock:
         else:
             result += " "
         for x in self.code:
-            result += "\t" + repr(x) + "\n"
+            tmp = repr(x).split("\n")
+            for y in tmp:
+                if y.strip() != "":
+                    result += "\t" + y + "\n"
         result += "}"
         
         return result
@@ -255,7 +464,7 @@ class stage2:
         self.pushToken(token)
         self.tokens.append(token)
         
-        for tokenClass in [function, codeBlock, codeBlockEnd]:
+        for tokenClass in [function, codeBlock, codeBlockEnd, variableDeclaration, expression]:
             tmp = tokenClass(self.tokens)
             if tmp.isValid():
                 self.tokens = self.tokens[tmp.tokensUsed():]
@@ -270,7 +479,8 @@ class stage2:
                         self.stack = self.stack[:-1]
                     self.pushToken(tmp)
                 return
-    
+
+#TODO: preprocessor
 class stage1:
     symbols = ("+", "-", "*", "/", "%", "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=",
                "~", "&", "|", "^", "<<", ">>", "!", "&&", "||", "?", ":", "==", "!=", "(", ")", "++", "--",
