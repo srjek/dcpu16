@@ -64,14 +64,18 @@ class valType:
         return result + self.type + "*"*self.pointerLevel
 
 class operation:
-    def __init__(self, op, a, b): # a <op> b
+    def __init__(self, op, a, b, op2=None, c=None): # a <op> b (<op2> (c))
         self.op = op
         self.a = a
         self.b = b
+        self.op2 = op2
+        self.c = c
     def __repr__(self):
         result = self.op.string
+        if self.op.string == "type_cast":
+            result = ""
         if self.a != None:
-            if isinstance(self.a, operation):
+            if isinstance(self.a, operation) or isinstance(self.a, valType):
                 result = "(" + str(self.a) + ")" + result
             else:
                 result = str(self.a) + result
@@ -80,6 +84,13 @@ class operation:
                 result += "(" + str(self.b) + ")"
             else:
                 result += str(self.b)
+        if self.op2 != None:
+            result += self.op2.string
+        if self.c != None:
+            if isinstance(self.c, operation):
+                result += "(" + str(self.c) + ")"
+            else:
+                result += str(self.c)
         return result
 
 class functionCall:
@@ -108,11 +119,26 @@ class functionCall:
 
 class expression:
     def processTokens(self, tokens):
+        couldBeVal = True
+        for x in tokens:
+            if not isinstance(x, token):
+                couldBeVal = False
+                break
+        if couldBeVal:
+            tmp = valType(tokens)
+            if tmp.isValid() and tmp.tokensUsed() == len(tokens):
+                return operation(token("type_cast", -1, -1), tmp, None)
         result = []
         
         group = []
         group_level = 0
         for x in tokens:
+            if not isinstance(x, token):
+                if group_level > 0:
+                    group.append(x)
+                else:
+                    result.append(x)
+                continue
             if x.string == "(":
                 group_level += 1
                 if group_level == 1 and result[-1].string.isalnum():
@@ -134,10 +160,8 @@ class expression:
                         if result[-1] == None:
                             return None
         
-        #TODO: array indexing
-        #TODO: type casting
-        table = [ ("ltr", {"++":False, "--":False, ".":True, "->":True}),
-                  ("rtl", {"++":False, "--":False, "+":False, "-":False, "!":False, "~":False, "*":False, "&":False}),
+        table = [ ("ltr", {"++":False, "--":False, ".":True, "->":True, "[":True}),
+                  ("rtl", {"++":False, "--":False, "+":False, "-":False, "!":False, "~":False, "*":False, "&":False, "^type_cast":False}),
                   ("ltr", {"*":True, "/":True, "%":True}),
                   ("ltr", {"+":True, "-":True}),
                   ("ltr", {"<<":True, ">>":True}),
@@ -148,9 +172,11 @@ class expression:
                   ("ltr", {"|":True}),
                   ("ltr", {"&&":True}),
                   ("ltr", {"||":True}),
-                  #TODO: ternary conditional
+                  ("rtl", {":":True}),
                   ("rtl", {"=":True, "+=":True, "-=":True, "*=":True, "/=":True, "%=":True, "<<=":True, ">>=":True, "&=":True, "^=":True, "|=":True}),
                   ("ltr", {",":True}) ]
+        splitOps = {"[":"]", ":":"?"}
+        ternaryOps = ["?:"]
         for entry in table:
             ops = entry[1]
             tokens = result
@@ -161,13 +187,35 @@ class expression:
                     if isinstance(tokens[i], token) and tokens[i].string in ops:
                         op = tokens[i]
                         b = None
+                        op2 = None
+                        c = None
                         if ops[tokens[i].string]:
                             b = tokens[i+1]
                             i += 1
+                            if op.string in splitOps:
+                                i += 1
+                                b = [b]
+                                while i < len(tokens):
+                                    if tokens[i].string == splitOps[op.string]:
+                                        op2 = tokens[i]
+                                        i += 1
+                                        break
+                                    else:
+                                        b.append(tokens[i])
+                                        i += 1
+                                if op2 == None:
+                                    return None
+                                b = self.processTokens(b)
+                                if b == None:
+                                    return None
+                                if (op.string+op2.string) in ternaryOps:
+                                    c = tokens[i]
+                                    i += 1
+                                i -= 1
                         if b == None and ((i+1) < len(tokens)) and (isinstance(tokens[i+1], operation) or (not tokens[i+1].isOp())):
                             result.append(op)
                         else:
-                            tmp = operation(op, result[-1], b)
+                            tmp = operation(op, result[-1], b, op2, c)
                             result = result[:-1]
                             result.append(tmp)
                     else:
@@ -179,15 +227,51 @@ class expression:
                     if isinstance(tokens[i], token) and tokens[i].string in ops:
                         op = tokens[i]
                         a = None
+                        op2 = None
+                        c = None
                         if ops[tokens[i].string]:
                             a = tokens[i-1]
                             i -= 1
+                            if op.string in splitOps:
+                                i -= 1
+                                a = [a]
+                                while i >= 0:
+                                    if tokens[i].string == splitOps[op.string]:
+                                        op2 = tokens[i]
+                                        i -= 1
+                                        break
+                                    else:
+                                        a.insert(0, tokens[i])
+                                        i -= 1
+                                if op2 == None:
+                                    return None
+                                a = self.processTokens(a)
+                                if a == None:
+                                    return None
+                                if (op2.string+op.string) in ternaryOps:
+                                    c = tokens[i]
+                                    i -= 1
+                                i += 1
                         if a == None and (i > 0) and (isinstance(tokens[i-1], operation) or (not tokens[i-1].isOp())):
                             result.insert(0, op)
                         else:
-                            tmp = operation(op, a,result[0])
+                            b = result[0]
+                            if c != None:
+                                tmp = c
+                                c = b
+                                b = a
+                                a = tmp
+                            if op2 != None:
+                                tmp = op2
+                                op2 = op
+                                op = tmp
+                            tmp = operation(op, a, b, op2, c)
                             result = result[1:]
                             result.insert(0, tmp)
+                    elif isinstance(tokens[i], operation) and tokens[i].op.string == "type_cast" and tokens[i].b == None and "^type_cast" in ops:
+                        tokens[i].b = result[0]
+                        result = result[1:]
+                        result.insert(0, tokens[i])
                     else:
                         result.insert(0, tokens[i])
                     i -= 1
@@ -199,12 +283,13 @@ class expression:
         
     def __init__(self, tokens):
         self._tokensUsed = 0
+        self.ops = None
         if tokens[-1].string != ";":
             return
         self._tokensUsed = len(tokens)
         self.ops = self.processTokens(tokens[:-1])
         if self.ops == None:
-            self._tokens = 0
+            self._tokensUsed = 0
         
     def isValid(self):
         return (self._tokensUsed != 0)
@@ -217,6 +302,8 @@ class expression:
         return
     
     def __repr__(self):
+        if self.ops == None:
+            return repr(None)
         return str(self.ops) + ";"
 
 class variableDeclaration:
