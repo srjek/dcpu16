@@ -416,9 +416,11 @@ def eval_0xSCAmodified(expression, labels, globalLabel="", preEval=False):
     operators["&&"] = lambda a, b: a and b
     operators["||"] = lambda a, b: a or b
     operators["^^"] = operators["!="]   #Yep
+    operators["<<"] = lambda a, b: a << b
+    operators[">>"] = lambda a, b: (a >> b) & (0xFFFF >> b)
 
     opOrder = [("*", "/"), ("%",), ("+", "-")]
-    opOrder.extend([("==", "!=", "<>", "<", ">", "<=", ">="), ("&", "^", "|"), ("&&", "||", "^^")])
+    opOrder.extend([("==", "!=", "<>", "<", ">", "<=", ">="), ("&", "^", "|"), ("&&", "||", "^^"), ("<<", ">>")])
 
     opOrder.extend([("-@","~@","!@")])   #This needs to be split first (or on the end of the list)
     operators["@$@"] = lambda a, b: labels["$$curAddress"]  #add support for curAddress token
@@ -435,7 +437,10 @@ def eval_0xSCAmodified(expression, labels, globalLabel="", preEval=False):
         return evaluate(operators, opOrder, expression, labels, globalLabel, preEval)
     except Exception as err:
         if err.args[0] == "Unable to understand expression":
-            print(repr(expression))
+            tmp = list(err.args)
+            tmp[0] += ": "
+            tmp.append(repr(expression))
+            err.args = tuple(tmp)
         raise err
 
 def eval_0xSCA(expression, labels, globalLabel=""):
