@@ -1,0 +1,157 @@
+; A dcpu16 program that rewrites another dcpu16 program, allowing the
+; child program to be executed without compromising the system,
+; but at a performance and memory cost
+;
+; Works by first checking for illegal instructions (IAQ, IAS, IAG, HWI, or unrecognized instructions)
+;     - To prevent abuse of undocumented instructions, any invalid dcpu16 instructions are considered illegal
+; Then the child program is rewritten as follows:
+;     - Any instructions that set PC to an unknown value will be replaced with a JSR to bounds-check at runtime
+;     - Any instructions that set Ram at an unknown address will be replaced with a JSR to bounds-check at runtime
+;     - Any instructions that set PC or Ram will be subject to a bounds check and may be considered an illegal instruction
+;     - Using the stack is considered to be accessing Ram at an unknown address
+;     - INT calls are considered to be calls to standard functions provided by this program
+;         * Any unrecognized std function calls are considered to be illegal instructions
+;         * By default, no std function calls are provided, thus all INT instructions will be illegal
+;         * INT calls can not use short literals
+;     - The last instruction in code space is considered to be the end of the program, and will be replaced with a JSR to ensure this
+;     - If this program can not acquire an interrupt handler for a short literal INT
+;         * Any 1 words instructions that need replaced will be considered illegal
+;
+; The child program will NOT be altered to work with cooperative multitasking systems
+; (cooperative multitasking is risky, the replaced instruction handler can be altered to coop,
+;            and std coop functions could be provided to the child, but nothing will force the child to use them)
+
+; TODO: make sure any changes to PC land on a verified instruction (Note: may have to consider instructions that SET PC to an unknown value to be illegal)
+;       example:
+;          IN_YOUR_BASE:
+;              SET A, <illegal instruction>
+;              SET PC, POP
+;              <more code>
+;              SET PC, IN_YOUR_BASE+1
+; TODO: I said above I would only replace instructions that I can't bounds check at program load. Actually do this.
+; TODO: Allow (optional?) bounds-checking on ram reads
+;               Originally written to allow file system drivers to be loaded from the floppy with the fs in question
+;               However, as it currently stands, reading from ram is not bounds checked
+;               It would be possible in the described scenerio to dump the ram to disk, potentially exposing private data
+; TODO: consider self-modifying code or some other way of using the dcpu16 to execute instructions in the handlers
+
+.include "db.dasm"
+
+rewrite:
+    ;Get address of program
+    ;Get length of program
+    ;Get length of code
+    
+    ;Add prog id to database
+    SET PUSH, <code_start>  ;TODO
+    SET PUSH, <code_end>
+    SET PUSH, <data_start>
+    SET PUSH, <data_end>
+    JSR add_prog_id     ;Store program in database, and get prog_id
+    IFE A, 0
+        JMP insufficent_space
+    SET 0, POP
+    SET 0, POP
+    SET 0, POP
+    SET 0, POP
+    SET PEEK, A ;Save prog_id in stack, because most future function calls will need it anyways
+        
+    ;Loop through code
+_loop:
+        ;Pull out op, b from instruction
+        ;If op is 0
+            ;If b is illegal (IAQ, IAS, IAG, HWI, invalid dcpu16 instruction)
+                JMP illegal_instruction
+            ;If b is INT
+                ;Get a
+                ;If a is a short literal
+                    JMP illegal_instruction
+                ;Lookup std function
+                ;If lookup failed
+                    JMP illegal_instruction
+                ;if last instruction
+                    JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+                    ;replace with JSR last_instruction_handler
+                ;replace with JSR <std_function>
+                
+        ;if op is an invalid dcpu16 instruction
+            JMP illegal_instruction
+        
+        ;if last instruction
+            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+            ;replace with JSR last_instruction_handler
+        ;if op is an IF* instruction
+            ;continue
+        
+        ;NOTE: 3 word instructions should be replaced with an extra SET A, A instruction appended to compenstate for size
+        ;if b is PC
+            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+            ;replace with JSR dangerous_instruction_handler
+        ;if b is a stack operation
+            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+            ;replace with JSR dangerous_instruction_handler
+        ;if b is a ram write
+            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+            ;replace with JSR dangerous_instruction_handler
+    JMP _loop
+    
+    SET PC, POP
+    
+
+insufficent_space:
+    ;Maybe print different error message
+    ;Do the rest of illegal_instruction
+illegal_instruction_runtime:
+    ;Maybe print different error message
+    ;Do the rest of illegal_instruction
+illegal_instruction:
+    ;Maybe print error message
+    ;Return error code
+    SUB PC, 1
+
+last_instruction_handler:
+    ;Get original instruction data
+    ;if op is 0
+        ;if b is INT
+            ;Get a
+            ;Lookup std function
+            ;Restore state
+            ;JSR <std_function>
+    ;if b is PC
+        ;invoke dangerous_instruction_handler
+    ;if b is a stack op
+        ;invoke dangerous_instruction_handler
+    ;if b is a ram write
+        ;invoke dangerous_instruction_handler
+    ;if nothing above
+        ;exec instruction
+    ;abort child program
+        
+dangerous_instruction_handler:
+    ;Get original instruction data
+    JSR db_lookup (args: [SP] before this instruction) (provides prog_id, instruction0, instruction1, instruction2)
+    ;get a
+    ;resolve/emulate a
+    ;get op
+    ;if b is PC
+        ;change op to SET, changing a to keep the behavior identical
+        ;get prog_id
+        ;get code bounds
+        JSR prog_get_code_bounds (args: prog_id)
+        ;If a not in code bounds
+            JMP illegal_instruction_runtime
+        ;check for illegal instructions at a, and the 2 words after (or less if near edge of code)
+        ;If illegal instructions
+            JMP illegal_instruction_runtime
+        ;Restore state
+        ;Set PC to a
+    ;if b is a stack operation or a ram write
+        ;Resolve b to an address
+        JSR prog_get_data_bounds (args: prog_id)
+        ;if b not in data bounds
+            JMP illegal_instruction_runtime
+        ;Get a
+        ;Resolve a
+        ;SET [b], a
+    ;Restore state
+    ;SET PC to next instruction

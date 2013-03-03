@@ -1,0 +1,207 @@
+
+.ifndef prog_db_size
+    .define prog_db_size 20
+.end
+.ifndef instruction_db_size
+    .define instruction_db_size 200
+.end
+
+prog_db:
+.rep prog_db_size
+    DAT 0   ;[A]   instruction_db address
+    DAT 0   ;[A+1] code_start
+    DAT 0   ;[A+2] code_end
+    DAT 0   ;[A+3] data_start
+    DAT 0   ;[A+4] data_end
+.end
+
+instruction_db:
+.rep instruction_db_size
+    DAT 0   ;[A]   address of next instruction, 0 if no entry here
+    DAT 0   ;[A+1] instruction0
+    DAT 0   ;[A+2] instruction1
+    DAT 0   ;[A+3] instruction2
+.end
+
+find_prog_id:
+    SET A, prog_db
+    SET I, 0
+    
+_loop:
+    IFE [A], B
+        SET PC, POP
+    ADD A, 6
+    ADD I, 1
+    IFN I, prog_db_size
+        JMP _loop
+        
+    SET A, 0
+    SET PC, POP
+
+allocate_instruction_db:
+    SET A, instruction_db
+    SET PUSH, A
+    
+    SET I, 0
+_loop:
+    SET [A], 0
+    ADD A, 4
+    ADD I, 1
+    IFN I, instruction_db_size
+        JMP _loop
+    
+    SET A, POP
+    SET PC, POP
+
+find_instruction:
+    SET I, 0
+    
+_loop:
+    IFE [A], B
+        SET PC, POP
+    ADD A, 4
+    ADD I, 1
+    IFN I, instruction_db_size
+        JMP _loop
+        
+    SET A, 0
+    SET PC, POP
+
+;[SP+4] code_start
+;[SP+3] code_end
+;[SP+2] data_start
+;[SP+1] data_end
+add_prog_id:
+    SET B, 0
+    JSR find_prog_id
+    IFE A, 0
+        SET PC, POP ;TODO: make sure callers check for A==0 as an error code
+    
+    ;Initialize data structure
+    SET [A+1], [SP+4]
+    SET [A+2], [SP+3]
+    SET [A+3], [SP+2]
+    SET [A+4], [SP+1]
+    
+    ;Allocate instruction_db space
+    SET PUSH, A
+    JSR allocate_instruction_db
+    SET B, A
+    SET A, POP
+    SET [A], B
+    
+    SET PC, POP
+
+;[SP+1] prog_id
+rm_prog_id:
+    SET A, [SP+1]
+    SET [A], 0
+    SET PC, POP
+
+;[SP+1] prog_id
+prog_get_code_bounds:
+    SET A, [SP+1]
+    IFE [A], 0
+        JMP _fail
+        
+    SET I, [A+1]    ;code_start
+    SET J, [A+2]    ;code_end
+    SET PC, POP
+_fail:
+    SET I, 0
+    SET J, 0
+    SET PC, POP
+
+;[SP+1] prog_id
+prog_get_data_bounds:
+    SET A, [SP+1]
+    IFE [A], 0
+        JMP _fail
+        
+    SET I, [A+3]    ;data_start
+    SET J, [A+4]    ;data_end
+    SET PC, POP
+_fail:
+    SET I, 0
+    SET J, 0
+    SET PC, POP
+
+
+;[SP+5] prog_id
+;[SP+4] address of instruction
+;[SP+3] instruction2
+;[SP+2] instruction1
+;[SP+1] instruction0
+db_add:
+    SET A, [SP+5]
+    SET A, [A]
+    SET B, 0
+    JSR find_instruction
+    IFE A, 0
+        SET PC, POP ;TODO: make sure callers check for A==0 as an error code
+        
+    SET [A+1], [SP+3]
+    SET [A+2], [SP+2]
+    SET [A+3], [SP+1]
+    
+    ;Set address of next instruction
+    SET B, 1
+    
+    ;IF a is extended: ADD B, 1
+    SET I, [SP+1]
+    AND I, (0x1F << 10)
+    SHL I, 10
+    IFB I, 0x08
+        IFC I, 0x14
+            ADD B, 1
+    IFE I, 0x1A
+        ADD B, 1
+    IFE I, 0x1E
+        ADD B, 1
+    
+    ;IF b is extended: ADD B, 1
+    SET I, [SP+1]
+    AND I, (0x1F << 5)
+    SHL I, 5
+    IFB I, 0x08
+        IFC I, 0x14
+            ADD B, 1
+    IFE I, 0x1A
+        ADD B, 1
+    IFE I, 0x1E
+        ADD B, 1
+    
+    SET [A], [SP+4]
+    ADD [A], B
+    
+    SET PC, POP
+    
+;[SP+2] prog_id
+;[SP+1] address of next instruction
+db_remove:
+    SET A, [SP+2]
+    SET A, [A]
+    JSR find_instruction
+    IFN A, 0
+        SET [A], 0
+    SET PC, POP
+
+;[SP+2] prog_id
+;[SP+1] address of next instruction
+db_lookup:
+    SET A, [SP+2]
+    SET A, [A]
+    JSR find_instruction
+    IFE A, 0
+        JMP _fail
+        
+    SET X, [A+1]    ;TODO: consider returning address to instruction, and letting caller read ram as needed
+    SET Y, [A+2]
+    SET Z, [A+3]
+    SET PC, POP
+    
+_fail:
+    SET X, 0
+    SET Y, 0
+    SET Z, 0
+    SET PC, POP
