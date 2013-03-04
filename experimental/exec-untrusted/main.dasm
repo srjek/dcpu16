@@ -28,6 +28,8 @@
 ;              SET PC, POP
 ;              <more code>
 ;              SET PC, IN_YOUR_BASE+1
+; TODO: write an untrusted program that sets SP and other regs, does an untrusted action, and then executes the untrusted code placed into memory for it
+; TODO: then fix it
 ; TODO: I said above I would only replace instructions that I can't bounds check at program load. Actually do this.
 ; TODO: Allow (optional?) bounds-checking on ram reads
 ;               Originally written to allow file system drivers to be loaded from the floppy with the fs in question

@@ -38,7 +38,7 @@ _loop:
     SET A, 0
     SET PC, POP
 
-allocate_instruction_db:
+allocate_instruction_db:    ;TODO: properly allocate memory
     SET A, instruction_db
     SET PUSH, A
     
