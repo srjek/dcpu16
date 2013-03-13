@@ -46,6 +46,109 @@ init:
     ;Register things with the OS here
     SET PC, POP
 
+op_table:   ;0 -- invalid, 1 -- replace, 2 -- valid provided operands are valid
+    DAT 2   ;Extended ops
+    DAT 2   ;SET
+    DAT 2   ;ADD
+    DAT 2   ;SUB
+    DAT 2   ;MUL
+    DAT 2   ;MLI
+    DAT 2   ;DIV
+    DAT 2   ;DVI
+    DAT 2   ;MOD
+    DAT 2   ;MDI
+    DAT 2   ;AND
+    DAT 2   ;BOR
+    DAT 2   ;XOR
+    DAT 2   ;SHR
+    DAT 2   ;ASR
+    DAT 2   ;SHL
+    DAT 2   ;IFB
+    DAT 2   ;IFC
+    DAT 2   ;IFE
+    DAT 2   ;IFN
+    DAT 2   ;IFG
+    DAT 2   ;IFA
+    DAT 2   ;IFL
+    DAT 2   ;IFU
+    DAT 0
+    DAT 0
+    DAT 2   ;ADX
+    DAT 2   ;SBX
+    DAT 0
+    DAT 0
+    DAT 2   ;STI
+    DAT 2   ;STD
+
+ext_op_table:   ;0 -- invalid, 1 -- replace, 2 -- valid provided operands are valid
+    DAT 0   ;Reserved
+    DAT 1   ;JSR
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 1   ;INT
+    DAT 0   ;IAG
+    DAT 0   ;IAS
+    DAT 1   ;RFI
+    DAT 0   ;IAQ
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0   ;HWN    ;warning, should you chose to allow HWN, HWN sets a, which kinda messes up the operand_table
+    DAT 0   ;HWQ
+    DAT 0   ;HWI
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+    DAT 0
+
+operand_table:   ;0 -- replace, 1 -- replace if b (valid as a), 2 -- replace if a (valid as b), 3 -- valid
+    DAT 3   ;A
+    DAT 3   ;B
+    DAT 3   ;C
+    DAT 3   ;X
+    DAT 3   ;Y
+    DAT 3   ;Z
+    DAT 3   ;I
+    DAT 3   ;J
+    DAT 1   ;[A]
+    DAT 1   ;[B]
+    DAT 1   ;[C]
+    DAT 1   ;[X]
+    DAT 1   ;[Y]
+    DAT 1   ;[Z]
+    DAT 1   ;[I]
+    DAT 1   ;[J]
+    DAT 1   ;[A+x]
+    DAT 1   ;[B+x]
+    DAT 1   ;[C+x]
+    DAT 1   ;[X+x]
+    DAT 1   ;[Y+x]
+    DAT 1   ;[Z+x]
+    DAT 1   ;[I+x]
+    DAT 1   ;[J+x]
+    DAT 0   ;PUSH/POP   ;SP is emulated (we use the SP register for other things)    
+    DAT 0   ;PEEK       ;SP is emulated
+    DAT 0   ;PICK       ;SP is emulated
+    DAT 0   ;SP         ;SP is emulated
+    DAT 1   ;PC
+    DAT 3   ;EX
+    DAT 1   ;[next word]
+    DAT 3   ;next word (literal)
+    ;Anything above is a literal(3/valid), code that uses this table should check for literals first
+
 rewrite:
     ;Get address of program
     ;Get length of program
@@ -57,9 +160,10 @@ rewrite:
     SET PUSH, <data_start>          ;[SP-1]
     SET PUSH, <data_end>            ;[SP]
     JSR add_prog_id     ;Store program in database, and get prog_id
+    ADD SP, 4
     IFE A, 0
         JMP insufficent_space
-    SET PEEK, A ;Save prog_id in stack, because most future function calls will need it anyways
+    SET PUSH, A ;Save prog_id in stack, because most future function calls will need it anyways
         
     ;Loop through code
     SET I, [SP-3]
@@ -80,81 +184,39 @@ _loop:
         JMP _op_not_0
         
         _op_0:
-            ;If b is illegal (IAQ, IAS, IAG, RFI, HWI, HWN, HWQ, any invalid dcpu16 instructions)
-            IFN B, 0x08     ;B != INT
-                IFN B, 0x01     ;B != JSR
-                    JMP illegal_instruction
-            
-            ;If b is JSR
-            IFE B, 0x01     ;B == JSR
-                JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-                ;replace with JSR dangerous_instruction_handler
-            
-            IFN B, 0x08     ;B != INT
-                JMP _continue
-                
-            ;If a is short
-            IFN A, 0x10
-            IFN A, 0x11
-            IFN A, 0x12
-            IFN A, 0x13
-            IFN A, 0x14
-            IFN A, 0x15
-            IFN A, 0x16
-            IFN A, 0x17
-            IFN A, 0x1a
-            IFN A, 0x1e
-            IFN A, 0x1f
-                JMP illegal_instruction ;TODO: handle shorter instructions
-            
-            SET PUSH, I
-            JSR db_add (args: prog_id, address of instruction)
-            SET A, POP
-            SET [I], [PC++]
-                JSR dangerous_instruction_handler
-            JMP _continue
-            
-            ;Lookup std function
-            ;If lookup failed
-                ;JMP illegal_instruction
+            SET B, [ext_op_table+B]
+            IFE B, 0
+                JMP illegal_instruction
             ;if last instruction
-                JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-                ;replace with JSR last_instruction_handler
-            ;replace with JSR <std_function>
+                JMP _last_instruction
+            IFE B, 1
+                JMP _replace_instruction
+            IFE B, 2
+                JMP _continue
+            
+            JMP illegal_instruction
         
     _op_not_0:
-        
-        ;if op is an invalid dcpu16 instruction
-        IFE X, 0x18
+        SET X, [op_table+X]
+        IFE X, 0
             JMP illegal_instruction
-        IFE X, 0x19
-            JMP illegal_instruction
-        IFE X, 0x1a
-            JMP illegal_instruction
-        IFE X, 0x1b
-            JMP illegal_instruction
-        
         ;if last instruction
-            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-            ;replace with JSR last_instruction_handler
-        ;if op is an IF* instruction
-            ;continue
+            JMP _last_instruction
+        IFE X, 1
+            JMP _replace_instruction
+        IFE X, 2
+            JMP _continue
         
+        JMP illegal_instruction
+    
+    _last_instruction:
+        JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+        ;replace with JSR last_instruction_handler
+        JMP _continue
+    _replace_instruction:
         ;NOTE: 3 word instructions should be replaced with an extra SET A, A instruction appended to compenstate for size
-        ;if b is a stack operation, or SP
-            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-            ;replace with JSR dangerous_instruction_handler
-        ;if a is a stack operation, or SP
-            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-            ;replace with JSR dangerous_instruction_handler
-        ;if op is an IF* instruction
-            ;continue
-        ;if b is PC
-            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-            ;replace with JSR dangerous_instruction_handler
-        ;if b is a ram write
-            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-            ;replace with JSR dangerous_instruction_handler
+        JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+        ;replace with JSR dangerous_instruction_handler
 _continue:
     JMP _loop
     
