@@ -5,6 +5,9 @@
 .ifndef instruction_db_size
     .define instruction_db_size 200
 .end
+.ifndef callback_db_size
+    .define callback_db_size 20
+.end
 
 prog_db:
 .rep prog_db_size
@@ -17,10 +20,17 @@ prog_db:
 
 instruction_db:
 .rep instruction_db_size
-    DAT 0   ;[A]   address of next instruction, 0 if no entry here
+    DAT 0   ;[A]   address of next instruction, 0 if no entry here  (used to identify current instruction from stack)
     DAT 0   ;[A+1] instruction0
     DAT 0   ;[A+2] instruction1
     DAT 0   ;[A+3] instruction2
+    DAT 0   ;[A+4] address of next instruction data entry, 0 if execution should return from the handler
+.end
+
+callback_db:
+.rep callback_db_size
+    DAT 0   ;[A]    callback num
+    DAT 0   ;[A+1]  address of callback, 0 if no entry
 .end
 
 find_prog_id:
@@ -30,7 +40,7 @@ find_prog_id:
 _loop:
     IFE [A], B
         SET PC, POP
-    ADD A, 6
+    ADD A, 5
     ADD I, 1
     IFN I, prog_db_size
         JMP _loop
@@ -45,7 +55,7 @@ allocate_instruction_db:    ;TODO: properly allocate memory
     SET I, 0
 _loop:
     SET [A], 0
-    ADD A, 4
+    ADD A, 5
     ADD I, 1
     IFN I, instruction_db_size
         JMP _loop
@@ -59,9 +69,39 @@ find_instruction:
 _loop:
     IFE [A], B
         SET PC, POP
-    ADD A, 4
+    ADD A, 5
     ADD I, 1
     IFN I, instruction_db_size
+        JMP _loop
+        
+    SET A, 0
+    SET PC, POP
+
+find_callback:
+    SET A, callback_db
+    SET I, 0
+    
+_loop:
+    IFE [A], B
+        SET PC, POP
+    ADD A, 2
+    ADD I, 1
+    IFN I, callback_db_size
+        JMP _loop
+        
+    SET A, 0
+    SET PC, POP
+
+find_callback_address:
+    SET A, callback_db
+    SET I, 0
+    
+_loop:
+    IFE [A+1], B
+        SET PC, POP
+    ADD A, 2
+    ADD I, 1
+    IFN I, callback_db_size
         JMP _loop
         
     SET A, 0
@@ -127,28 +167,26 @@ _fail:
     SET PC, POP
 
 
-;[SP+5] prog_id
-;[SP+4] address of instruction
-;[SP+3] instruction2
-;[SP+2] instruction1
-;[SP+1] instruction0
+;[SP+2] prog_id
+;[SP+1] address of instruction
 db_add:
-    SET A, [SP+5]
+    SET A, [SP+2]
     SET A, [A]
     SET B, 0
     JSR find_instruction
     IFE A, 0
         SET PC, POP ;TODO: make sure callers check for A==0 as an error code
-        
-    SET [A+1], [SP+3]
-    SET [A+2], [SP+2]
-    SET [A+3], [SP+1]
+    
+    SET B, [SP+1]
+    SET [A+1], [B]
+    SET [A+2], [B+1]
+    SET [A+3], [B+2]
     
     ;Set address of next instruction
     SET B, 1
     
     ;IF a is extended: ADD B, 1
-    SET I, [SP+1]
+    SET I, [A+1]
     AND I, (0x1F << 10)
     SHL I, 10
     IFB I, 0x08
@@ -160,7 +198,7 @@ db_add:
         ADD B, 1
     
     ;IF b is extended: ADD B, 1
-    SET I, [SP+1]
+    SET I, [A+1]
     AND I, (0x1F << 5)
     SHL I, 5
     IFB I, 0x08
@@ -171,8 +209,10 @@ db_add:
     IFE I, 0x1E
         ADD B, 1
     
-    SET [A], [SP+4]
+    SET [A], [SP+2]
     ADD [A], B
+    
+    SET [A+4], 0
     
     SET PC, POP
     

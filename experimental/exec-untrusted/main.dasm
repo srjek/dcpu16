@@ -8,6 +8,7 @@
 ;     - Any instructions that set PC to an unknown value will be replaced with a JSR to bounds-check at runtime
 ;     - Any instructions that set Ram at an unknown address will be replaced with a JSR to bounds-check at runtime
 ;     - Any instructions that set PC or Ram will be subject to a bounds check and may be considered an illegal instruction
+;     - Any instructions that modify SP will be replaced/emulated, as the actual SP register is used by the this program
 ;     - Using the stack is considered to be accessing Ram at an unknown address
 ;     - INT calls are considered to be calls to standard functions provided by this program
 ;         * Any unrecognized std function calls are considered to be illegal instructions
@@ -28,8 +29,6 @@
 ;              SET PC, POP
 ;              <more code>
 ;              SET PC, IN_YOUR_BASE+1
-; TODO: write an untrusted program that sets SP and other regs, does an untrusted action, and then executes the untrusted code placed into memory for it
-; TODO: then fix it
 ; TODO: I said above I would only replace instructions that I can't bounds check at program load. Actually do this.
 ; TODO: Allow (optional?) bounds-checking on ram reads
 ;               Originally written to allow file system drivers to be loaded from the floppy with the fs in question
@@ -39,44 +38,100 @@
 
 .include "db.dasm"
 
+short_replace:
+    INT 0x1E
+
+init:
+    ;This function should be called once, ever (NOT once per program rewritten/loaded)
+    ;Register things with the OS here
+    SET PC, POP
+
 rewrite:
     ;Get address of program
     ;Get length of program
     ;Get length of code
     
     ;Add prog id to database
-    SET PUSH, <code_start>  ;TODO
-    SET PUSH, <code_end>
-    SET PUSH, <data_start>
-    SET PUSH, <data_end>
+    SET PUSH, <code_start>  ;TODO   ;[SP-3]
+    SET PUSH, <code_end>            ;[SP-2]
+    SET PUSH, <data_start>          ;[SP-1]
+    SET PUSH, <data_end>            ;[SP]
     JSR add_prog_id     ;Store program in database, and get prog_id
     IFE A, 0
         JMP insufficent_space
-    SET 0, POP
-    SET 0, POP
-    SET 0, POP
-    SET 0, POP
     SET PEEK, A ;Save prog_id in stack, because most future function calls will need it anyways
         
     ;Loop through code
+    SET I, [SP-3]
 _loop:
-        ;Pull out op, b from instruction
+        ;Pull out op<x>, b<B> from instruction
+        SET X, [I]
+        AND X, 0x1F
+        SET B, [I]
+        SHR B, 5
+        AND B, 0x1F
+        SET A, [I]
+        SHR A, 10
+        AND A, 0x3F
+        
         ;If op is 0
-            ;If b is illegal (IAQ, IAS, IAG, HWI, invalid dcpu16 instruction)
-                JMP illegal_instruction
-            ;If b is INT
-                ;Get a
-                ;If a is a short literal
+        IFE X, 0
+            JMP _op_0
+        JMP _op_not_0
+        
+        _op_0:
+            ;If b is illegal (IAQ, IAS, IAG, RFI, HWI, HWN, HWQ, any invalid dcpu16 instructions)
+            IFN B, 0x08     ;B != INT
+                IFN B, 0x01     ;B != JSR
                     JMP illegal_instruction
-                ;Lookup std function
-                ;If lookup failed
-                    JMP illegal_instruction
-                ;if last instruction
-                    JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
-                    ;replace with JSR last_instruction_handler
-                ;replace with JSR <std_function>
+            
+            ;If b is JSR
+            IFE B, 0x01     ;B == JSR
+                JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+                ;replace with JSR dangerous_instruction_handler
+            
+            IFN B, 0x08     ;B != INT
+                JMP _continue
                 
+            ;If a is short
+            IFN A, 0x10
+            IFN A, 0x11
+            IFN A, 0x12
+            IFN A, 0x13
+            IFN A, 0x14
+            IFN A, 0x15
+            IFN A, 0x16
+            IFN A, 0x17
+            IFN A, 0x1a
+            IFN A, 0x1e
+            IFN A, 0x1f
+                JMP illegal_instruction ;TODO: handle shorter instructions
+            
+            SET PUSH, I
+            JSR db_add (args: prog_id, address of instruction)
+            SET A, POP
+            SET [I], [PC++]
+                JSR dangerous_instruction_handler
+            JMP _continue
+            
+            ;Lookup std function
+            ;If lookup failed
+                ;JMP illegal_instruction
+            ;if last instruction
+                JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+                ;replace with JSR last_instruction_handler
+            ;replace with JSR <std_function>
+        
+    _op_not_0:
+        
         ;if op is an invalid dcpu16 instruction
+        IFE X, 0x18
+            JMP illegal_instruction
+        IFE X, 0x19
+            JMP illegal_instruction
+        IFE X, 0x1a
+            JMP illegal_instruction
+        IFE X, 0x1b
             JMP illegal_instruction
         
         ;if last instruction
@@ -86,15 +141,21 @@ _loop:
             ;continue
         
         ;NOTE: 3 word instructions should be replaced with an extra SET A, A instruction appended to compenstate for size
-        ;if b is PC
+        ;if b is a stack operation, or SP
             JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
             ;replace with JSR dangerous_instruction_handler
-        ;if b is a stack operation
+        ;if a is a stack operation, or SP
+            JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
+            ;replace with JSR dangerous_instruction_handler
+        ;if op is an IF* instruction
+            ;continue
+        ;if b is PC
             JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
             ;replace with JSR dangerous_instruction_handler
         ;if b is a ram write
             JSR db_add (args: address of instruction, prog_id, instruction0, instruction1, instruction2)
             ;replace with JSR dangerous_instruction_handler
+_continue:
     JMP _loop
     
     SET PC, POP
