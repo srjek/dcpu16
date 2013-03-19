@@ -251,8 +251,9 @@ last_instruction_handler:
     ;if nothing above
         ;exec instruction
     ;abort child program
-        
+    
 dangerous_instruction_handler:
+    ;Save state
     ;Get original instruction data
     JSR db_lookup (args: [SP] before this instruction) (provides prog_id, instruction0, instruction1, instruction2)
     ;get a
@@ -280,3 +281,228 @@ dangerous_instruction_handler:
         ;SET [b], a
     ;Restore state
     ;SET PC to next instruction
+
+;Function lookup table
+;Functions expect
+;   A    - pointer to value of A
+;   B    - pointer to value of B
+;   [SP] - Return address
+emu_op_table:
+    DAT 0   ;Extended ops
+    DAT emu_SET
+    DAT emu_ADD
+    DAT emu_SUB
+    DAT emu_MUL
+    DAT emu_MLI
+    DAT emu_DIV
+    DAT emu_DVI
+    DAT emu_MOD
+    DAT emu_MDI
+    DAT emu_AND
+    DAT emu_BOR
+    DAT emu_XOR
+    DAT emu_SHR
+    DAT emu_ASR
+    DAT emu_SHL
+    DAT emu_IFB
+    DAT emu_IFC
+    DAT emu_IFE
+    DAT emu_IFN
+    DAT emu_IFG
+    DAT emu_IFA
+    DAT emu_IFL
+    DAT emu_IFU
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_ADX
+    DAT emu_SBX
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_STI
+    DAT emu_STD
+
+emu_NOP:
+    SET PC, POP
+
+emu_SET:
+    ;check bounds of B
+    ;set B to A
+    SET PC, POP
+
+emu_ADD:
+    SET PUSH, [B]
+    ADD PEEK, [A]
+    ;PUT EX IN EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_SUB:
+    SET PUSH, [B]
+    SUB PEEK, [A]
+    ;PUT EX IN EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_MUL:
+    SET PUSH, [B]
+    MUL PEEK, [A]
+    ;PUT EX IN EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_MLI:
+    SET PUSH, [B]
+    MLI PEEK, [A]
+    ;PUT EX IN EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_DIV:
+    SET PUSH, [B]
+    DIV PEEK, [A]
+    ;PUT EX IN EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_DVI:
+    SET PUSH, [B]
+    DVI PEEK, [A]
+    ;PUT EX IN EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_MOD:
+    SET PUSH, [B]
+    MOD PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_MDI:
+    SET PUSH, [B]
+    MDI PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_AND:
+    SET PUSH, [B]
+    AND PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_BOR:
+    SET PUSH, [B]
+    BOR PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_XOR:
+    SET PUSH, [B]
+    XOR PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_SHR:
+    SET PUSH, [B]
+    SHR PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_ASR:
+    SET PUSH, [B]
+    ASR PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_SHL:
+    SET PUSH, [B]
+    XOR PEEK, [A]
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_IFB:
+    IFC [B], [A]
+        ;Move next address forward
+    SET PC, POP
+
+emu_IFC:
+    IFB [B], [A]
+        ;Move next address forward
+    SET PC, POP
+
+emu_IFE:
+    IFN [B], [A]
+        ;Move next address forward
+    SET PC, POP
+
+emu_IFN:
+    IFE [B], [A]
+        ;Move next address forward
+    SET PC, POP
+
+emu_IFG:
+    IFG [B], [A]
+        SET PC, POP
+    ;Move next address forward
+    SET PC, POP
+
+emu_IFA:
+    IFA [B], [A]
+        SET PC, POP
+    ;Move next address forward
+    SET PC, POP
+
+emu_IFL:
+    IFL [B], [A]
+        SET PC, POP
+    ;Move next address forward
+    SET PC, POP
+
+emu_IFU:
+    IFU [B], [A]
+        SET PC, POP
+    ;Move next address forward
+    SET PC, POP
+
+emu_ADX:
+    SET PUSH, [B]
+    ;Restore app's EX
+    ADX PEEK, [A]
+    ;Store app's EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_SBX:
+    SET PUSH, [B]
+    ;Restore app's EX
+    ABX PEEK, [A]
+    ;Store app's EX
+    SET A, SP
+    SET EX, POP
+    JMP emu_SET
+
+emu_STI:    ;TODO: consider copying SET for performace
+    JSR emu_SET
+    ;Increase app's I by 1
+    ;Increase app's J by 1
+    SET PC, POP
+
+emu_SBX:    ;TODO: consider copying SET for performace
+    JSR emu_SET
+    ;Decrease app's I by 1
+    ;Decrease app's J by 1
+    SET PC, POP
