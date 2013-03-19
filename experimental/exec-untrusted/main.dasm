@@ -8,7 +8,7 @@
 ;     - Any instructions that set PC to an unknown value will be replaced with a JSR to bounds-check at runtime
 ;     - Any instructions that set Ram at an unknown address will be replaced with a JSR to bounds-check at runtime
 ;     - Any instructions that set PC or Ram will be subject to a bounds check and may be considered an illegal instruction
-;     - Any instructions that modify SP will be replaced/emulated, as the actual SP register is used by the this program
+;     - Any instructions that modify SP will be replaced/emulated, as the actual SP register is used by this program
 ;     - Using the stack is considered to be accessing Ram at an unknown address
 ;     - INT calls are considered to be calls to standard functions provided by this program
 ;         * Any unrecognized std function calls are considered to be illegal instructions
@@ -228,7 +228,8 @@ insufficent_space:
     ;Do the rest of illegal_instruction
 illegal_instruction_runtime:
     ;Maybe print different error message
-    ;Do the rest of illegal_instruction
+    ;Do the rest of illegal_instruction (maybe?)
+    ;Kill the child program.
 illegal_instruction:
     ;Maybe print error message
     ;Return error code
@@ -251,44 +252,409 @@ last_instruction_handler:
     ;if nothing above
         ;exec instruction
     ;abort child program
-    
+
 dangerous_instruction_handler:
-    ;Save state
+    SET PUSH, EX    ;Save state
+    SET PUSH, A
+    SET PUSH, B
+    SET PUSH, C
+    SET PUSH, X
+    SET PUSH, Y
+    SET PUSH, Z
+    SET PUSH, I
+    SET PUSH, J
+    
     ;Get original instruction data
-    JSR db_lookup (args: [SP] before this instruction) (provides prog_id, instruction0, instruction1, instruction2)
-    ;get a
-    ;resolve/emulate a
-    ;get op
-    ;if b is PC
-        ;change op to SET, changing a to keep the behavior identical
-        ;get prog_id
-        ;get code bounds
-        JSR prog_get_code_bounds (args: prog_id)
-        ;If a not in code bounds
-            JMP illegal_instruction_runtime
-        ;check for illegal instructions at a, and the 2 words after (or less if near edge of code)
-        ;If illegal instructions
-            JMP illegal_instruction_runtime
-        ;Restore state
-        ;Set PC to a
-    ;if b is a stack operation or a ram write
-        ;Resolve b to an address
-        JSR prog_get_data_bounds (args: prog_id)
-        ;if b not in data bounds
-            JMP illegal_instruction_runtime
-        ;Get a
-        ;Resolve a
-        ;SET [b], a
-    ;Restore state
+    SET PUSH, [SP+9]    ;Put prog_id on top
+    SET PUSH, [SP+11]   ;Put address of next instruction on top
+    JSR db_lookup
+    
+    ;Evaluate B
+    SET A, 0xFFFF
+    SET B, X
+    SHL B, 5
+    AND B, 0x1F
+    JSR [emu_operand_table+B]
+    SET B, A
+    
+    SET EX, POP ;TODO: This should be up right after the function call that required this.
+    SET EX, POP ;However, the spot I gave for operand literals is [SP-10]. I need to make sure A and B don't collide.
+    
+    ;Evaluate A
+    SET A, X
+    SHL A, 10
+    AND A, 0x3F
+    JSR [emu_operand_table+A]
+    
+    AND X, 0x1F
+    JSR [emu_op_table+X]
+        
+    SET POP, J      ;Restore state
+    SET POP, I
+    SET POP, Z
+    SET POP, Y
+    SET POP, X
+    SET POP, C
+    SET POP, B
+    SET POP, A
+    SET POP, EX
+    
     ;SET PC to next instruction
+
+.define emu_pid_offset 10
+.define emu_PC_offset 0 ;TODO: give this a spot in ram
+.define emu_SP_offset 0 ;TODO: give this a spot in ram
+.define emu_EX_offset 9
+.define emu_A_offset 8
+.define emu_B_offset 7
+.define emu_C_offset 6
+.define emu_X_offset 5
+.define emu_Y_offset 4
+.define emu_Z_offset 3
+.define emu_I_offset 2
+.define emu_J_offset 1
+
+.define emu_start_offset 1
+.define emu_end_offset 6
+
+emu_operand_table:
+    DAT emu_reg_A
+    DAT emu_reg_B
+    DAT emu_reg_C
+    DAT emu_reg_X
+    DAT emu_reg_Y
+    DAT emu_reg_Z
+    DAT emu_reg_I
+    DAT emu_reg_J
+    DAT emu_reg_A_deref
+    DAT emu_reg_B_deref
+    DAT emu_reg_C_deref
+    DAT emu_reg_X_deref
+    DAT emu_reg_Y_deref
+    DAT emu_reg_Z_deref
+    DAT emu_reg_I_deref
+    DAT emu_reg_J_deref
+    DAT emu_reg_A_offset
+    DAT emu_reg_B_offset
+    DAT emu_reg_C_offset
+    DAT emu_reg_X_offset
+    DAT emu_reg_Y_offset
+    DAT emu_reg_Z_offset
+    DAT emu_reg_I_offset
+    DAT emu_reg_J_offset
+    DAT emu_POP     ;Can also be PUSH, when A is 0xFFFF
+    DAT emu_PEEK
+    DAT emu_PICK
+    DAT emu_SP
+    DAT emu_PC
+    DAT emu_EX
+    DAT emu_deref
+    DAT emu_literal
+    DAT emu_literal_FFFF
+    DAT emu_literal_00
+    DAT emu_literal_01
+    DAT emu_literal_02
+    DAT emu_literal_03
+    DAT emu_literal_04
+    DAT emu_literal_05
+    DAT emu_literal_06
+    DAT emu_literal_07
+    DAT emu_literal_08
+    DAT emu_literal_09
+    DAT emu_literal_0A
+    DAT emu_literal_0B
+    DAT emu_literal_0C
+    DAT emu_literal_0D
+    DAT emu_literal_0E
+    DAT emu_literal_0F
+    DAT emu_literal_10
+    DAT emu_literal_11
+    DAT emu_literal_12
+    DAT emu_literal_13
+    DAT emu_literal_14
+    DAT emu_literal_15
+    DAT emu_literal_16
+    DAT emu_literal_17
+    DAT emu_literal_18
+    DAT emu_literal_19
+    DAT emu_literal_1A
+    DAT emu_literal_1B
+    DAT emu_literal_1C
+    DAT emu_literal_1D
+    DAT emu_literal_1E
+emu_reg_A:
+    SET A, SP
+    ADD A, emu_A_offset
+    SET PC, POP
+emu_reg_B:
+    SET A, SP
+    ADD A, emu_B_offset
+    SET PC, POP
+emu_reg_C:
+    SET A, SP
+    ADD A, emu_C_offset
+    SET PC, POP
+emu_reg_X:
+    SET A, SP
+    ADD A, emu_X_offset
+    SET PC, POP
+emu_reg_Y:
+    SET A, SP
+    ADD A, emu_Y_offset
+    SET PC, POP
+emu_reg_Z:
+    SET A, SP
+    ADD A, emu_Z_offset
+    SET PC, POP
+emu_reg_I:
+    SET A, SP
+    ADD A, emu_I_offset
+    SET PC, POP
+emu_reg_J:
+    SET A, SP
+    ADD A, emu_J_offset
+    SET PC, POP
+emu_reg_A_deref:
+    SET A, [SP+emu_A_offset]
+    SET PC, POP
+emu_reg_B_deref:
+    SET A, [SP+emu_B_offset]
+    SET PC, POP
+emu_reg_C_deref:
+    SET A, [SP+emu_C_offset]
+    SET PC, POP
+emu_reg_X_deref:
+    SET A, [SP+emu_X_offset]
+    SET PC, POP
+emu_reg_Y_deref:
+    SET A, [SP+emu_Y_offset]
+    SET PC, POP
+emu_reg_Z_deref:
+    SET A, [SP+emu_Z_offset]
+    SET PC, POP
+emu_reg_I_deref:
+    SET A, [SP+emu_I_offset]
+    SET PC, POP
+emu_reg_J_deref:
+    SET A, [SP+emu_J_offset]
+    SET PC, POP
+emu_reg_A_offset:
+    SET A, [SP+emu_A_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_B_offset:
+    SET A, [SP+emu_B_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_C_offset:
+    SET A, [SP+emu_C_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_X_offset:
+    SET A, [SP+emu_X_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_Y_offset:
+    SET A, [SP+emu_Y_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_Z_offset:
+    SET A, [SP+emu_Z_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_I_offset:
+    SET A, [SP+emu_I_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_reg_J_offset:
+    SET A, [SP+emu_J_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_POP:
+    SET PUSH, B
+    IFE A, 0xFFFF
+        JMP emu_PUSH
+    SET B, emu_SP_offset
+    SET A, [SP+emu_SP_offset]
+    SET PUSH, A
+    ADD A, 1
+    JSR emu_SET_checkSP
+    SET A, POP
+    SET B, POP
+    SET PC, POP
+emu_PUSH:
+    SET B, emu_SP_offset
+    SET A, [SP+emu_SP_offset]
+    SUB A, 1
+    JSR emu_SET_checkSP
+    SET A, [B]
+    SET B, POP
+    SET PC, POP
+emu_PEEK:
+    SET A, [SP+emu_SP_offset]
+    SET PC, POP
+emu_PICK:
+    SET A, [SP+emu_SP_offset]
+    ADD A, <uhhh> ;TODO
+    SET PC, POP
+emu_SP:
+    SET A, SP
+    ADD A, emu_SP_offset
+    SET PC, POP
+emu_PC:
+    SET A, SP
+    ADD A, emu_PC_offset
+    SET PC, POP
+emu_EX:
+    SET A, SP
+    ADD A, emu_EX_offset
+    SET PC, POP
+emu_deref:
+    SET A, <uhhh> ;TODO
+    SET PC, POP
+emu_literal:
+    SET A, SP
+    SUB A, 10   ;TODO: proper spot for non-modifiable values
+    SET [A], <uhhh> ;TODO
+    SET PC, POP
+emu_literal_FFFF:
+    JSR emu_literal
+    SET [A], 0xFFFF
+    SET PC, POP
+emu_literal_00:
+    JSR emu_literal
+    SET [A], 0x00
+    SET PC, POP
+emu_literal_01:
+    JSR emu_literal
+    SET [A], 0x01
+    SET PC, POP
+emu_literal_02:
+    JSR emu_literal
+    SET [A], 0x02
+    SET PC, POP
+emu_literal_03:
+    JSR emu_literal
+    SET [A], 0x03
+    SET PC, POP
+emu_literal_04:
+    JSR emu_literal
+    SET [A], 0x04
+    SET PC, POP
+emu_literal_05:
+    JSR emu_literal
+    SET [A], 0x05
+    SET PC, POP
+emu_literal_06:
+    JSR emu_literal
+    SET [A], 0x06
+    SET PC, POP
+emu_literal_07:
+    JSR emu_literal
+    SET [A], 0x07
+    SET PC, POP
+emu_literal_08:
+    JSR emu_literal
+    SET [A], 0x08
+    SET PC, POP
+emu_literal_09:
+    JSR emu_literal
+    SET [A], 0x09
+    SET PC, POP
+emu_literal_0A:
+    JSR emu_literal
+    SET [A], 0x0A
+    SET PC, POP
+emu_literal_0B:
+    JSR emu_literal
+    SET [A], 0x0B
+    SET PC, POP
+emu_literal_0C:
+    JSR emu_literal
+    SET [A], 0x0C
+    SET PC, POP
+emu_literal_0D:
+    JSR emu_literal
+    SET [A], 0x0D
+    SET PC, POP
+emu_literal_0E:
+    JSR emu_literal
+    SET [A], 0x0E
+    SET PC, POP
+emu_literal_0F:
+    JSR emu_literal
+    SET [A], 0x0F
+    SET PC, POP
+emu_literal_10:
+    JSR emu_literal
+    SET [A], 0x10
+    SET PC, POP
+emu_literal_11:
+    JSR emu_literal
+    SET [A], 0x11
+    SET PC, POP
+emu_literal_12:
+    JSR emu_literal
+    SET [A], 0x12
+    SET PC, POP
+emu_literal_13:
+    JSR emu_literal
+    SET [A], 0x13
+    SET PC, POP
+emu_literal_14:
+    JSR emu_literal
+    SET [A], 0x14
+    SET PC, POP
+emu_literal_15:
+    JSR emu_literal
+    SET [A], 0x15
+    SET PC, POP
+emu_literal_16:
+    JSR emu_literal
+    SET [A], 0x16
+    SET PC, POP
+emu_literal_17:
+    JSR emu_literal
+    SET [A], 0x17
+    SET PC, POP
+emu_literal_18:
+    JSR emu_literal
+    SET [A], 0x18
+    SET PC, POP
+emu_literal_19:
+    JSR emu_literal
+    SET [A], 0x19
+    SET PC, POP
+emu_literal_1A:
+    JSR emu_literal
+    SET [A], 0x1A
+    SET PC, POP
+emu_literal_1B:
+    JSR emu_literal
+    SET [A], 0x1B
+    SET PC, POP
+emu_literal_1C:
+    JSR emu_literal
+    SET [A], 0x1C
+    SET PC, POP
+emu_literal_1D:
+    JSR emu_literal
+    SET [A], 0x1D
+    SET PC, POP
+emu_literal_1E:
+    JSR emu_literal
+    SET [A], 0x1E
+    SET PC, POP
 
 ;Function lookup table
 ;Functions expect
 ;   A    - pointer to value of A
 ;   B    - pointer to value of B
+;   I    - pointer to start of child program's data (inclusive)
+;   J    - pointer to end of child program's data (inclusive)
 ;   [SP] - Return address
 emu_op_table:
-    DAT 0   ;Extended ops
+    DAT emu_extended
     DAT emu_SET
     DAT emu_ADD
     DAT emu_SUB
@@ -324,15 +690,51 @@ emu_op_table:
 emu_NOP:
     SET PC, POP
 
-emu_SET:
-    ;check bounds of B
-    ;set B to A
+emu_extended:   ;TODO: handle extended ops
     SET PC, POP
+
+emu_SET:
+    IFG I, B    ;check bounds of B to see if it's a data value
+        JMP emu_SET_stack
+    IFL J, B
+        JMP emu_SET_stack
+    SET [B], [A]
+    SET PC, POP
+emu_SET_stack:
+    SUB B, SP   ;Check if it's one of our tmp values in the stack
+    IFG emu_start_offset, B
+        JMP emu_SET_fail
+    IFL emu_end_offset, B
+        JMP emu_SET_fail
+    IFE B, emu_PC_offset
+        JMP emu_SET_checkPC
+    IFE B, emu_SP_offset
+        JMP emu_SET_checkSP
+emu_SET_checkStackRet:
+    ADD B, SP
+    SET [B], [A]
+emu_SET_fail:
+    JSR illegal_instruction_runtime
+    JMP emu_SET_fail
+
+emu_SET_checkSP:
+    IFG I, [A]
+        JMP emu_SET_fail
+    IFL J, [A]
+        JMP emu_SET_fail
+    JMP emu_SET_checkStackRet
+emu_SET_checkPC:
+    ;TODO: check code bounds
+    ;check for illegal instructions at a, and the 2 words after (or less if near edge of code)
+    ;If illegal instructions
+        ;JMP illegal_instruction_runtime
+    ;TODO: something to let me replace multiple instructions when I can't replace one word instructions
+    JMP emu_SET_checkStackRet
 
 emu_ADD:
     SET PUSH, [B]
     ADD PEEK, [A]
-    ;PUT EX IN EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
@@ -340,7 +742,7 @@ emu_ADD:
 emu_SUB:
     SET PUSH, [B]
     SUB PEEK, [A]
-    ;PUT EX IN EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
@@ -348,7 +750,7 @@ emu_SUB:
 emu_MUL:
     SET PUSH, [B]
     MUL PEEK, [A]
-    ;PUT EX IN EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
@@ -356,7 +758,7 @@ emu_MUL:
 emu_MLI:
     SET PUSH, [B]
     MLI PEEK, [A]
-    ;PUT EX IN EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
@@ -364,7 +766,7 @@ emu_MLI:
 emu_DIV:
     SET PUSH, [B]
     DIV PEEK, [A]
-    ;PUT EX IN EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
@@ -372,7 +774,7 @@ emu_DIV:
 emu_DVI:
     SET PUSH, [B]
     DVI PEEK, [A]
-    ;PUT EX IN EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
@@ -479,30 +881,30 @@ emu_IFU:
 
 emu_ADX:
     SET PUSH, [B]
-    ;Restore app's EX
+    SET EX, [SP+emu_EX_offset]
     ADX PEEK, [A]
-    ;Store app's EX
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
 
 emu_SBX:
     SET PUSH, [B]
-    ;Restore app's EX
-    ABX PEEK, [A]
-    ;Store app's EX
+    SET EX, [SP+emu_EX_offset]
+    SBX PEEK, [A]
+    SET [SP+emu_EX_offset], EX
     SET A, SP
     SET EX, POP
     JMP emu_SET
 
 emu_STI:    ;TODO: consider copying SET for performace
     JSR emu_SET
-    ;Increase app's I by 1
-    ;Increase app's J by 1
+    ADD [SP+emu_I_offset], 1
+    ADD [SP+emu_J_offset], 1
     SET PC, POP
 
-emu_SBX:    ;TODO: consider copying SET for performace
+emu_STD:    ;TODO: consider copying SET for performace
     JSR emu_SET
-    ;Decrease app's I by 1
-    ;Decrease app's J by 1
+    SUB [SP+emu_I_offset], 1
+    SUB [SP+emu_J_offset], 1
     SET PC, POP
