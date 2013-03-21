@@ -36,6 +36,8 @@
 ;               It would be possible in the described scenerio to dump the ram to disk, potentially exposing private data
 ; TODO: consider self-modifying code or some other way of using the dcpu16 to execute instructions in the handlers
 
+;TODO: copy the emulator code into here to get changes/fixes/etc
+
 .include "db.dasm"
 
 short_replace:
@@ -289,15 +291,15 @@ dangerous_instruction_handler:
     AND X, 0x1F
     JSR [emu_op_table+X]
         
-    SET POP, J      ;Restore state
-    SET POP, I
-    SET POP, Z
-    SET POP, Y
-    SET POP, X
-    SET POP, C
-    SET POP, B
-    SET POP, A
-    SET POP, EX
+    SET J, POP      ;Restore state
+    SET I, POP
+    SET Z, POP
+    SET Y, POP
+    SET X, POP
+    SET C, POP
+    SET B, POP
+    SET A, POP
+    SET EX, POP
     
     ;SET PC to next instruction
 
@@ -713,6 +715,7 @@ emu_SET_stack:
 emu_SET_checkStackRet:
     ADD B, SP
     SET [B], [A]
+    SET PC, POP
 emu_SET_fail:
     JSR illegal_instruction_runtime
     JMP emu_SET_fail
