@@ -15,8 +15,13 @@ illegal_instruction_runtime:
     SUB PC, 1
 
 emulate:
+    SET I, [SP+3] ;code_start (inclusive)
+    SET J, [SP+2] ;code_end (inclusive)
+    
     ;Initialize State
-    SET PUSH, [SP+1]; PC
+    SET PUSH, 0; IAQ
+    SET PUSH, 0; IA
+    SET PUSH, [SP+3]; PC
     SET PUSH, 0     ; SP
     SET PUSH, 0     ; EX
     SET PUSH, 0     ; A
@@ -29,9 +34,11 @@ emulate:
     SET PUSH, 0     ; J
     .define emu_PC_offset 10
     
-    SET I, <code_start>
-    SET J, <code_end>
+    SET B, 0x12 ;HWI
+    SET A, SP   ;[J], which is conviently set to 0. (we also know HWI 0 won't modify J)
+    JMP [emu_ext_op_table+B]
 
+emu_ext_op_ret:
 _loop:
     SET X, [SP+emu_PC_offset]
     ADD [SP+emu_PC_offset], 1
@@ -41,30 +48,37 @@ _loop:
     ;Evaluate A
     SET B, 0xFFFF
     SET A, [X]
-    SHL A, 10
+    SHR A, 10
     AND A, 0x3F
     JSR [emu_operand_table+A]
     SET A, B
     
+    ;Extract B
+    SET B, [X]
+    SHR B, 5
+    AND B, 0x1F
+    
+    ;Check if we need to read another word(we delay this to try to keep the labels close for XOR/ADD/SUB optimizations)
     IFN Z, 0
         JMP _readword
 
-    SET X, [X]  ;We no longer need the address of the instruction
 _readword_ret:
     ;Evaluate B
-    SET B, X
-    SHL B, 5
-    AND B, 0x1F
+    
+    IFC [X], 0x1F   ;If this is an extended op, don't evaulate B
+        JMP [emu_ext_op_table+B] ;Note, this returns execution to emu_ext_op_ret
+    
     JSR [emu_operand_table+B]
     
     IFN Z, 0
         ADD [SP+emu_PC_offset], 1
-    
-    AND X, 0x1F ;Read in the op (discarding the instruction)
+_emu_op:
+    SET X, [X]  ;Read in the op (discarding the instruction)
+    AND X, 0x1F
     JSR [emu_op_table+X]
     
     JMP _loop
-    
+
     JMP _end
 _readword:
     SET Y, [X+2]
@@ -76,6 +90,8 @@ _end:
     ADD SP, 11  ;Throw away State
     SET PC, POP
 
+.define emu_IAQ_offset 13
+.define emu_IA_offset 12
 .define emu_PC_offset 11
 .define emu_SP_offset 10
 .define emu_EX_offset 9
@@ -89,7 +105,7 @@ _end:
 .define emu_J_offset 1
 
 .define emu_start_offset 1
-.define emu_end_offset 6
+.define emu_end_offset 13
 
 emu_operand_table:
     DAT emu_reg_A
@@ -116,7 +132,7 @@ emu_operand_table:
     DAT emu_reg_Z_offset
     DAT emu_reg_I_offset
     DAT emu_reg_J_offset
-    DAT emu_PUSH     ;Can also be POP, when B is 0xFFFF
+    DAT emu_PUSHPOP
     DAT emu_PEEK
     DAT emu_PICK
     DAT emu_SP
@@ -252,10 +268,11 @@ emu_reg_J_offset:
     ADD B, Y
     SET Z, 1
     SET PC, POP
-emu_PUSH:
-    SET PUSH, A
+emu_PUSHPOP:
     IFE B, 0xFFFF
         JMP emu_POP
+emu_PUSH:
+    SET PUSH, A
     SET B, emu_SP_offset+2 ;Because JSR emu_SET_checkSP and SET PUSH, A "move" the stack
     SET A, SP
     ADD A, emu_SP_offset+1
@@ -265,6 +282,7 @@ emu_PUSH:
     SET A, POP
     SET PC, POP
 emu_POP:
+    SET PUSH, A
     SET B, emu_SP_offset+2
     SET A, SP
     ADD A, emu_SP_offset+1
@@ -303,6 +321,7 @@ emu_literal:
     IFE B, 0xFFFF
         SUB Z, 2
     SUB Z, 5
+    SET B, Z
     SET [B], Y
     SET Z, 1    ;We could get rid of this if we make assumptions about SP
     SET PC, POP
@@ -486,8 +505,8 @@ emu_op_table:
 emu_NOP:
     SET PC, POP
 
-emu_extended:   ;TODO: handle extended ops
-    SET PC, POP
+emu_extended:   ;Don't call this, call the extend op table directly
+    SET PC, POP ;Ex: JSR [emu_ext_op_table+B]
 
 emu_SET:
     IFG I, B    ;check bounds of B to see if it's a data value
@@ -625,49 +644,49 @@ emu_SHL:
     SET EX, POP
     JMP emu_SET
 
+emu_skip:
+    ;TODO: Read in and skip an instruction
+    SET PC, POP
+
 emu_IFB:
     IFC [B], [A]
-        ;Move next address forward
+        JMP emu_skip
     SET PC, POP
 
 emu_IFC:
     IFB [B], [A]
-        ;Move next address forward
+        JMP emu_skip
     SET PC, POP
 
 emu_IFE:
     IFN [B], [A]
-        ;Move next address forward
+        JMP emu_skip
     SET PC, POP
 
 emu_IFN:
     IFE [B], [A]
-        ;Move next address forward
+        JMP emu_skip
     SET PC, POP
 
 emu_IFG:
     IFG [B], [A]
         SET PC, POP
-    ;Move next address forward
-    SET PC, POP
+    JMP emu_skip
 
 emu_IFA:
     IFA [B], [A]
         SET PC, POP
-    ;Move next address forward
-    SET PC, POP
+    JMP emu_skip
 
 emu_IFL:
     IFL [B], [A]
         SET PC, POP
-    ;Move next address forward
-    SET PC, POP
+    JMP emu_skip
 
 emu_IFU:
     IFU [B], [A]
         SET PC, POP
-    ;Move next address forward
-    SET PC, POP
+    JMP emu_skip
 
 emu_ADX:
     SET PUSH, [B]
@@ -698,3 +717,149 @@ emu_STD:    ;TODO: consider copying SET for performace
     SUB [SP+emu_I_offset], 1
     SUB [SP+emu_J_offset], 1
     SET PC, POP
+
+;returns to emu_ext_op_ret, instead of popping PC
+;Same ABI as for emu_op_table calls, except that B is not used as an argument
+emu_ext_op_table:
+    DAT emu_NOP
+    DAT emu_JSR
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_INT
+    DAT emu_IAG
+    DAT emu_IAS
+    DAT emu_RFI
+    DAT emu_IAQ
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_HWN
+    DAT emu_HWQ
+    DAT emu_HWI
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+    DAT emu_NOP
+
+emu_JSR:
+    SET C, A
+    JSR emu_PUSH
+    SET A, SP
+    SUB A, 10
+    JSR emu_SET
+    
+    SET A, C
+    SET B, emu_PC_offset
+    
+    SET PUSH, emu_ext_op_ret
+    JMP emu_SET_checkSP_checkPC
+
+emu_INT:
+    IFE [SP+emu_IA_offset-1], 0 ;If IA == 0, return
+        JMP emu_ext_op_ret
+    SET C, A
+    SET [SP+emu_IAQ_offset-1], 1 ;IAQ 1
+    
+    ;SET PUSH, PC
+    SET A, SP
+    ADD A, emu_PC_offset-1
+    JSR emu_PUSH
+    JSR emu_SET
+    
+    ;SET PUSH, A
+    SUB A, (emu_PC_offset-emu_A_offset)
+    JSR emu_PUSH
+    JSR emu_SET
+    
+    SET [A], [C] ;SET A, <msg>
+    SET [SP+emu_PC_offset-1], [SP+emu_IA_offset-1]  ;SET PC, IA
+    JMP emu_ext_op_ret
+
+emu_IAS:
+    IFG I, [A]    ;check bounds of potential IA
+        JMP _illegal
+    IFL J, [A]
+        JMP _illegal
+    SET [SP+emu_IA_offset-1], [A]  ;SET IA, <a>
+    JMP emu_ext_op_ret
+_illegal:
+    SET [SP+emu_IA_offset-1], 0
+    JMP emu_ext_op_ret
+
+emu_IAG:
+    ;SET <a>, IA
+    SET B, A
+    SET A, SP
+    ADD SP, emu_IA_offset-1
+    
+    SET PUSH, emu_ext_op_ret
+    JMP emu_SET
+
+emu_RFI:
+    SET [SP+emu_IAQ_offset-1], 0 ;IAQ 0
+    
+    ;SET A, POP
+    JSR emu_POP
+    SET [SP+emu_A_offset], [B]
+    
+    ;SET PC, POP
+    JSR emu_POP
+    SET A, B
+    SET B, emu_PC_offset
+    
+    SET PUSH, emu_ext_op_ret
+    JMP emu_SET_checkSP_checkPC
+
+emu_IAQ:
+    SET [SP+emu_IAQ_offset-1], [A]
+    JMP emu_ext_op_ret
+
+;TODO: Use emulated/safe hardware devices instead of just passing the hw api as is
+emu_HWN:
+    HWN [A]
+    JMP emu_ext_op_ret
+emu_HWQ:
+    HWQ [A]
+    SET [SP+emu_A_offset-1], A
+    SET [SP+emu_B_offset-1], B
+    SET [SP+emu_C_offset-1], C
+    SET [SP+emu_X_offset-1], X
+    SET [SP+emu_Y_offset-1], Y
+    JMP emu_ext_op_ret
+emu_HWI:
+    IFE [A], 0
+        JMP emu_ext_op_ret  ;No. We're not going to just reboot the machine for you.
+    SET A, [SP+emu_A_offset-1]
+    SET B, [SP+emu_B_offset-1]
+    SET C, [SP+emu_C_offset-1]
+    SET X, [SP+emu_X_offset-1]
+    SET Y, [SP+emu_Y_offset-1]
+    SET Z, [SP+emu_Z_offset-1]
+    SET I, [SP+emu_I_offset-1]
+    SET J, [SP+emu_J_offset-1]
+    SET EX, [SP+emu_EX_offset-1]
+    HWI [A]
+    SET [SP+emu_EX_offset-1], EX
+    SET [SP+emu_J_offset-1], J
+    SET [SP+emu_I_offset-1], I
+    SET [SP+emu_Z_offset-1], Z
+    SET [SP+emu_Y_offset-1], Y
+    SET [SP+emu_X_offset-1], X
+    SET [SP+emu_C_offset-1], C
+    SET [SP+emu_B_offset-1], B
+    SET [SP+emu_A_offset-1], A
+    JMP emu_ext_op_ret
+    

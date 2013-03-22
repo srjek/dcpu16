@@ -1,0 +1,13 @@
+
+    JSR init
+    SET PUSH, nyancat_start     ;code_start
+    SET PUSH, nyancat_end       ;code_end
+    SET PUSH, nyancat_start     ;inital PC
+    JSR emulate
+end:
+    JMP end
+
+    .include "main.dasm"
+nyancat_start:
+    .include "../../testing/nyancat.dasm"
+nyancat_end:
