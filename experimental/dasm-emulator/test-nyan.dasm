@@ -9,5 +9,10 @@ end:
 
     .include "main.dasm"
 nyancat_start:
+    SET SP, nyancat_stack
     .include "../../testing/nyancat.dasm"
+.rep 100
+    DAT 0
+.end
+nyancat_stack:
 nyancat_end:

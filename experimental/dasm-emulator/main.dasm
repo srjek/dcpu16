@@ -8,12 +8,6 @@ init:
     ;This function should be called once, ever (NOT once per program rewritten/loaded)
     SET PC, POP
 
-illegal_instruction_runtime:
-    ;Maybe print different error message
-    ;Do the rest of illegal_instruction (maybe?)
-    ;Kill the child program.
-    SUB PC, 1
-
 emulate:
     SET I, [SP+3] ;code_start (inclusive)
     SET J, [SP+2] ;code_end (inclusive)
@@ -75,11 +69,9 @@ _readword_ret:
 _emu_op:
     SET X, [X]  ;Read in the op (discarding the instruction)
     AND X, 0x1F
-    JSR [emu_op_table+X]
-    
-    JMP _loop
+    SET PUSH, _loop
+    JMP [emu_op_table+X]
 
-    JMP _end
 _readword:
     SET Y, [X+2]
     ADD [SP+emu_PC_offset], 1
@@ -645,7 +637,37 @@ emu_SHL:
     JMP emu_SET
 
 emu_skip:
-    ;TODO: Read in and skip an instruction
+    SET A, [SP+emu_PC_offset]
+    SET PUSH, [SP+emu_SP_offset]
+    
+_loop:
+    SET X, A
+    ADD A, 1
+    
+    SET Z, 0
+    SET B, [X]
+    SHR B, 10
+    AND B, 0x3F
+    JSR [emu_operand_table+B]
+    IFN Z, 0
+        ADD A, 1
+    
+    SET Z, 0
+    SET B, [X]
+    SHR B, 5
+    AND B, 0x1F
+    JSR [emu_operand_table+B]
+    IFN Z, 0
+        ADD A, 1
+    
+    SET X, [X]
+    AND X, 0x18
+    IFE X, 0x18
+        JMP _loop   ;Keep on skipping
+_end:
+    SET [SP+emu_SP_offset], POP ;dcpu16 specs say B is handled after A, so this should be the correct SP+offset
+    SET [SP+emu_PC_offset], A
+    
     SET PC, POP
 
 emu_IFB:
@@ -755,12 +777,14 @@ emu_ext_op_table:
     DAT emu_NOP
 
 emu_JSR:
+    ;SET PUSH, (next) PC
     SET C, A
     JSR emu_PUSH
     SET A, SP
-    SUB A, 10
+    ADD A, emu_PC_offset-1
     JSR emu_SET
     
+    ;SET PC, <a>
     SET A, C
     SET B, emu_PC_offset
     
@@ -842,24 +866,175 @@ emu_HWQ:
 emu_HWI:
     IFE [A], 0
         JMP emu_ext_op_ret  ;No. We're not going to just reboot the machine for you.
-    SET A, [SP+emu_A_offset-1]
-    SET B, [SP+emu_B_offset-1]
-    SET C, [SP+emu_C_offset-1]
-    SET X, [SP+emu_X_offset-1]
-    SET Y, [SP+emu_Y_offset-1]
-    SET Z, [SP+emu_Z_offset-1]
-    SET I, [SP+emu_I_offset-1]
-    SET J, [SP+emu_J_offset-1]
-    SET EX, [SP+emu_EX_offset-1]
-    HWI [A]
-    SET [SP+emu_EX_offset-1], EX
-    SET [SP+emu_J_offset-1], J
-    SET [SP+emu_I_offset-1], I
-    SET [SP+emu_Z_offset-1], Z
-    SET [SP+emu_Y_offset-1], Y
-    SET [SP+emu_X_offset-1], X
-    SET [SP+emu_C_offset-1], C
-    SET [SP+emu_B_offset-1], B
-    SET [SP+emu_A_offset-1], A
+    SET PUSH, I
+    SET PUSH, J
+    SET PUSH, [A]
+    SET A, [SP+emu_A_offset+2]
+    SET B, [SP+emu_B_offset+2]
+    SET C, [SP+emu_C_offset+2]
+    SET X, [SP+emu_X_offset+2]
+    SET Y, [SP+emu_Y_offset+2]
+    SET Z, [SP+emu_Z_offset+2]
+    SET I, [SP+emu_I_offset+2]
+    SET J, [SP+emu_J_offset+2]
+    SET EX, [SP+emu_EX_offset+2]
+    HWI PEEK
+    SET [SP+emu_EX_offset+2], EX
+    SET [SP+emu_J_offset+2], J
+    SET [SP+emu_I_offset+2], I
+    SET [SP+emu_Z_offset+2], Z
+    SET [SP+emu_Y_offset+2], Y
+    SET [SP+emu_X_offset+2], X
+    SET [SP+emu_C_offset+2], C
+    SET [SP+emu_B_offset+2], B
+    SET [SP+emu_A_offset+2], A
+    SET A, POP
+    SET J, POP
+    SET I, POP
     JMP emu_ext_op_ret
     
+.echo str($)
+illegal_instruction_runtime:    ;TODO: don't just create a screen in some random spot of memory
+    SET C, B        ;Recover address before things get too complicated
+    ADD C, SP
+    ADD C, 1
+    SET PUSH, C     ;Address we tried to write to
+    SET PUSH, [A]     ;Value we attempted to write
+    SET PUSH, I ;Save program bounds
+    SET PUSH, J
+    
+    JSR clr_screen  ;Clear screen
+    
+    ;Print standard panic message
+    SET I, 0x8000
+    SET J, illegal_op_msg
+    JSR copy_str
+    
+    ;Print more descriptive message if possible
+    SET I, 0x8000+(32*1)
+    SET J, illegal_SET_PC_msg
+    IFE B, emu_PC_offset
+        JSR copy_str
+    SET J, illegal_SET_SP_msg
+    IFE B, emu_SP_offset
+        JSR copy_str
+    
+    ;Print address we tried to write to
+    SET I, 0x8000+(32*2)    ;TODO: Fix the assembler bug that occurs when the parentheses are removed
+    SET J, illegal_address_msg
+    JSR copy_str
+    SET Y, I
+    SET J, [SP-3]
+    JSR printHex
+    
+    ;Print value we tried to write
+    SET I, 0x8000+(32*3)
+    SET J, illegal_value_msg
+    JSR copy_str
+    SET Y, I
+    SET J, [SP-2]
+    JSR printHex
+    
+    ;Print lower limit
+    SET I, 0x8000+(32*4)
+    SET J, illegal_bounds_start_msg
+    JSR copy_str
+    SET Y, I
+    SET J, [SP-1]
+    JSR printHex
+    
+    ;Print upper limit
+    SET I, 0x8000+(32*5)
+    SET J, illegal_bounds_end_msg
+    JSR copy_str
+    SET Y, I
+    SET J, [SP-1]   ;For some reason, it seems this is printing a different number than the lower limit
+    JSR printHex    ;(it also shouldn't have an offset, but I need to find and fix this bug first)
+    
+    ;TODO: don't do this either, we shouldn't be taking over the computer from the OS
+    ;Find monitors and awaken them
+    HWN Z
+_loop:
+    IFE Z, 0
+        JMP _end
+    SUB Z, 1
+    HWQ Z
+    IFE A, 0xF615
+        IFE B, 0x7349
+            IFE C, 0x1802
+                JMP _found
+    JMP _loop
+_found:
+    SET A, 0        ;Map screen
+    SET B, 0x8000
+    HWI Z
+    
+    SET A, 1        ;Use default font
+    SET B, 0
+    HWI Z
+    
+    SET A, 2        ;Use default palette
+    SET B, 0
+    HWI Z
+    
+    JMP _loop
+
+_end:
+    ;TODO: Kill the child program.
+    SUB PC, 1
+
+clr_screen:
+            SET I, 0
+_loop:
+            STI [0x8000+I], 0
+            IFN I, 32*12
+                JMP _loop
+            SET PC, POP
+
+;I -- dest
+;J -- src (expected to be null terminated and of length 1 or greater)
+copy_str:
+    STI [I], [J]
+    IFN [J], 0
+        JMP copy_str
+    SET PC, POP
+
+;J - number
+;Y - dest
+printHex:
+            SET I, 0
+            ADD Y, 3
+printHex_loop:
+            SET A, J
+            JSR printHexChar
+            SHR J, 4
+            ADD I, 1
+            IFL I, 4
+                JMP printHex_loop
+            ADD Y, 5
+            SET [Y], 0
+            ADD Y, 1
+            SET PC, POP
+printHexChar:
+            AND A, 0xF
+            IFG A, 9
+                ADD A, 0x07
+            ADD A, 0x30|0xF000
+            SET [Y], A
+            SUB Y, 1
+            SET PC, POP
+
+illegal_op_msg:
+    DAT "ILLEGAL OPERATION DETECTED"|0xF000, 0
+illegal_SET_PC_msg:
+    DAT "Child attempted to change PC"|0xF000, 0
+illegal_SET_SP_msg:
+    DAT "Child attempted to change SP"|0xF000, 0
+illegal_address_msg:
+    DAT "Address: "|0xF000, 0
+illegal_value_msg:
+    DAT "Value: "|0xF000, 0
+illegal_bounds_start_msg:
+    DAT "Lower Limit: "|0xF000, 0
+illegal_bounds_end_msg:
+    DAT "Upper Limit: "|0xF000, 0
