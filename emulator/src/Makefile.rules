@@ -42,6 +42,10 @@ endif
 ifeq ($(ARCH), i686)
 ARCH = i386
 endif
+#For whatever reason, g++'s -dump-machine is just "mingw32", rather than something like x86_64-linux-gnu
+ifeq ($(ARCH), mingw32)
+ARCH = i386
+endif
 
 #Add conditionals here for objcopy
 ELF_ARCH := elf32-$(ARCH)
