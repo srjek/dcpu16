@@ -516,7 +516,8 @@ void dcpu16::cycle(int count) {
             
             if ((ram_debug[registers[DCPU16_REG_PC]] & DCPU16_BREAKPOINT_HW) != 0) {
                 debug_stop();
-                cycles = 0; //We usually don't stop mid loop, so we clear the counter ourself.
+                initialCycles -= cycles;    //We do this to keep cycle counts accurate despite clearing the cycles counter.
+                cycles = 0; //We usually don't stop mid loop, so we keep the emulator stopped by clearing the counter.
                 debugger->onCpuStop();
                 break;
             }
