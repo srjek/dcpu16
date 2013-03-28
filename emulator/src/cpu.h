@@ -79,8 +79,18 @@ public:
     virtual void debug_stop() =0;
     virtual void debug_reset() =0;
     
-    virtual void debug_setBreakpoint(unsigned long long pos) =0;
-    virtual void debug_clearBreakpoint(unsigned long long pos) =0;
+    //Breakpoint/watchpoint functions return true if they are supported. If a set is supported, so must the clear.
+    virtual bool debug_setBreakpoint(unsigned long long pos) =0;
+    virtual bool debug_clearBreakpoint(unsigned long long pos) =0;
+    //Read watchpoints
+    virtual bool debug_setWatchpoint_r(unsigned long long pos) =0;
+    virtual bool debug_clearWatchpoint_r(unsigned long long pos) =0;
+    //Write watchpoints
+    virtual bool debug_setWatchpoint_w(unsigned long long pos) =0;
+    virtual bool debug_clearWatchpoint_w(unsigned long long pos) =0;
+    //Access watchpoints
+    virtual bool debug_setWatchpoint_a(unsigned long long pos) =0;
+    virtual bool debug_clearWatchpoint_a(unsigned long long pos) =0;
     
     //Returns hardware num
     virtual unsigned int addHardware(device* hw) =0;

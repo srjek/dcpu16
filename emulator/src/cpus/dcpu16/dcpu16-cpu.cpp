@@ -125,6 +125,8 @@ void dcpu16::reset() {
         ram[i] = 0;
     for (int i = 0; i < DCPU16_NUM_REGS; i++)
         registers[i] = 0;
+    for (int i = 0; i < 0x1000; i++)
+        ram_debug[i] = 0;
     
     cycles = 0;
     totalCycles = 0;
@@ -148,7 +150,7 @@ dcpu16::dcpu16(bool debug): cpu(totalCycles) {
     ram = new unsigned short[0x10000];
     registers = new unsigned short[DCPU16_NUM_REGS];
     
-    ram_debug = NULL;
+    ram_debug = new unsigned char[0x10000];;
     debugger_attached = false;
     
     hwLength = 0;
@@ -178,13 +180,9 @@ dcpu16::~dcpu16() {
     delete stateMutex;
     delete[] ram;
     delete[] registers;
-    if (ram_debug != NULL)
-        delete[] ram_debug;
+    delete[] ram_debug;
 }
-void dcpu16::attachDebugger(gdb_remote* debugger) {
-    ram_debug = new unsigned char[0x10000];
-    for (int i = 0; i < 0x1000; i++)
-        ram_debug[i] = 0;
+void dcpu16::attachDebugger(gdb_remote* debugger) {\
     debugger_attached = true;
     this->debugger = debugger;
     cmdState = 0;
@@ -214,9 +212,13 @@ dcpu16::val dcpu16::read_val(int a, bool isB) {
         return val(registers + a);
     } else if (a <= 0x0F) {     //[register]
         pointer = registers[a & 0x07];
+        if ((ram_debug[pointer] & (DCPU16_WATCHPOINT_HW_R | DCPU16_WATCHPOINT_HW_A)) != 0)
+            watchpoint_hit = true;
         return val(ram + pointer);
     } else if (a <= 0x17) {     //[next word + register]
         pointer = (nextWord() + registers[a & 0x07]) & 0xFFFF;
+        if ((ram_debug[pointer] & (DCPU16_WATCHPOINT_HW_R | DCPU16_WATCHPOINT_HW_A)) != 0)
+            watchpoint_hit = true;
         return val(ram + pointer);
     } else if (a == 0x18) {     //PUSH/POP (b/a)
         if (isB) {
@@ -226,12 +228,18 @@ dcpu16::val dcpu16::read_val(int a, bool isB) {
             pointer = registers[DCPU16_REG_SP];
             registers[DCPU16_REG_SP] = (pointer + 1) & 0xFFFF;
         }
+        if ((ram_debug[pointer] & (DCPU16_WATCHPOINT_HW_R | DCPU16_WATCHPOINT_HW_A)) != 0)
+            watchpoint_hit = true;
         return val(ram + pointer);
     } else if (a == 0x19) {     //PEEK   ([SP])
         pointer = registers[DCPU16_REG_SP];
+        if ((ram_debug[pointer] & (DCPU16_WATCHPOINT_HW_R | DCPU16_WATCHPOINT_HW_A)) != 0)
+            watchpoint_hit = true;
         return val(ram + pointer);
     } else if (a == 0x1A) {     //PICK   ([SP + next word])
         pointer = (registers[DCPU16_REG_SP] + nextWord()) & 0xFFFF;
+        if ((ram_debug[pointer] & (DCPU16_WATCHPOINT_HW_R | DCPU16_WATCHPOINT_HW_A)) != 0)
+            watchpoint_hit = true;
         return val(ram + pointer);
     } else if (a == 0x1B) {     //SP
         return val(registers + DCPU16_REG_SP);
@@ -241,6 +249,8 @@ dcpu16::val dcpu16::read_val(int a, bool isB) {
         return val(registers + DCPU16_REG_EX);
     } else if (a == 0x1E) {     //[next word]
         pointer = nextWord();
+        if ((ram_debug[pointer] & (DCPU16_WATCHPOINT_HW_R | DCPU16_WATCHPOINT_HW_A)) != 0)
+            watchpoint_hit = true;
         return val(ram + pointer);
     } else if (a == 0x1F) {     //next word (literal)
         return val(NULL, nextWord());
@@ -252,8 +262,15 @@ dcpu16::val dcpu16::read_val(int a, bool isB) {
     return val(NULL, 0);
 }
 void dcpu16::write_val(val a, unsigned short value) {
-    if (a.pointer != NULL)
+    if (a.pointer != NULL) {
         *(a.pointer) = value;
+        ptrdiff_t tmp = a.pointer - ram;
+        if ((tmp > 0) && (tmp <= 0xFFFF)) {
+            if ((ram_debug[tmp] & (DCPU16_WATCHPOINT_HW_W | DCPU16_WATCHPOINT_HW_A)) != 0) {
+                watchpoint_hit = true;
+            }
+        }
+    }
 }
     
 long dcpu16::sign16(unsigned long a) {
@@ -303,7 +320,6 @@ void dcpu16::conditional(int condition) {
         while (skip());
 }
 
-//MORE TODO IN HERE
 void dcpu16::execOp(int op, val b, val a) {
     //This function doesn't handle op==0, caller detects that state and uses an alt function
     switch (op) {
@@ -328,13 +344,13 @@ void dcpu16::execOp(int op, val b, val a) {
         case 0x07:      //DVI
             write_val(b, overflowDVI(sign16(b.value), sign16(a.value)));
             break;
-        case 0x08:      //MOD       TESTING NEEDED
+        case 0x08:      //MOD
             if (a.value == 0)
                 write_val(b, 0);
             else
                 write_val(b, b.value % a.value);
             break;
-        case 0x09:      //MDI       IMPLEMENTATION NEEDED
+        case 0x09:      //MDI
             if (a.value == 0)
                 write_val(b, 0);
             else
@@ -510,11 +526,12 @@ void dcpu16::cycle(int count) {
     
     cycles -= count;
     int initialCycles = cycles;
+    watchpoint_hit = false;
     if (debugger_attached) {
         while (cycles < 0) {
             handleCallbacks();
             
-            if ((ram_debug[registers[DCPU16_REG_PC]] & DCPU16_BREAKPOINT_HW) != 0) {
+            if (((ram_debug[registers[DCPU16_REG_PC]] & DCPU16_BREAKPOINT_HW) != 0) || watchpoint_hit) {
                 debug_stop();
                 initialCycles -= cycles;    //We do this to keep cycle counts accurate despite clearing the cycles counter.
                 cycles = 0; //We usually don't stop mid loop, so we keep the emulator stopped by clearing the counter.
@@ -655,16 +672,47 @@ void dcpu16::debug_stop() {
 void dcpu16::debug_reset() {
     reset();
 }
-void dcpu16::debug_setBreakpoint(unsigned long long pos) {
+bool dcpu16::debug_setBreakpoint(unsigned long long pos) {
     if (debugger_attached && pos <= 0xFFFF)
         ram_debug[pos] |= DCPU16_BREAKPOINT_HW;
+    return true;
 }
-void dcpu16::debug_clearBreakpoint(unsigned long long pos) {
+bool dcpu16::debug_clearBreakpoint(unsigned long long pos) {
     if (debugger_attached && pos <= 0xFFFF)
         ram_debug[pos] &= ~DCPU16_BREAKPOINT_HW;
+    return true;
 }
-    
-    
+bool dcpu16::debug_setWatchpoint_r(unsigned long long pos) {
+    if (debugger_attached && pos <= 0xFFFF)
+        ram_debug[pos] |= DCPU16_WATCHPOINT_HW_R;
+    return true;
+}
+bool dcpu16::debug_clearWatchpoint_r(unsigned long long pos) {
+    if (debugger_attached && pos <= 0xFFFF)
+        ram_debug[pos] &= ~DCPU16_WATCHPOINT_HW_R;
+    return true;
+}
+bool dcpu16::debug_setWatchpoint_w(unsigned long long pos) {
+    if (debugger_attached && pos <= 0xFFFF)
+        ram_debug[pos] |= DCPU16_WATCHPOINT_HW_W;
+    return true;
+}
+bool dcpu16::debug_clearWatchpoint_w(unsigned long long pos) {
+    if (debugger_attached && pos <= 0xFFFF)
+        ram_debug[pos] &= ~DCPU16_WATCHPOINT_HW_W;
+    return true;
+}
+bool dcpu16::debug_setWatchpoint_a(unsigned long long pos) {
+    if (debugger_attached && pos <= 0xFFFF)
+        ram_debug[pos] |= DCPU16_WATCHPOINT_HW_A;
+    return true;
+}
+bool dcpu16::debug_clearWatchpoint_a(unsigned long long pos) {
+    if (debugger_attached && pos <= 0xFFFF)
+        ram_debug[pos] &= ~DCPU16_WATCHPOINT_HW_A;
+    return true;
+}
+   
 unsigned int dcpu16::addHardware(device* hw) {
     hardware[hwLength] = hw;
     return hwLength++;

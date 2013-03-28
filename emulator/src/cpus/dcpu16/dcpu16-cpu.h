@@ -56,7 +56,11 @@ protected:
     volatile unsigned char* ram_debug;
     bool debugger_attached;
     gdb_remote* debugger;
-    #define DCPU16_BREAKPOINT_HW 1
+    bool watchpoint_hit;
+    #define DCPU16_BREAKPOINT_HW (1<<0)
+    #define DCPU16_WATCHPOINT_HW_R (1<<1)
+    #define DCPU16_WATCHPOINT_HW_W (1<<2)
+    #define DCPU16_WATCHPOINT_HW_A (1<<3)
     
     int cycles; //This is our debt/credit counter
     volatile unsigned long long totalCycles; //This is how many cycles total we have done
@@ -138,8 +142,14 @@ public:
     void debug_step();
     void debug_stop();
     void debug_reset();
-    void debug_setBreakpoint(unsigned long long pos);
-    void debug_clearBreakpoint(unsigned long long pos);
+    bool debug_setBreakpoint(unsigned long long pos);
+    bool debug_clearBreakpoint(unsigned long long pos);
+    bool debug_setWatchpoint_r(unsigned long long pos);
+    bool debug_clearWatchpoint_r(unsigned long long pos);
+    bool debug_setWatchpoint_w(unsigned long long pos);
+    bool debug_clearWatchpoint_w(unsigned long long pos);
+    bool debug_setWatchpoint_a(unsigned long long pos);
+    bool debug_clearWatchpoint_a(unsigned long long pos);
     
     
     unsigned int addHardware(device* hw);

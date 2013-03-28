@@ -492,24 +492,124 @@ void gdb_remote::handleBuffer() {
             
         } else if (strncmp(packet, "s", 1) == 0) {
             target->debug_step();
-            //cpu will use the onCpuStop() callback to inform use when the step is complete
+            //cpu will use the onCpuStop() callback to inform us when the step is complete
             
         } else if (strncmp(packet, "Z1", 2) == 0) {
             char* nextOpt = strchr(packet+1, ',');
             unsigned long long address = readHex(nextOpt+1, 10000);
             nextOpt = strchr(nextOpt+1, ',');
             unsigned long long kind = readHex(nextOpt+1, 10000);
-            target->debug_setBreakpoint(address);
-            sendPacket("OK", 2);
-            
+            if (target->debug_setBreakpoint(address))
+                sendPacket("OK", 2);
+            else
+                sendEmptyPacket();
+                
         } else if (strncmp(packet, "z1", 2) == 0) {
             char* nextOpt = strchr(packet+1, ',');
             unsigned long long address = readHex(nextOpt+1, 10000);
             nextOpt = strchr(nextOpt+1, ',');
             unsigned long long kind = readHex(nextOpt+1, 10000);
-            target->debug_clearBreakpoint(address);
-            sendPacket("OK", 2);
+            if (target->debug_clearBreakpoint(address))
+                sendPacket("OK", 2);
+            else
+                sendEmptyPacket();
             
+        } else if (strncmp(packet, "Z2", 2) == 0) {
+            char* nextOpt = strchr(packet+1, ',');
+            unsigned long long address = readHex(nextOpt+1, 10000);
+            nextOpt = strchr(nextOpt+1, ',');
+            unsigned long long kind = readHex(nextOpt+1, 10000);
+            bool OK = true;
+            for (int i = 0; i < kind; i++) {
+                if (! target->debug_setWatchpoint_w(address+i)) {
+                    sendEmptyPacket();
+                    OK = false;
+                    break;
+                }
+            }
+            if (OK)
+                sendPacket("OK", 2);
+                
+        } else if (strncmp(packet, "z2", 2) == 0) {
+            char* nextOpt = strchr(packet+1, ',');
+            unsigned long long address = readHex(nextOpt+1, 10000);
+            nextOpt = strchr(nextOpt+1, ',');
+            unsigned long long kind = readHex(nextOpt+1, 10000);
+            bool OK = true;
+            for (int i = 0; i < kind; i++) {
+                if (! target->debug_clearWatchpoint_w(address+i)) {
+                    sendEmptyPacket();
+                    OK = false;
+                    break;
+                }
+            }
+            if (OK)
+                sendPacket("OK", 2);
+            
+        } else if (strncmp(packet, "Z3", 2) == 0) {
+            char* nextOpt = strchr(packet+1, ',');
+            unsigned long long address = readHex(nextOpt+1, 10000);
+            nextOpt = strchr(nextOpt+1, ',');
+            unsigned long long kind = readHex(nextOpt+1, 10000);
+            bool OK = true;
+            for (int i = 0; i < kind; i++) {
+                if (! target->debug_setWatchpoint_r(address+i)) {
+                    sendEmptyPacket();
+                    OK = false;
+                    break;
+                }
+            }
+            if (OK)
+                sendPacket("OK", 2);
+                
+        } else if (strncmp(packet, "z3", 2) == 0) {
+            char* nextOpt = strchr(packet+1, ',');
+            unsigned long long address = readHex(nextOpt+1, 10000);
+            nextOpt = strchr(nextOpt+1, ',');
+            unsigned long long kind = readHex(nextOpt+1, 10000);
+            bool OK = true;
+            for (int i = 0; i < kind; i++) {
+                if (! target->debug_clearWatchpoint_r(address+i)) {
+                    sendEmptyPacket();
+                    OK = false;
+                    break;
+                }
+            }
+            if (OK)
+                sendPacket("OK", 2);
+            
+        } else if (strncmp(packet, "Z4", 2) == 0) {
+            char* nextOpt = strchr(packet+1, ',');
+            unsigned long long address = readHex(nextOpt+1, 10000);
+            nextOpt = strchr(nextOpt+1, ',');
+            unsigned long long kind = readHex(nextOpt+1, 10000);
+            bool OK = true;
+            for (int i = 0; i < kind; i++) {
+                if (! target->debug_setWatchpoint_a(address+i)) {
+                    sendEmptyPacket();
+                    OK = false;
+                    break;
+                }
+            }
+            if (OK)
+                sendPacket("OK", 2);
+                
+        } else if (strncmp(packet, "z4", 2) == 0) {
+            char* nextOpt = strchr(packet+1, ',');
+            unsigned long long address = readHex(nextOpt+1, 10000);
+            nextOpt = strchr(nextOpt+1, ',');
+            unsigned long long kind = readHex(nextOpt+1, 10000);
+            bool OK = true;
+            for (int i = 0; i < kind; i++) {
+                if (! target->debug_clearWatchpoint_a(address+i)) {
+                    sendEmptyPacket();
+                    OK = false;
+                    break;
+                }
+            }
+            if (OK)
+                sendPacket("OK", 2);
+                
         } else
             sendEmptyPacket();  //Unsupported cmd
             
