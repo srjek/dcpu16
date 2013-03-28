@@ -10,6 +10,9 @@ end:
     .include "main.dasm"
 nyancat_start:
     SET SP, nyancat_stack
+;.echo "illegal instruction at "+hex($)
+;    SET PC, 0xDEAD
+;    SET [0], 0xDEAD
     .include "../../testing/nyancat.dasm"
 .rep 100
     DAT 0

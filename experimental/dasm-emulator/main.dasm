@@ -32,7 +32,10 @@ emulate:
     SET A, SP   ;[J], which is conviently set to 0. (we also know HWI 0 won't modify J)
     JMP [emu_ext_op_table+B]
 
+emu_op_ret:
 emu_ext_op_ret:
+.define emu_a_ret _a_ret
+.define emu_b_ret _b_ret
 _loop:
     SET X, [SP+emu_PC_offset]
     ADD [SP+emu_PC_offset], 1
@@ -45,6 +48,7 @@ _loop:
     SHR A, 10
     AND A, 0x3F
     JSR [emu_operand_table+A]
+_a_ret:
     SET A, B
     
     ;Extract B
@@ -63,6 +67,7 @@ _readword_ret:
         JMP [emu_ext_op_table+B] ;Note, this returns execution to emu_ext_op_ret
     
     JSR [emu_operand_table+B]
+_b_ret:
     
     IFN Z, 0
         ADD [SP+emu_PC_offset], 1
@@ -264,25 +269,12 @@ emu_PUSHPOP:
     IFE B, 0xFFFF
         JMP emu_POP
 emu_PUSH:
-    SET PUSH, A
-    SET B, emu_SP_offset+2 ;Because JSR emu_SET_checkSP and SET PUSH, A "move" the stack
-    SET A, SP
-    ADD A, emu_SP_offset+1
-    SUB [A], 1
-    JSR emu_SET_checkSP_checkPC
-    SET B, [B-1]    ;Stack moved again
-    SET A, POP
+    SUB [SP+emu_SP_offset], 1
+    SET B, [SP+emu_SP_offset]
     SET PC, POP
 emu_POP:
-    SET PUSH, A
-    SET B, emu_SP_offset+2
-    SET A, SP
-    ADD A, emu_SP_offset+1
-    SET PUSH, [A]
-    ADD [A], 1
-    JSR emu_SET_checkSP_checkPC
-    SET B, POP
-    SET A, POP
+    SET B, [SP+emu_SP_offset]
+    ADD [SP+emu_SP_offset], 1
     SET PC, POP
 emu_PEEK:
     SET B, [SP+emu_SP_offset]
@@ -514,9 +506,7 @@ emu_SET_stack:
     IFL emu_end_offset, B
         JMP emu_SET_fail
     IFE B, emu_PC_offset
-        JMP emu_SET_checkSP_checkPC
-    IFE B, emu_SP_offset
-        JMP emu_SET_checkSP_checkPC
+        JMP emu_SET_checkPC
 emu_SET_checkStackRet:
     ADD B, SP
     SET [B], [A]
@@ -525,7 +515,7 @@ emu_SET_fail:
     JSR illegal_instruction_runtime
     JMP emu_SET_fail
 
-emu_SET_checkSP_checkPC:
+emu_SET_checkPC:
     IFG I, [A]
         JMP emu_SET_fail
     IFL J, [A]
@@ -789,7 +779,7 @@ emu_JSR:
     SET B, emu_PC_offset
     
     SET PUSH, emu_ext_op_ret
-    JMP emu_SET_checkSP_checkPC
+    JMP emu_SET_checkPC
 
 emu_INT:
     IFE [SP+emu_IA_offset-1], 0 ;If IA == 0, return
@@ -827,7 +817,7 @@ emu_IAG:
     ;SET <a>, IA
     SET B, A
     SET A, SP
-    ADD SP, emu_IA_offset-1
+    ADD A, emu_IA_offset-1
     
     SET PUSH, emu_ext_op_ret
     JMP emu_SET
@@ -845,7 +835,7 @@ emu_RFI:
     SET B, emu_PC_offset
     
     SET PUSH, emu_ext_op_ret
-    JMP emu_SET_checkSP_checkPC
+    JMP emu_SET_checkPC
 
 emu_IAQ:
     SET [SP+emu_IAQ_offset-1], [A]
@@ -893,7 +883,6 @@ emu_HWI:
     SET I, POP
     JMP emu_ext_op_ret
     
-.echo str($)
 illegal_instruction_runtime:    ;TODO: don't just create a screen in some random spot of memory
     SET C, B        ;Recover address before things get too complicated
     ADD C, SP
@@ -903,6 +892,29 @@ illegal_instruction_runtime:    ;TODO: don't just create a screen in some random
     SET PUSH, I ;Save program bounds
     SET PUSH, J
     
+    ;starting at SP+4, search for some PC values that could only be from the emulation loop, and use it as a base pointer to find the emulated PC
+    SET I, SP
+    ADD I, 4
+    SET J, 0
+    SET PUSH, [SP]  ;This should result in an value outside of the program bounds, and therefore a safe value to use for our own purposes
+    ADD PEEK, 1     ;In this case, this represents a failure to find the emulated PC register
+_BP_loop:
+    SET A, [I]
+    IFE [I], emu_op_ret
+        JMP _BP_end
+    IFE [I], emu_ext_op_ret
+        JMP _BP_end
+    IFE [I], emu_a_ret
+        JMP _BP_end
+    IFE [I], emu_b_ret
+        JMP _BP_end
+    STI A, A
+    IFG J, 2    ;If we tried more than 3 values, we failed to find it
+        JMP _BP_fail
+    JMP _BP_loop
+_BP_end:
+    SET PEEK, [I+emu_PC_offset]
+_BP_fail:
     JSR clr_screen  ;Clear screen
     
     ;Print standard panic message
@@ -915,40 +927,50 @@ illegal_instruction_runtime:    ;TODO: don't just create a screen in some random
     SET J, illegal_SET_PC_msg
     IFE B, emu_PC_offset
         JSR copy_str
-    SET J, illegal_SET_SP_msg
-    IFE B, emu_SP_offset
-        JSR copy_str
+    
+    SET A, [SP+1]
+    ADD A, 1
+    IFE A, [SP]
+        JMP _noPC
+    ;Print PC we where at or around
+    SET I, 0x8000+(32*2)    ;TODO: Fix the assembler bug that occurs when the parentheses are removed
+    SET J, illegal_PC_msg
+    JSR copy_str
+    SET Y, I
+    SET J, [SP]
+    JSR printHex
+_noPC:
     
     ;Print address we tried to write to
-    SET I, 0x8000+(32*2)    ;TODO: Fix the assembler bug that occurs when the parentheses are removed
+    SET I, 0x8000+(32*3)    ;TODO: Fix the assembler bug that occurs when the parentheses are removed
     SET J, illegal_address_msg
     JSR copy_str
     SET Y, I
-    SET J, [SP-3]
+    SET J, [SP+4]
     JSR printHex
     
     ;Print value we tried to write
-    SET I, 0x8000+(32*3)
+    SET I, 0x8000+(32*4)
     SET J, illegal_value_msg
     JSR copy_str
     SET Y, I
-    SET J, [SP-2]
+    SET J, [SP+3]
     JSR printHex
     
     ;Print lower limit
-    SET I, 0x8000+(32*4)
+    SET I, 0x8000+(32*5)
     SET J, illegal_bounds_start_msg
     JSR copy_str
     SET Y, I
-    SET J, [SP-1]
+    SET J, [SP+2]
     JSR printHex
     
     ;Print upper limit
-    SET I, 0x8000+(32*5)
+    SET I, 0x8000+(32*6)
     SET J, illegal_bounds_end_msg
     JSR copy_str
     SET Y, I
-    SET J, [SP-1]   ;For some reason, it seems this is printing a different number than the lower limit
+    SET J, [SP+1]
     JSR printHex    ;(it also shouldn't have an offset, but I need to find and fix this bug first)
     
     ;TODO: don't do this either, we shouldn't be taking over the computer from the OS
@@ -1028,13 +1050,13 @@ illegal_op_msg:
     DAT "ILLEGAL OPERATION DETECTED"|0xF000, 0
 illegal_SET_PC_msg:
     DAT "Child attempted to change PC"|0xF000, 0
-illegal_SET_SP_msg:
-    DAT "Child attempted to change SP"|0xF000, 0
 illegal_address_msg:
-    DAT "Address: "|0xF000, 0
+    DAT "Illegal Address: 0x"|0xF000, 0
 illegal_value_msg:
-    DAT "Value: "|0xF000, 0
+    DAT "New Value: 0x"|0xF000, 0
 illegal_bounds_start_msg:
-    DAT "Lower Limit: "|0xF000, 0
+    DAT "Lower Limit: 0x"|0xF000, 0
 illegal_bounds_end_msg:
-    DAT "Upper Limit: "|0xF000, 0
+    DAT "Upper Limit: 0x"|0xF000, 0
+illegal_PC_msg:
+    DAT "PC: ~0x"|0xF000, 0
