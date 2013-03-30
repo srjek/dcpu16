@@ -652,7 +652,7 @@ _loop:
     
     SET X, [X]
     AND X, 0x18
-    IFE X, 0x18
+    IFE X, 0x10
         JMP _loop   ;Keep on skipping
 _end:
     SET [SP+emu_SP_offset], POP ;dcpu16 specs say B is handled after A, so this should be the correct SP+offset
@@ -719,16 +719,18 @@ emu_SBX:
     JMP emu_SET
 
 emu_STI:    ;TODO: consider copying SET for performace
+    SET Z, POP
     JSR emu_SET
     ADD [SP+emu_I_offset], 1
     ADD [SP+emu_J_offset], 1
-    SET PC, POP
+    SET PC, Z
 
 emu_STD:    ;TODO: consider copying SET for performace
+    SET Z, POP
     JSR emu_SET
     SUB [SP+emu_I_offset], 1
     SUB [SP+emu_J_offset], 1
-    SET PC, POP
+    SET PC, Z
 
 ;returns to emu_ext_op_ret, instead of popping PC
 ;Same ABI as for emu_op_table calls, except that B is not used as an argument
