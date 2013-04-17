@@ -1,6 +1,7 @@
 include ../../Makefile.rules
 
 dcpu16-cpu.o: dcpu16-cpu.cpp dcpu16-cpu.h dcpu16-gui.h dcpu16.h ../../cpu.h ../../strHelper.h ../../orderedForwardMap.h
+	$(CXX) $(CXXFLAGS) $(C11) -c -o $@ $<
 
 dcpu16-test.o: dcpu16-test.cpp dcpu16-test.h dcpu16-cpu.h dcpu16.h tests/dcpu16_tests.o ../../cpu.h ../../test.h
 

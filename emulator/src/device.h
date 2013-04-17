@@ -10,6 +10,8 @@ public:
     virtual void OnKeyEvent(int keyCode, bool isDown) =0;
 };
 
+class deviceState {};
+
 class device;
 #include "cpu.h"
 class device: public thread {
@@ -23,6 +25,10 @@ public:
     virtual int interrupt() =0;
     virtual void registerKeyHandler(keyHandler* handler) =0;
 //    virtual int attachKeyboard() =0;
+
+    //TODO: virtual deviceState* saveState() =0;
+    //TODO: virtual void restoreState(deviceState* state) =0;
+    //TODO: virtual void restoreCallbackState(cpuCallbackState* state) =0;
 };
 
 class deviceConfig {

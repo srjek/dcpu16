@@ -20,13 +20,25 @@ inline wxWindow* getTopLevelWindow() {
 }
 #endif
 
+class cpu;
+class cpuCallbackState;
+#include "device.h"
+
+class systemState {
+public:
+//    virtual void writeSave() =0;
+//    virtual void readSave() =0;
+};
+class cpuCallbackState {
+public:
+    device* dev;
+};
 class cpuCallback {
 public:
     virtual void callback() =0;
+    //TODO: virtual cpuCallbackState* saveState() =0;
 };
 
-class cpu;
-#include "device.h"
 class cpu {
 public:
     volatile bool running;
@@ -98,6 +110,9 @@ public:
     //Schedules a callback to occur right before time
     //Warning: cpuCallback will be destroyed after it is called
     virtual void scheduleCallback(unsigned long long time, cpuCallback* callback) =0;
+    
+    virtual systemState* saveSystemState() =0;
+    virtual void restoreSystemState(systemState* state) =0;
 protected:
     inline cpu(volatile unsigned long long& time): time(time) { }
 };

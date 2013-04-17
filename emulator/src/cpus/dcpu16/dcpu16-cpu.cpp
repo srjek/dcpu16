@@ -744,6 +744,77 @@ void dcpu16::scheduleCallback(unsigned long long time, cpuCallback* callback) {
     callbackMutex->Unlock();
 }
 
+class dcpuCallbackState {
+public:
+    unsigned long long time;
+    int hwIndex;
+    cpuCallbackState* state;
+    dcpuCallbackState(unsigned long long time, int hwIndex, cpuCallbackState* state):
+                time(time), hwIndex(hwIndex), state(state) { }
+};
+class dcpuState: public systemState {
+public:
+    int cycles;
+    unsigned long long totalCycles;
+
+    deviceState* hardware[0x10000];
+    unsigned long hwLength;
+    
+    unsigned short intQueue[256];
+    int intQueueStart;
+    int intQueueEnd;
+    
+    vector<dcpuCallbackState> callbacks;
+    
+    bool onFire;
+    //wxString* wxImagePath;
+};
+
+systemState* dcpu16::saveSystemState() {
+    stateMutex->Lock();
+    callbackMutex->Lock();
+    
+    dcpuState* result = new dcpuState();
+    result->cycles = cycles;
+    result->hwLength = hwLength;
+    for (int i = 0; i < hwLength; i++) {
+        //TODO: result->hardware[i] = hardware[i]->saveState();
+    }
+    for (int i = 0; i < 256; i++) {
+        result->intQueue[i] = intQueue[i];
+    }
+    result->intQueueStart = intQueueStart;
+    result->intQueueEnd = intQueueEnd;
+    
+    /* TODO: decltype(callbackSchedule)::element_t* callback = &callbackSchedule.front();
+    while (callback != NULL) {
+        cpuCallbackState* tmp = callback->value->saveState();
+        int hwIndex = 0;
+        for (; hwIndex < hwLength; hwIndex++) {
+            if (tmp->dev == hardware[hwIndex])
+                break;
+        }
+        if (hwIndex < hwLength) {
+            result->callbacks.push_back(dcpuCallbackState(callback->key, hwIndex, tmp));
+        } else {
+            std::cerr << "ERROR: dcpu16 could not locate associated hardware for a callback" << std::endl;
+            std::cerr << "ERROR: Callback state was lost" << std::endl;
+        }
+        callback = callback->nextElement;
+    } */
+    
+    result->onFire = onFire;
+    
+    //TODO: save wxImagePath, or keep rom images loaded in ram
+    
+    callbackMutex->Unlock();
+    stateMutex->Unlock();
+    return result;
+}
+void dcpu16::restoreSystemState(systemState* state) {
+
+}
+
 void dcpu16::loadImage(wxString wxImagePath) {
     if (this->wxImagePath != 0)
         delete this->wxImagePath;
