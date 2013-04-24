@@ -1,6 +1,18 @@
 #include <iostream>
 #include "genericClock.h"
 
+class genericClock_state: public deviceState {
+public:
+    unsigned short interruptMsg;
+    unsigned long long uid;
+    unsigned long long timing;
+    unsigned short ticks;
+    
+    genericClock_state() {
+        name = "genericClock";
+    }
+};
+
 class genericClock;
 class genericClockCallback: public cpuCallback {
 protected:
@@ -80,6 +92,17 @@ public:
         
         if (interruptMsg != 0)
             host->interrupt(interruptMsg);
+    }
+    
+    deviceState* saveState() {
+        genericClock_state* result = new genericClock_state();
+        
+        result->interruptMsg = interruptMsg;
+        result->uid = uid - 10;
+        result->timing = timing;
+        result->ticks = ticks;
+        
+        return result;
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }

@@ -25,7 +25,10 @@ class cpuCallbackState;
 #include "device.h"
 
 class systemState {
+protected:
+    systemState(): name("") { };
 public:
+    const char* name;
 //    virtual void writeSave() =0;
 //    virtual void readSave() =0;
 };

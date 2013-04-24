@@ -1,6 +1,15 @@
 #include <iostream>
 #include "genericKeyboard.h"
 
+class genericKeyboard_state: public deviceState {
+public:
+    unsigned short interruptMsg;
+    
+    genericKeyboard_state() {
+        name = "genericKeyboard";
+    }
+};
+
 class genericKeyboard: public device, public keyHandler {
 protected:
     cpu* host;
@@ -123,6 +132,14 @@ public:
         }
         if (actualKeyCode != -1)
             handleKey(actualKeyCode, isDown);
+    }
+    
+    deviceState* saveState() {
+        genericKeyboard_state* result = new genericKeyboard_state();
+        
+        result->interruptMsg = interruptMsg;
+        
+        return result;
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }

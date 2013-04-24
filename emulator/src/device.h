@@ -10,7 +10,12 @@ public:
     virtual void OnKeyEvent(int keyCode, bool isDown) =0;
 };
 
-class deviceState {};
+class deviceState {
+protected:
+    deviceState(): name("") { };
+public:
+    const char* name;
+};
 
 class device;
 #include "cpu.h"
@@ -26,7 +31,7 @@ public:
     virtual void registerKeyHandler(keyHandler* handler) =0;
 //    virtual int attachKeyboard() =0;
 
-    //TODO: virtual deviceState* saveState() =0;
+    virtual deviceState* saveState() =0;
     //TODO: virtual void restoreState(deviceState* state) =0;
     //TODO: virtual void restoreCallbackState(cpuCallbackState* state) =0;
 };

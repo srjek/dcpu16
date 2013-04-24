@@ -13,6 +13,18 @@
 #define PI 3.14159265359
 #define TAU (2.0*PI)
 
+class SPED3_state: public deviceState {
+public:
+    unsigned short vertexAddress;
+    unsigned short vertexCount;
+    float targetRotation;
+    float currentRotation;
+    
+    SPED3_state() {
+        name = "SPED3";
+    }
+};
+    
 class SPED3;
 
 class SPED3_freeglutWindow: public freeglutWindow {
@@ -259,6 +271,17 @@ public:
     void OnKeyUp(wxKeyEvent& event) {
         for (int i = 0; i < keyHandlers.size(); i++)
             keyHandlers[i]->OnKeyEvent(event.GetKeyCode(), false);
+    }
+    
+    deviceState* saveState() {
+        SPED3_state* result = new SPED3_state();
+        
+        result->vertexAddress = vertexAddress;
+        result->vertexCount = vertexCount;
+        result->targetRotation = targetRotation;
+        result->currentRotation = currentRotation;
+        
+        return result;
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }

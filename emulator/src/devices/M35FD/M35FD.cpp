@@ -5,6 +5,26 @@
 
 #undef ERROR_BUSY   //I think wx has it defined? Or maybe in a windows header in wx?
 
+class M35FD_state: public deviceState {
+public:
+    unsigned short state;
+    unsigned short error;
+    unsigned short interruptMsg;
+    
+    wxString* imagePath;
+    bool writeProtected;
+    unsigned short buffer[1440*512];
+    
+    M35FD_state() {
+        name = "M35FD";
+        imagePath = NULL;
+    }
+    ~M35FD_state() {
+        if (imagePath != NULL)
+            delete imagePath;
+    }
+};
+
 class M35FD;
 
 class M35FD_callback: public cpuCallback {
@@ -395,6 +415,26 @@ public:
         return 0;
     }
     void registerKeyHandler(keyHandler* handler) { }
+    
+    deviceState* saveState() {
+        M35FD_state* result = new M35FD_state();
+        
+    unsigned short state;
+    unsigned short error;
+    unsigned short interruptMsg;
+    
+    wxString* imagePath;
+    bool writeProtected;
+    unsigned short buffer[1440*512];
+        result->state = state;
+        result->error = error;
+        result->interruptMsg = interruptMsg;
+        
+        result->writeProtected = writeProtected;
+        result->imagePath = new wxString(*imagePath);
+        
+        return result;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }

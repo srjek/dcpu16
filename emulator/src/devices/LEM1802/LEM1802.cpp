@@ -8,6 +8,18 @@
 
 #include "LEM1802.h"
 
+class LEM1802_state: public deviceState {
+public:
+    unsigned short mapAddress;
+    unsigned short tileAddress;
+    unsigned short paletteAddress;
+    unsigned short borderColor;
+    
+    LEM1802_state() {
+        name = "LEM1802";
+    }
+};
+
 class RenderTimer : public wxTimer {
     wxPanel* panel;
 public:
@@ -214,6 +226,17 @@ public:
     void OnKeyUp(wxKeyEvent& event) {
         for (int i = 0; i < keyHandlers.size(); i++)
             keyHandlers[i]->OnKeyEvent(event.GetKeyCode(), false);
+    }
+    
+    deviceState* saveState() {
+        LEM1802_state* result = new LEM1802_state();
+        
+        result->mapAddress = mapAddress;
+        result->tileAddress = tileAddress;
+        result->paletteAddress = paletteAddress;
+        result->borderColor = borderColor;
+        
+        return result;
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }

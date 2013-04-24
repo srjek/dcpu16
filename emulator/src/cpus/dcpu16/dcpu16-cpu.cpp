@@ -21,6 +21,14 @@ public:
     void callback();
 };
 
+class dcpu16_rom_state: public deviceState {
+public:
+    bool enabled;
+    unsigned short rom[512];
+    dcpu16_rom_state() {
+        name = "dcpu16-rom";
+    }
+};
 class dcpu16_rom: public device {
 protected:
     dcpu16* host;
@@ -51,6 +59,16 @@ public:
     int interrupt();
     
     void registerKeyHandler(keyHandler* handler) { };
+    
+    deviceState* saveState() {
+        dcpu16_rom_state* result = new dcpu16_rom_state();
+        
+        result->enabled = enabled;
+        for (int i = 0; i < 512; i++)
+            result->rom[i] = rom[i];
+        
+        return result;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }
@@ -768,6 +786,10 @@ public:
     
     bool onFire;
     //wxString* wxImagePath;
+    
+    dcpuState() {
+        name = "dcpu16";
+    }
 };
 
 systemState* dcpu16::saveSystemState() {
@@ -778,7 +800,7 @@ systemState* dcpu16::saveSystemState() {
     result->cycles = cycles;
     result->hwLength = hwLength;
     for (int i = 0; i < hwLength; i++) {
-        //TODO: result->hardware[i] = hardware[i]->saveState();
+        result->hardware[i] = hardware[i]->saveState();
     }
     for (int i = 0; i < 256; i++) {
         result->intQueue[i] = intQueue[i];

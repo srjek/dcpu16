@@ -1,6 +1,16 @@
 #include <iostream>
 #include "SPC2000.h"
 
+class SPC2000_state: public deviceState {
+public:
+    unsigned long long skip;
+    unsigned short unit;
+    
+    SPC2000_state() {
+        name = "SPC2000";
+    }
+};
+
 class SPC2000: public device {
 protected:
     const static unsigned short ERROR_TOO_MANY_HASH = 0x0000;
@@ -65,7 +75,7 @@ public:
         } else if (A == 2) {
             int result = _interrupt(0);
             if (host->registers[1] == 1) {
-                //FIRE! ..... how? this things doesn't actually exist.....
+                //FIRE! ..... how? this thing doesn't actually exist.....
             }
         } else if (A == 3)
             unit = host->registers[1];
@@ -77,6 +87,15 @@ public:
     }
     
     void registerKeyHandler(keyHandler* handler) { };
+    
+    deviceState* saveState() {
+        SPC2000_state* result = new SPC2000_state();
+        
+        result->skip = skip;
+        result->unit = unit;
+        
+        return result;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }
