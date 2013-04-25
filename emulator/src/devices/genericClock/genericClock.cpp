@@ -14,6 +14,16 @@ public:
 };
 
 class genericClock;
+
+class genericClockCallbackState: public cpuCallbackState {
+protected:
+    genericClock* clock;
+    unsigned long long uid;
+public:
+    genericClockCallbackState(genericClock* clock, unsigned long long uid):
+                        clock(clock), uid(uid) { }
+    void restoreCallback(unsigned long long time);
+};
 class genericClockCallback: public cpuCallback {
 protected:
     genericClock* clock;
@@ -22,9 +32,13 @@ public:
     genericClockCallback(genericClock* clock, unsigned long long uid):
                         clock(clock), uid(uid) { }
     void callback();
+    cpuCallbackState* saveState() {
+        return new genericClockCallbackState(clock, uid);
+    }
 };
 
 class genericClock: public device {
+    friend class genericClockCallbackState;
 protected:
     cpu* host;
     volatile unsigned short interruptMsg;
@@ -98,7 +112,7 @@ public:
         genericClock_state* result = new genericClock_state();
         
         result->interruptMsg = interruptMsg;
-        result->uid = uid - 10;
+        result->uid = uid;
         result->timing = timing;
         result->ticks = ticks;
         
@@ -113,6 +127,9 @@ public:
 
 void genericClockCallback::callback() {
     clock->onTick(uid);
+}
+void genericClockCallbackState::restoreCallback(unsigned long long time) {
+    clock->host->scheduleCallback(time, new genericClockCallback(clock, uid));
 }
 device* genericClockConfig::createDevice(cpu* host) {
     return new genericClock(host, debug);

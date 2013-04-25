@@ -27,6 +27,18 @@ public:
 
 class M35FD;
 
+class M35FD_callback_state: public cpuCallbackState {
+protected:
+    M35FD* device;
+    int cmd;
+    unsigned short floppySector;
+    unsigned short ramOffset;
+public:
+    M35FD_callback_state(M35FD* device, int cmd, unsigned short floppySector, unsigned short ramOffset):
+                        device(device), cmd(cmd), floppySector(floppySector), ramOffset(ramOffset) { }
+    void restoreCallback(unsigned long long time);
+};
+
 class M35FD_callback: public cpuCallback {
 protected:
     M35FD* device;
@@ -37,6 +49,9 @@ public:
     M35FD_callback(M35FD* device, int cmd, unsigned short floppySector, unsigned short ramOffset):
                         device(device), cmd(cmd), floppySector(floppySector), ramOffset(ramOffset) { }
     void callback();
+    cpuCallbackState* saveState() {
+        return new M35FD_callback_state(device, cmd, floppySector, ramOffset);
+    }
 };
 
 enum {
@@ -162,6 +177,7 @@ END_EVENT_TABLE()
 class M35FD: public device {
     friend class M35FD_display;
     friend class M35FD_callback;
+    friend class M35FD_callback_state;
 protected:
     cpu* host;
     M35FD_display* display;
@@ -444,6 +460,9 @@ public:
 
 void M35FD_callback::callback() {
     device->callback(cmd, floppySector, ramOffset);
+}
+void M35FD_callback_state::restoreCallback(unsigned long long time) {
+    device->host->scheduleCallback(time, new M35FD_callback(device, cmd, floppySector, ramOffset));
 }
 
 void M35FD_display::_guiUpdatePath() {

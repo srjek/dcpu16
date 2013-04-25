@@ -19,8 +19,16 @@ public:
     dcpu16_rom_callback(dcpu16_rom* device):
                         device(device) { }
     void callback();
+    cpuCallbackState* saveState();
 };
-
+class dcpu16_rom_callbackState: public cpuCallbackState {
+protected:
+    dcpu16_rom* device;
+public:
+    dcpu16_rom_callbackState(dcpu16_rom* device):
+                        device(device) { }
+    void restoreCallback(unsigned long long time);
+};
 class dcpu16_rom_state: public deviceState {
 public:
     bool enabled;
@@ -30,6 +38,7 @@ public:
     }
 };
 class dcpu16_rom: public device {
+    friend class dcpu16_rom_callbackState;
 protected:
     dcpu16* host;
     volatile bool enabled;
@@ -78,6 +87,12 @@ public:
 
 void dcpu16_rom_callback::callback() {
     device->startup();
+}
+cpuCallbackState* dcpu16_rom_callback::saveState() {
+    return new dcpu16_rom_callbackState(device);
+}
+void dcpu16_rom_callbackState::restoreCallback(unsigned long long time) {
+    device->host->scheduleCallback(time, new dcpu16_rom_callback(device));
 }
 
 
@@ -765,10 +780,9 @@ void dcpu16::scheduleCallback(unsigned long long time, cpuCallback* callback) {
 class dcpuCallbackState {
 public:
     unsigned long long time;
-    int hwIndex;
     cpuCallbackState* state;
-    dcpuCallbackState(unsigned long long time, int hwIndex, cpuCallbackState* state):
-                time(time), hwIndex(hwIndex), state(state) { }
+    dcpuCallbackState(unsigned long long time, cpuCallbackState* state):
+                time(time), state(state) { }
 };
 class dcpuState: public systemState {
 public:
@@ -808,22 +822,14 @@ systemState* dcpu16::saveSystemState() {
     result->intQueueStart = intQueueStart;
     result->intQueueEnd = intQueueEnd;
     
-    /* TODO: decltype(callbackSchedule)::element_t* callback = &callbackSchedule.front();
+    decltype(callbackSchedule)::element_t* callback = &callbackSchedule.front();
     while (callback != NULL) {
         cpuCallbackState* tmp = callback->value->saveState();
-        int hwIndex = 0;
-        for (; hwIndex < hwLength; hwIndex++) {
-            if (tmp->dev == hardware[hwIndex])
-                break;
-        }
-        if (hwIndex < hwLength) {
-            result->callbacks.push_back(dcpuCallbackState(callback->key, hwIndex, tmp));
-        } else {
-            std::cerr << "ERROR: dcpu16 could not locate associated hardware for a callback" << std::endl;
-            std::cerr << "ERROR: Callback state was lost" << std::endl;
-        }
+        
+        result->callbacks.push_back(dcpuCallbackState(callback->key, tmp));
+
         callback = callback->nextElement;
-    } */
+    }
     
     result->onFire = onFire;
     

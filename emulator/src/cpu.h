@@ -34,12 +34,12 @@ public:
 };
 class cpuCallbackState {
 public:
-    device* dev;
+    virtual void restoreCallback(unsigned long long time) =0;
 };
 class cpuCallback {
 public:
     virtual void callback() =0;
-    //TODO: virtual cpuCallbackState* saveState() =0;
+    virtual cpuCallbackState* saveState() =0;
 };
 
 class cpu {
