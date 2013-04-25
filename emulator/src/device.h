@@ -33,7 +33,6 @@ public:
 
     virtual deviceState* saveState() =0;
     //TODO: virtual void restoreState(deviceState* state) =0;
-    //TODO: virtual void restoreCallbackState(cpuCallbackState* state) =0;
 };
 
 class deviceConfig {

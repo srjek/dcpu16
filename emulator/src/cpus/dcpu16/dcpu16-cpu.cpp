@@ -169,6 +169,10 @@ void dcpu16::reset() {
     
     callbackMutex->Lock();
     nextCallback = 0;
+    while (!callbackSchedule.empty()) {
+        delete callbackSchedule.front().value;
+        callbackSchedule.pop_front();
+    }
     callbackSchedule.clear();
     callbackMutex->Unlock();
     
@@ -784,7 +788,7 @@ public:
     dcpuCallbackState(unsigned long long time, cpuCallbackState* state):
                 time(time), state(state) { }
 };
-class dcpuState: public systemState {
+class dcpu16State: public systemState {
 public:
     int cycles;
     unsigned long long totalCycles;
@@ -801,7 +805,7 @@ public:
     bool onFire;
     //wxString* wxImagePath;
     
-    dcpuState() {
+    dcpu16State() {
         name = "dcpu16";
     }
 };
@@ -810,7 +814,7 @@ systemState* dcpu16::saveSystemState() {
     stateMutex->Lock();
     callbackMutex->Lock();
     
-    dcpuState* result = new dcpuState();
+    dcpu16State* result = new dcpu16State();
     result->cycles = cycles;
     result->hwLength = hwLength;
     for (int i = 0; i < hwLength; i++) {
@@ -839,8 +843,48 @@ systemState* dcpu16::saveSystemState() {
     stateMutex->Unlock();
     return result;
 }
-void dcpu16::restoreSystemState(systemState* state) {
-
+void dcpu16::restoreSystemState(systemState* state_in) {
+    if (strcmp(state_in->name, "dcpu16") != 0) {
+        std::cerr << "A dcpu16-based system was given a configuration for a " << state_in->name << "-based system, unable to recover previous state. Current dcpu16 state was left unaltered." << std::endl;
+        return;
+    }
+    stateMutex->Lock();
+    callbackMutex->Lock();
+    
+    dcpu16State* state = (dcpu16State*) state_in;
+    
+    if (hwLength != state->hwLength) {
+        std::cerr << "Attached hardware configuration changed, unable to recover previous state. Current dcpu16 state was left unaltered." << std::endl;
+        callbackMutex->Unlock();
+        stateMutex->Unlock();
+        return;
+    }
+    
+    nextCallback = 0;
+    while (!callbackSchedule.empty()) {
+        delete callbackSchedule.front().value;
+        callbackSchedule.pop_front();
+    }
+    callbackSchedule.clear();
+    
+    cycles = state->cycles;
+    //for (int i = 0; i < hwLength; i++) {
+    //    hardware[i]->restoreState(state->hardware[i]);
+    //}
+    for (int i = 0; i < 256; i++) {
+        intQueue[i] = state->intQueue[i];
+    }
+    intQueueStart = state->intQueueStart;
+    intQueueEnd = state->intQueueEnd;
+    
+    int size = state->callbacks.size();
+    for (int i = 0; i < size; i++) {
+        dcpuCallbackState callbackState = state->callbacks[i];
+        callbackState.state->restoreCallback(callbackState.time);
+    }
+    
+    callbackMutex->Unlock();
+    stateMutex->Unlock();
 }
 
 void dcpu16::loadImage(wxString wxImagePath) {
