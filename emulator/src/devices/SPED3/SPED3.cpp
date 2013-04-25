@@ -283,6 +283,18 @@ public:
         
         return result;
     }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "SPED3") != 0) {
+            std::cerr << "A SPED3 was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        SPED3_state* state = (SPED3_state*) state_in;
+        
+        vertexAddress = state->vertexAddress;
+        vertexCount = state->vertexCount;
+        targetRotation = state->targetRotation;
+        currentRotation = state->currentRotation;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }

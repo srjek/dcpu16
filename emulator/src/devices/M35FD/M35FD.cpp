@@ -435,21 +435,35 @@ public:
     deviceState* saveState() {
         M35FD_state* result = new M35FD_state();
         
-    unsigned short state;
-    unsigned short error;
-    unsigned short interruptMsg;
-    
-    wxString* imagePath;
-    bool writeProtected;
-    unsigned short buffer[1440*512];
         result->state = state;
         result->error = error;
         result->interruptMsg = interruptMsg;
         
         result->writeProtected = writeProtected;
-        result->imagePath = new wxString(*imagePath);
+        result->imagePath = new wxString(*((wxString*) imagePath));
+        for (int i = 0; i < 1440*512; i++)
+            result->buffer[i] = buffer[i];
         
         return result;
+    }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "M35FD") != 0) {
+            std::cerr << "A M35FD was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        M35FD_state* true_state = (M35FD_state*) state_in;
+        
+        state = true_state->state;
+        error = true_state->error;
+        interruptMsg = true_state->interruptMsg;
+        
+        writeProtected = true_state->writeProtected;
+        if (imagePath != 0)
+            delete imagePath;
+        imagePath = new wxString(*(true_state->imagePath));
+        
+        for (int i = 0; i < 1440*512; i++)
+            buffer[i] = true_state->buffer[i];
     }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }

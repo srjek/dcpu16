@@ -141,6 +141,15 @@ public:
         
         return result;
     }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "genericKeyboard") != 0) {
+            std::cerr << "A genericKeyboard was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        genericKeyboard_state* state = (genericKeyboard_state*) state_in;
+        
+        interruptMsg = state->interruptMsg;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }

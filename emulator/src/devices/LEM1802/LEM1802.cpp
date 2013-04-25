@@ -238,6 +238,18 @@ public:
         
         return result;
     }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "LEM1802") != 0) {
+            std::cerr << "A LEM1802 was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        LEM1802_state* state = (LEM1802_state*) state_in;
+        
+        mapAddress = state->mapAddress;
+        tileAddress = state->tileAddress;
+        paletteAddress = state->paletteAddress;
+        borderColor = state->borderColor;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }

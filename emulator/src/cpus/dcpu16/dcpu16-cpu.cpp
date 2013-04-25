@@ -78,6 +78,17 @@ public:
         
         return result;
     }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "dcpu16-rom") != 0) {
+            std::cerr << "A dcpu16-rom was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        dcpu16_rom_state* state = (dcpu16_rom_state*) state_in;
+        
+        enabled = state->enabled;
+        for (int i = 0; i < 512; i++)
+            rom[i] = state->rom[i];
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }
@@ -845,7 +856,7 @@ systemState* dcpu16::saveSystemState() {
 }
 void dcpu16::restoreSystemState(systemState* state_in) {
     if (strcmp(state_in->name, "dcpu16") != 0) {
-        std::cerr << "A dcpu16-based system was given a configuration for a " << state_in->name << "-based system, unable to recover previous state. Current dcpu16 state was left unaltered." << std::endl;
+        std::cerr << "A dcpu16-based system was given a system state for a " << state_in->name << "-based system, unable to recover previous state. Current dcpu16 state was left unaltered." << std::endl;
         return;
     }
     stateMutex->Lock();
@@ -868,9 +879,9 @@ void dcpu16::restoreSystemState(systemState* state_in) {
     callbackSchedule.clear();
     
     cycles = state->cycles;
-    //for (int i = 0; i < hwLength; i++) {
-    //    hardware[i]->restoreState(state->hardware[i]);
-    //}
+    for (int i = 0; i < hwLength; i++) {
+        hardware[i]->restoreState(state->hardware[i]);
+    }
     for (int i = 0; i < 256; i++) {
         intQueue[i] = state->intQueue[i];
     }

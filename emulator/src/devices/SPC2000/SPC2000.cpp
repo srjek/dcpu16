@@ -96,6 +96,16 @@ public:
         
         return result;
     }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "SPC2000") != 0) {
+            std::cerr << "A SPC2000 was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        SPC2000_state* state = (SPC2000_state*) state_in;
+        
+        skip = state->skip;
+        unit = state->unit;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }

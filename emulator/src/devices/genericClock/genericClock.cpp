@@ -118,6 +118,18 @@ public:
         
         return result;
     }
+    void restoreState(deviceState* state_in) {
+        if (strcmp(state_in->name, "genericClock") != 0) {
+            std::cerr << "A genericClock was given a state for a " << state_in->name << ", unable to recover previous state. Overall system state may be inconsisent." << std::endl;
+            return;
+        }
+        genericClock_state* state = (genericClock_state*) state_in;
+        
+        interruptMsg = state->interruptMsg;
+        uid = state->uid;
+        timing = state->timing;
+        ticks = state->ticks;
+    }
     
     wxThreadError Create() { return wxTHREAD_NO_ERROR; }
     wxThreadError Run() { return wxTHREAD_NO_ERROR; }
